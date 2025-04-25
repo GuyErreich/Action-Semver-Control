@@ -3,6 +3,8 @@ name: Auto Version and Release PR
 on:
   push:
     branches: [dev]
+  pull_request:
+    branches: [dev]
 
 permissions:
   contents: write
