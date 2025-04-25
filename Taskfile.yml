@@ -1,0 +1,38 @@
+version: '3'
+
+tasks:
+  install:
+    desc: Install dev dependencies
+    cmds:
+      - python -m venv .venv
+      - . .venv/bin/activate && pip install -U pip
+      - . .venv/bin/activate && pip install -r requirements.txt -r requirements-dev.txt
+
+  format:
+    desc: Format code with black
+    cmds:
+      - black .
+
+  lint:
+    desc: Lint code with ruff
+    cmds:
+      - ruff .
+
+  type-check:
+    desc: Run mypy type checks
+    cmds:
+      - mypy src tests
+
+  test:
+    desc: Run pytest
+    cmds:
+      - pytest
+
+  all:
+    desc: Run all checks
+    deps: [format, lint, type-check, test]
+
+  pre-commit:
+    desc: Run pre-commit hooks
+    cmds:
+      - pre-commit run --all-files

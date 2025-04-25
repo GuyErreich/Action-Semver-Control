@@ -1,0 +1,46 @@
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+exclude = '''
+/(
+    \.git
+  | \.mypy_cache
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+include = ["*.py"]
+select = [
+  "E",    # pycodestyle (PEP8)
+  "F",    # pyflakes
+  "N",    # pep8-naming
+  "D",    # pydocstyle
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "RUF",  # ruff-specific rules
+]
+ignore = [
+  "D202",  # No blank lines after function docstring
+]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+strict = true
+
+[tool.pytest.ini_options]
+minversion  = "6.0"
+addopts     = "-ra -q"
+pythonpath  = "src"
+testpaths   = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+log_level = "DEBUG"
