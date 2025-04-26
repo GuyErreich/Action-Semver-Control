@@ -4,3 +4,4 @@ mypy~=1.8
 pre-commit~=4.2
 pytest~=8.3
 pytest-mock~=3.14
+pytest-cov~=6.1

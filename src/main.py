@@ -1,19 +1,56 @@
 #!/usr/bin/env python3
 
+"""Automates versioning process.
+
+Automates the process of version bumping, changelog updates, and release pull request creation
+for a GitHub repository. It is designed to be used as part of a GitHub Action workflow.
+"""
+
+
 import argparse
 import logging
 
+from changelog.write import prepend_changelog
+from fileops.update import update_version_file
 from git import GitCommandError, Repo
-
-from .changelog.write import prepend_changelog
-from .fileops.update import update_version_file
-from .gitops.pr import create_or_update_pr
-from .gitops.push import push_with_retry
-from .utils.logger import setup_logging
-from .versioning.bump import bump_version, extract_version, parse_bump
+from gitops.pr import create_or_update_pr
+from gitops.push import push_with_retry
+from utils.logger import setup_logging
+from versioning.bump import bump_version, parse_bump
+from versioning.extract import SemverGroups, version
 
 
-def main():
+def main() -> None:
+    """Auto-versioning GitHub Action.
+
+    This script automates the process of version bumping, changelog updates, and
+    release pull request creation based on the current Git branch and specified
+    parameters.
+
+    Command-line Arguments:
+        --version-files (str): Comma-separated list of files to update with the new version. (Required)
+        --changelog-file (str): File to update or create for the changelog. Defaults to "CHANGELOG.md".
+        --default-bump (str): Default version bump type if no prefix match is found.
+                              Choices are "major", "minor", or "patch". Defaults to "patch".
+        --base-branch (str): The target branch for pull requests. Defaults to "dev".
+        --suffix (str): Optional version suffix, such as "dev" or "staging". Defaults to an empty string.
+        --github-token (str): GitHub token with repository access. (Required)
+        --repo (str): GitHub repository in the format "owner/repo". (Required)
+        --branch (str): Current Git branch name. (Required)
+        --debug (bool): Enable debug logging. Defaults to False.
+
+    Behavior:
+        - Parses command-line arguments to configure the action.
+        - Checks if the current branch matches the base branch. If not, skips release PR generation.
+        - Reads and updates version files based on the specified bump type and branch.
+        - Creates a release branch and commits the updated version files and changelog.
+        - Pushes the release branch to the remote repository and creates or updates a pull request.
+
+    Raises
+    ------
+        SystemExit: If no version files are updated or if there is an error during branch creation.
+
+    """
     parser = argparse.ArgumentParser(description="Auto-versioning GitHub Action")
     parser.add_argument(
         "--version-files",
@@ -58,10 +95,11 @@ def main():
     for version_file in version_files:
         with open(version_file) as f:
             content = f.read()
-        current_version = extract_version(content)
-        if not current_version:
+        version_info = version(content)
+        if not version_info:
             logger.warning(f"No version found in {version_file}, skipping")
             continue
+        current_version = version_info[SemverGroups.VERSION.name]
         new_version = bump_version(current_version, bump_type, args.suffix or args.branch)
         logger.info(f"Bumping version in {version_file}: {current_version} -> {new_version}")
         update_version_file(version_file, new_version)
@@ -81,7 +119,7 @@ def main():
 
     repo.git.config("user.name", "github-actions")
     repo.git.config("user.email", "github-actions@github.com")
-    repo.index.add(version_files + [args.changelog_file])
+    repo.index.add([*version_files, args.changelog_file])
     repo.index.commit(f"chore: release {new_version}")
     push_with_retry(repo.remote(name="origin"), release_branch)
 

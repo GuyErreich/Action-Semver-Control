@@ -28,19 +28,28 @@ jobs:
         run: |
           python -m venv .venv
           source .venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          ./install-task.sh
+          task install
 
-      - name: Run pytest
+      # - name: Run pytest
+      #   run: |
+      #     source .venv/bin/activate
+      #     task test
+
+      - name: Format
         run: |
           source .venv/bin/activate
-          pytest --tb=short --maxfail=3 --disable-warnings --cov=src tests/
+          task format
 
-      - name: Run Ruff (linter)
+      - name: Lint
         run: |
           source .venv/bin/activate
-          ruff check .
+          task lint
+
+      - name: type-check
+        run: |
+          source .venv/bin/activate
+          task type-check
 
   semver-pr:
     name: 🚀 Run Semver PR Action

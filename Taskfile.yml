@@ -1,12 +1,19 @@
 version: '3'
 
+
+
 tasks:
   install:
-    desc: Install dev dependencies
+    desc: Install dev dependencies 
     cmds:
       - python -m venv .venv
-      - . .venv/bin/activate && pip install -U pip
-      - . .venv/bin/activate && pip install -r requirements.txt -r requirements-dev.txt
+      - .venv/bin/pip install -U pip
+      - .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
+  sources:
+    - requirements.txt
+    - requirements-dev.txt
+  generates:
+    - .venv
 
   format:
     desc: Format code with black
@@ -35,4 +42,4 @@ tasks:
   pre-commit:
     desc: Run pre-commit hooks
     cmds:
-      - pre-commit run --all-files
+      - pre-commit install

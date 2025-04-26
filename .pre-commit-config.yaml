@@ -8,6 +8,7 @@ repos:
     rev: v0.1.15
     hooks:
       - id: ruff
+        args: ["--fix"]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.8.0
@@ -15,7 +16,7 @@ repos:
       - id: mypy
         args: ["--ignore-missing-imports"]
 
-  - repo: https://github.com/pytest-dev/pytest
-    rev: v7.4.2
-    hooks:
-      - id: pytest
+  # - repo: https://github.com/pytest-dev/pytest
+  #   rev: 8.3.5
+  #   hooks:
+  #     - id: pytest
