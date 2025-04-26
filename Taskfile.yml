@@ -23,7 +23,7 @@ tasks:
   lint:
     desc: Lint code with ruff
     cmds:
-      - ruff .
+      - ruff check . --fix
 
   type-check:
     desc: Run mypy type checks

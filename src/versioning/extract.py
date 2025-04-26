@@ -38,7 +38,7 @@ def version(file_content: str) -> dict[str, str | None]:
     groups = {}
     for group in SemverGroups:
         name = group.name
-        value: str | None  # Ensure value is explicitly typed as Optional[str]
+        value: str | None
 
         if match:
             value = match.group(group.name)
