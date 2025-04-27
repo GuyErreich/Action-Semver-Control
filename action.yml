@@ -26,4 +26,4 @@ runs:
     - --target-branch=${{ inputs.target-branch }}
     - --github-token=${{ inputs.github-token }}
     - --repo-full-name=${{ inputs.repo-full-name }}
-    - --debug=${{ inputs.debug }}
+    - ${{ inputs.debug && '--debug' }}
