@@ -1,3 +1,4 @@
+import time
 import git
 import requests
 from typing import Any, List
@@ -24,14 +25,20 @@ class GitOps:
             "base": base,
             "body": "Auto-created PR by auto-semver."
         }
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        pr_number = response.json()["number"]
 
-        # Label the PR
-        self.add_label_to_pr(github_token, repo_full_name, pr_number, "semver-bump")
-        
-        return pr_number
+        # Small wait to ensure GitHub sees the pushed branch
+        for attempt in range(5):
+            response = requests.post(url, headers=headers, json=data)
+            if response.status_code == 201:
+                pr_number = response.json()["number"]
+                self.add_label_to_pr(github_token, repo_full_name, pr_number, "semver-bump")
+                return pr_number
+            elif response.status_code == 422:
+                time.sleep(2)  # Wait 2 seconds and retry
+            else:
+                response.raise_for_status()
+
+        response.raise_for_status()
 
     def add_label_to_pr(self, github_token: str, repo_full_name: str, pr_number: int, label: str) -> None:
         url = f"https://api.github.com/repos/{repo_full_name}/issues/{pr_number}/labels"
