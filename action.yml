@@ -1,60 +1,29 @@
-name: "Semantic Version PR Generator"
-description: "Create a release PR by bumping version numbers and updating changelog"
+name: 'Auto Semver Bumper'
+description: 'Automatically bumps semver and opens a PR.'
 
 inputs:
-  version-files:
-    description: "Comma-separated list of version files to update"
+  branch-name:
     required: true
-
-  changelog-file:
-    description: "Changelog file to prepend release notes to"
-    required: false
-    default: "CHANGELOG.md"
-
-  base-branch:
-    description: "Base branch to open the PR against"
-    required: false
-    default: "dev"
-
-  default-bump:
-    description: "Bump type when branch name doesn't match a prefix"
-    required: false
-    default: "patch"
-
-  suffix:
-    description: "Optional version suffix (e.g., dev or staging)"
-    required: false
-
+    description: 'Source branch name'
+  target-branch:
+    required: true
+    description: 'Target branch name'
   github-token:
-    description: "GitHub token used to authenticate API requests"
     required: true
-
-  repo:
-    description: "Repository in the format owner/repo"
+    description: 'GitHub Token (secrets.GITHUB_TOKEN or PAT)'
+  repo-full-name:
     required: true
-
-  branch:
-    description: "Current branch triggering the workflow"
-    required: true
-
+    description: 'Owner/Repo name, e.g., user/repo'
   debug:
-    description: "Enable debug logging"
     required: false
-    default: "false"
+    description: 'Enable debug mode'
 
 runs:
-  using: "composite"
-  steps:
-    - name: Run semver-pr
-      shell: bash
-      run: |
-        python3 ${{ github.action_path }}/main.py \
-          --version-files "${{ inputs.version-files }}" \
-          --changelog-file "${{ inputs.changelog-file }}" \
-          --base-branch "${{ inputs.base-branch }}" \
-          --default-bump "${{ inputs.default-bump }}" \
-          --suffix "${{ inputs.suffix }}" \
-          --github-token "${{ inputs.github-token }}" \
-          --repo "${{ inputs.repo }}" \
-          --branch "${{ inputs.branch }}" \
-          $([[ "${{ inputs.debug }}" == "true" ]] && echo "--debug")
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - --branch-name=${{ inputs.branch-name }}
+    - --target-branch=${{ inputs.target-branch }}
+    - --github-token=${{ inputs.github-token }}
+    - --repo-full-name=${{ inputs.repo-full-name }}
+    - --debug=${{ inputs.debug }}

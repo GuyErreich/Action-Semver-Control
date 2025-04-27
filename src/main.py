@@ -1,143 +1,65 @@
-#!/usr/bin/env python3
-
-"""Automates versioning process.
-
-Automates the process of version bumping, changelog updates, and release pull request creation
-for a GitHub repository. It is designed to be used as part of a GitHub Action workflow.
-"""
-
-
 import argparse
-import logging
-
-from changelog.write import prepend_changelog
-from fileops.update import update_version_file
-from git import GitCommandError, Repo
-from gitops.pr import create_or_update_pr
-from gitops.push import push_with_retry
-from utils.logger import setup_logging
-from versioning.bump import bump_version, parse_bump
-from versioning.extract import SemverGroups, version
-
+import re
+from src.logger import setup_logger
+from src.config import Config
+from src.versioning import VersionManager
+from src.changelog import update_changelog
+from src.gitops import GitOps
 
 def main() -> None:
-    """Auto-versioning GitHub Action.
-
-    This script automates the process of version bumping, changelog updates, and
-    release pull request creation based on the current Git branch and specified
-    parameters.
-
-    Command-line Arguments:
-        --version-files (str): Comma-separated list of files to update with the new version. (Required)
-        --changelog-file (str): File to update or create for the changelog. Defaults to "CHANGELOG.md".
-        --default-bump (str): Default version bump type if no prefix match is found.
-                              Choices are "major", "minor", or "patch". Defaults to "patch".
-        --base-branch (str): The target branch for pull requests. Defaults to "dev".
-        --suffix (str): Optional version suffix, such as "dev" or "staging". Defaults to an empty string.
-        --github-token (str): GitHub token with repository access. (Required)
-        --repo (str): GitHub repository in the format "owner/repo". (Required)
-        --branch (str): Current Git branch name. (Required)
-        --debug (bool): Enable debug logging. Defaults to False.
-
-    Behavior:
-        - Parses command-line arguments to configure the action.
-        - Checks if the current branch matches the base branch. If not, skips release PR generation.
-        - Reads and updates version files based on the specified bump type and branch.
-        - Creates a release branch and commits the updated version files and changelog.
-        - Pushes the release branch to the remote repository and creates or updates a pull request.
-
-    Raises
-    ------
-        SystemExit: If no version files are updated or if there is an error during branch creation.
-
-    """
-    parser = argparse.ArgumentParser(description="Auto-versioning GitHub Action")
-    parser.add_argument(
-        "--version-files",
-        required=True,
-        help="Comma-separated list of files to update with new version",
-    )
-    parser.add_argument(
-        "--changelog-file",
-        default="CHANGELOG.md",
-        help="File to update or create for changelog",
-    )
-    parser.add_argument(
-        "--default-bump",
-        default="patch",
-        choices=["major", "minor", "patch"],
-        help="Default version bump if no prefix match",
-    )
-    parser.add_argument("--base-branch", default="dev", help="PR target branch")
-    parser.add_argument(
-        "--suffix", default="", help="Optional version suffix like 'dev' or 'staging'"
-    )
-    parser.add_argument("--github-token", required=True, help="GitHub token with repo access")
-    parser.add_argument("--repo", required=True, help="GitHub repository in the form 'owner/repo'")
-    parser.add_argument("--branch", required=True, help="Current Git branch name")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--branch-name', required=True, type=str)
+    parser.add_argument('--target-branch', required=True, type=str)
+    parser.add_argument('--github-token', required=True, type=str)
+    parser.add_argument('--repo-full-name', required=True, type=str)
+    parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
-    setup_logging(debug=args.debug)
-    logger = logging.getLogger(__name__)
-    logger.info("Starting semver-pr action")
+    logger = setup_logger(args.debug)
+    config = Config()
+    gitops = GitOps()
 
-    if args.branch != args.base_branch:
-        logger.info("Not on base branch. Skipping release PR generation.")
-        return
-
-    version_files = [f.strip() for f in args.version_files.split(",")]
-    bump_type = parse_bump(args.branch, args.default_bump)
-    logger.info(f"Branch: {args.branch}, bump type: {bump_type}")
-
-    updated = False
-    current_version = None
-    for version_file in version_files:
-        with open(version_file) as f:
-            content = f.read()
-        version_info = version(content)
-        if not version_info:
-            logger.warning(f"No version found in {version_file}, skipping")
-            continue
-        current_version = version_info[SemverGroups.VERSION.name]
-        new_version = bump_version(current_version, bump_type, args.suffix or args.branch)
-        logger.info(f"Bumping version in {version_file}: {current_version} -> {new_version}")
-        update_version_file(version_file, new_version)
-        updated = True
-
-    if not updated:
-        logger.error("No version files were updated")
-        raise SystemExit(1)
-
-    release_branch = f"release/{new_version}"
-    repo = Repo(".")
     try:
-        repo.git.checkout(b=release_branch)
-    except GitCommandError as e:
-        logger.error(f"Failed to create branch: {e}")
-        raise
+        with open('version.txt', 'r') as f:
+            current_version: str = f.read().strip()
+    except FileNotFoundError:
+        current_version = config.get_start_version()
 
-    repo.git.config("user.name", "github-actions")
-    repo.git.config("user.email", "github-actions@github.com")
-    repo.index.add([*version_files, args.changelog_file])
-    repo.index.commit(f"chore: release {new_version}")
-    push_with_retry(repo.remote(name="origin"), release_branch)
+    logger.info(f"Current version: {current_version}")
 
-    prepend_changelog(new_version, args.branch, args.changelog_file)
-    create_or_update_pr(
-        token=args.github_token,
-        repo=args.repo,
-        branch=release_branch,
-        base_branch=args.base_branch,
-        title=f"chore: release {new_version}",
-        body=f"This PR updates the version to {new_version} based on `{args.branch}`.",
-    )
+    bump_type: str = VersionManager.detect_bump_type(args.branch_name)
+    suffix: str = config.get_suffix(args.target_branch)
+    vm = VersionManager(current_version)
+    new_version: str = vm.bump(bump_type, suffix)
 
+    logger.info(f"New version: {new_version}")
+
+    for file_path in config.get_files_to_update():
+        try:
+            with open(file_path, 'r+') as f:
+                content = f.read()
+                content = re.sub(r"version:\s*.*", f"version: {new_version}", content)
+                f.seek(0)
+                f.write(content)
+                f.truncate()
+        except FileNotFoundError:
+            logger.warning(f"File not found: {file_path}")
+
+    branch_strategy: str = config.get_branch_strategy()
+    branch_name: str = f"release/{new_version}"
+
+    if branch_strategy == "single":
+        logger.info("Closing old release PRs (branch_strategy=single)...")
+        gitops.close_old_release_prs(args.github_token, args.repo_full_name)
+
+    gitops.create_branch(branch_name, overwrite=(branch_strategy == "single"))
+    gitops.push_branch(branch_name)
+
+    # Get commits for changelog
+    commit_messages = gitops.get_recent_commits(args.target_branch)
+    update_changelog(new_version, commit_messages)
+
+    gitops.create_pr(args.github_token, args.repo_full_name, f"Release {new_version}", branch_name, args.target_branch)
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Action failed: {e}")
-        raise
+    main()

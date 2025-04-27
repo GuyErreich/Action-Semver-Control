@@ -1,0 +1,26 @@
+name: Auto Semver Bump
+
+on:
+  push:
+    branches:
+      - 'staging'
+      - 'dev'
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Important! Needed for git history
+
+    - name: Run Auto Semver Action
+      uses: ./  # Local Docker action
+      with:
+        branch-name: ${{ github.ref_name }}
+        target-branch: ${{ github.ref_name }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        repo-full-name: ${{ github.repository }}
+        debug: true

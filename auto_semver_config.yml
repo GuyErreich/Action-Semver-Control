@@ -1,0 +1,12 @@
+start_version: "0.1.0"
+
+suffixes:
+  dev: "-dev"
+  staging: "-rc"
+  main: ""  # Production releases
+
+branch_strategy: "single"  # "single" or "multi"
+
+files_to_update:
+  - "version.txt"
+  - "README.md"

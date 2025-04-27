@@ -15,6 +15,8 @@ exclude = '''
 line-length = 110
 target-version = "py312"
 include = ["*.py"]
+
+[tool.ruff.lint]
 select = [
   "E",    # pycodestyle (PEP8)
   "F",    # pyflakes
@@ -27,6 +29,8 @@ select = [
 ]
 ignore = [
   "D202",  # No blank lines after function docstring
+  "D211",  # 1 blank line required before class docstring
+  "D212",  # Multi-line docstring summary should start at the first line
 ]
 
 [tool.mypy]
@@ -34,6 +38,8 @@ python_version = "3.12"
 check_untyped_defs = true
 ignore_missing_imports = true
 strict = true
+install_types = true
+plugins = ["mypy.plugins.typeshed"]
 
 # [tool.pytest.ini_options]
 # minversion  = "6.0"

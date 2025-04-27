@@ -1,0 +1,40 @@
+
+---
+
+# 📦 6. (Optional) Extracting commit messages into changelog?
+
+**Idea:**  
+Instead of always writing:
+> Auto-generated changelog
+
+We can **grab the last N commits** between previous version and new bump automatically and inject them into `CHANGELOG.md`.
+
+Would you like me to generate this logic too?  
+✅  Extract last commits  
+✅  Format them nicely  
+✅  Insert into changelog automatically
+
+---
+
+# 🛡 Status Now
+
+| Item | Status |
+|:---|:---|
+| Dockerfile | ✅ |
+| action.yml | ✅ |
+| GitHub Workflow (main/dev) | ✅ |
+| README.md | ✅ |
+| Full updated `main.py` | ✅ |
+| Closing old PRs | ✅ |
+| Labeling new PRs | ✅ |
+| Modern typing | ✅ |
+
+---
+
+# 🚀 Next:
+👉 **Should I now add the automatic commit message extraction into changelog?**  
+(Will make your action even smarter!)  
+
+(And after that — you're literally ready to test!) 🚀
+  
+**Tell me!** 🔥
