@@ -4,7 +4,10 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y git && apt-get clean
 
 # Set working directory
-WORKDIR /app
+WORKDIR /github/workspace
+
+# Mark /github/workspace as safe for git
+RUN git config --global --add safe.directory /github/workspace
 
 # Copy only necessary files
 COPY pyproject.toml requirements.txt ./
