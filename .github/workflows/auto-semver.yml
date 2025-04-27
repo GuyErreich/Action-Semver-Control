@@ -10,6 +10,7 @@ permissions:
   contents: write   # Allow push, create branches, modify files
   pull-requests: write  # Allow create/close PRs
 
+
 jobs:
   bump-version:
     runs-on: ubuntu-latest
@@ -25,6 +26,6 @@ jobs:
       with:
         branch-name: ${{ github.ref_name }}
         target-branch: ${{ github.ref_name }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.GH_TOKEN }}
         repo-full-name: ${{ github.repository }}
         debug: true
