@@ -1,10 +1,27 @@
 import argparse
 import re
+import os
+import git
 from src.logger import setup_logger
 from src.config import Config
 from src.versioning import VersionManager
 from src.changelog import update_changelog
 from src.gitops import GitOps
+
+def ensure_git_safe_directory(path: str) -> None:
+    repo = git.Repo(path)
+    git_config = repo.config_writer(config_level='global')
+
+    try:
+        safe_dirs = git_config.get_value('safe', 'directory')
+        if isinstance(safe_dirs, str):
+            safe_dirs = [safe_dirs]
+    except Exception:
+        safe_dirs = []
+
+    if path not in safe_dirs:
+        git_config.set_value('safe', 'directory', path)
+        git_config.release()
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -14,6 +31,8 @@ def main() -> None:
     parser.add_argument('--repo-full-name', required=True, type=str)
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
+
+    ensure_git_safe_directory("/github/workspace")
 
     logger = setup_logger(args.debug)
     config = Config()
