@@ -27,7 +27,7 @@ class GitOps:
         }
 
         # Small wait to ensure GitHub sees the pushed branch
-        for attempt in range(5):
+        for attempt in range(10):
             response = requests.post(url, headers=headers, json=data)
             if response.status_code == 201:
                 pr_number = response.json()["number"]
