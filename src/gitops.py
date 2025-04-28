@@ -2,6 +2,9 @@ import time
 import git
 import requests
 from typing import Any, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GitOps:
     def __init__(self, repo_path: str = ".") -> None:
@@ -29,16 +32,22 @@ class GitOps:
 
         # Small wait to ensure GitHub sees the pushed branch
         for attempt in range(10):
+            logger.debug(f"Attempt {attempt + 1}: Creating PR with title '{title}', head '{head}', base '{base}'")
             response = requests.post(url, headers=headers, json=data)
+            logger.debug(f"Response status code: {response.status_code}")
             if response.status_code == 201:
                 pr_number = response.json()["number"]
+                logger.info(f"PR created successfully with number: {pr_number}")
                 self.add_label_to_pr(github_token, repo_full_name, pr_number, "semver-bump")
                 return pr_number
             elif response.status_code == 422:
+                logger.warning("PR creation failed with status 422. Retrying after 2 seconds...")
                 time.sleep(2)  # Wait 2 seconds and retry
             else:
+                logger.error(f"PR creation failed with status {response.status_code}. Response: {response.text}")
                 response.raise_for_status()
 
+        logger.error("Failed to create PR after multiple attempts.")
         response.raise_for_status()
 
     def add_label_to_pr(self, github_token: str, repo_full_name: str, pr_number: int, label: str) -> None:
