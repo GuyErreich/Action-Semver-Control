@@ -6,6 +6,7 @@ from typing import Any, List
 class GitOps:
     def __init__(self, repo_path: str = ".") -> None:
         self.repo = git.Repo(repo_path)
+        self.ensure_git_safe_directory(repo_path)
 
     def create_branch(self, branch_name: str, overwrite: bool) -> None:
         if overwrite and branch_name in self.repo.heads:
@@ -65,3 +66,18 @@ class GitOps:
         """
         commits = list(self.repo.iter_commits(f"{base_branch}..HEAD"))
         return [commit.message.strip() for commit in reversed(commits)]
+    
+    def ensure_git_safe_directory(path: str) -> None:
+        repo = git.Repo(path)
+        git_config = repo.config_writer(config_level='global')
+
+        try:
+            safe_dirs = git_config.get_value('safe', 'directory')
+            if isinstance(safe_dirs, str):
+                safe_dirs = [safe_dirs]
+        except Exception:
+            safe_dirs = []
+
+        if path not in safe_dirs:
+            git_config.set_value('safe', 'directory', path)
+            git_config.release()
