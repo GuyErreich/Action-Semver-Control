@@ -67,7 +67,7 @@ class GitOps:
         commits = list(self.repo.iter_commits(f"{base_branch}..HEAD"))
         return [commit.message.strip() for commit in reversed(commits)]
     
-    def ensure_git_safe_directory(path: str) -> None:
+    def ensure_git_safe_directory(self, path: str) -> None:
         repo = git.Repo(path)
         git_config = repo.config_writer(config_level='global')
 
