@@ -1,10 +1,12 @@
 name: Auto Semver Bump
 
 on:
-  push:
+  pull_request:
+    types:
+      - closed  # Means merged or declined
     branches:
-      - 'staging'
-      - 'dev'
+      - main
+      - dev
 
 permissions:
   contents: write   # Allow push, create branches, modify files

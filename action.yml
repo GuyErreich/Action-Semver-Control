@@ -3,7 +3,7 @@ description: 'Automatically bumps semver and opens a PR.'
 
 inputs:
   branch-name:
-    required: true
+    required: false
     description: 'Source branch name'
   target-branch:
     required: true
