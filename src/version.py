@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 class Version:
     version_pattern = re.compile(
-        r'^(?P<title>[\w\-]+:)\s*(?P<prefix>v)?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?P<suffix>-[\w\d]+)?$',
+        r'^(?P<title>[\w\-]+:)?\s*(?P<prefix>v)?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?P<suffix>-[\w\d]+)?$',
         re.MULTILINE
     )
 
