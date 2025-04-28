@@ -7,6 +7,9 @@ from src.versioning import VersionManager
 from src.changelog import update_changelog
 from src.gitops import GitOps
 from src.actionops import extract_branch_from_event
+from src.version import Version
+from src.version_updater import update_version_in_file
+
 
 
 def main() -> None:
@@ -33,29 +36,33 @@ def main() -> None:
 
     try:
         with open('version.txt', 'r') as f:
-            current_version: str = f.read().strip()
+            current_version_line: str = f.read().strip()
     except FileNotFoundError:
-        current_version = config.get_start_version()
+        current_version_line = config.get_start_version()
 
-    logger.info(f"Current version: {current_version}")
+    logger.info(f"Current version: {current_version_line}")
 
-    bump_type: str = VersionManager.detect_bump_type(args.branch_name)
+    version_obj = Version.parse(current_version_line)
+
+    bump_type: str = VersionManager.detect_bump_type(branch_name)
+    logger.info(f"Bump type detected: {bump_type}")
+
+    # Bump the correct segment
+    if bump_type == "major":
+        version_obj.bump_major()
+    elif bump_type == "minor":
+        version_obj.bump_minor()
+    else:
+        version_obj.bump_patch()
+
     suffix: str = config.get_suffix(args.target_branch)
-    vm = VersionManager(current_version)
-    new_version: str = vm.bump(bump_type, suffix)
+    version_obj.set_suffix(suffix)
 
+    new_version: str = str(version_obj)
     logger.info(f"New version: {new_version}")
 
     for file_path in config.get_files_to_update():
-        try:
-            with open(file_path, 'r+') as f:
-                content = f.read()
-                content = re.sub(r"version:\s*.*", f"version: {new_version}", content)
-                f.seek(0)
-                f.write(content)
-                f.truncate()
-        except FileNotFoundError:
-            logger.warning(f"File not found: {file_path}")
+        update_version_in_file(file_path, version_obj)
 
     branch_strategy: str = config.get_branch_strategy()
     branch_name: str = f"release/{new_version}"
@@ -65,6 +72,7 @@ def main() -> None:
         gitops.close_old_release_prs(args.github_token, args.repo_full_name)
 
     gitops.create_branch(branch_name, overwrite=(branch_strategy == "single"))
+    gitops.commit_version_changes(config.get_files_to_update(), new_version)
     gitops.push_branch(branch_name)
 
     # Get commits for changelog

@@ -90,3 +90,13 @@ class GitOps:
         if path not in safe_dirs:
             git_config.set_value('safe', 'directory', path)
             git_config.release()
+
+    def commit_version_changes(self, files: list[str], new_version: str) -> None:
+        logger.info(f"Staging version bump files: {files}")
+        for file_path in files:
+            try:
+                self.repo.git.add(file_path)
+                logger.debug(f"Added {file_path} to git staging.")
+            except Exception as e:
+                logger.error(f"Failed to add {file_path} to git: {e}")
+                raise
