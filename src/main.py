@@ -1,31 +1,13 @@
 import argparse
-import json
-import os
 import re
-from src.utils.git import ensure_git_safe_directory
+
 from src.logger import setup_logger
 from src.config import Config
 from src.versioning import VersionManager
 from src.changelog import update_changelog
 from src.gitops import GitOps
+from src.actionops import extract_branch_from_event()
 
-
-def extract_branch_from_event() -> str:
-    event_path = os.getenv("GITHUB_EVENT_PATH")
-    if not event_path:
-        raise RuntimeError("GITHUB_EVENT_PATH is not set in environment")
-
-    with open(event_path, 'r') as f:
-        event_data = json.load(f)
-
-    if not event_data.get("pull_request", {}).get("merged", False):
-        raise RuntimeError("The pull request was closed but not merged.")
-
-    branch_name = event_data["pull_request"]["head"]["ref"]
-    if not branch_name:
-        raise RuntimeError("Failed to extract merged branch name.")
-
-    return branch_name
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -36,7 +18,6 @@ def main() -> None:
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
-    ensure_git_safe_directory("/github/workspace")
 
     logger = setup_logger(args.debug)
     config = Config()
