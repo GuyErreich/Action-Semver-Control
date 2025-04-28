@@ -6,7 +6,7 @@ from typing import Any, List
 class GitOps:
     def __init__(self, repo_path: str = ".") -> None:
         self.repo = git.Repo(repo_path)
-        self.ensure_git_safe_directory(repo_path)
+        self.ensure_git_safe_directory()
 
     def create_branch(self, branch_name: str, overwrite: bool) -> None:
         if overwrite and branch_name in self.repo.heads:
