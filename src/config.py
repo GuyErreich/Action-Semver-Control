@@ -1,7 +1,9 @@
 import yaml
 
+CONFIG_FILE = "auto_semver_config.yml"
+
 class Config:
-    def __init__(self, path: str = "auto_semver_config.yml") -> None:
+    def __init__(self, path: str = CONFIG_FILE) -> None:
         with open(path, 'r') as f:
             self.data: dict = yaml.safe_load(f)
 
@@ -15,4 +17,7 @@ class Config:
         return self.data.get('branch_strategy', 'single')
 
     def get_files_to_update(self) -> list[str]:
-        return self.data.get('files_to_update', [])
+        files_to_update = self.data.get('files_to_update', [])
+        files_to_update = [f for f in files_to_update if f != CONFIG_FILE]
+        
+        return files_to_update
