@@ -2,16 +2,21 @@ import logging
 import sys
 
 def setup_logger(debug: bool = False) -> logging.Logger:
-    level = logging.DEBUG if debug else logging.INFO
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
+    
+    handler = logging.StreamHandler(sys.stdout)
+    
+    log_format_debug = '%(asctime)s | %(levelname)s | [%(funcName)s] %(message)s'
+    log_format_basic = '%(asctime)s | %(levelname)s | %(message)s'
+
     formatter = logging.Formatter(
-        fmt='%(asctime)s | %(levelname)s | [%(funcName)] %(message)s' if debug else '%(asctime)s | %(levelname)s | %(message)s',
+        fmt=log_format_debug if debug else log_format_basic,
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
-
-    logger = logging.getLogger()
-    logger.setLevel(level)
+    logger.handlers.clear()
     logger.addHandler(handler)
+
     return logger

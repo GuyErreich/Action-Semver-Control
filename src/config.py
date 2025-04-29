@@ -18,6 +18,8 @@ class Config:
 
     def get_files_to_update(self) -> list[str]:
         files_to_update = self.data.get('files_to_update', [])
-        files_to_update = [f for f in files_to_update if f != CONFIG_FILE]
         
+        if CONFIG_FILE in files_to_update:
+            raise ValueError(f"Do not list the config file '{CONFIG_FILE}' in files_to_update.")
+
         return files_to_update
