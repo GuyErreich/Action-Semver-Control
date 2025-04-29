@@ -42,8 +42,7 @@ class Version:
 
         match = cls.version_pattern.match(version_line.strip())
         if not match:
-            logger.error(f"Invalid version format: {version_line}")
-            raise ValueError(f"Invalid version format: {version_line}")
+            raise ValueError("Invalid version format")
 
         groups = match.groupdict()
         major = int(groups.get('major'))
