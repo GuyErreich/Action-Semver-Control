@@ -6,23 +6,30 @@ from src.version import Version
 logger = logging.getLogger(__name__)
 
 def update_version_in_file(file_path: str, new_version_obj: Version) -> None:
+    """
+    Update only the version segment in version lines, preserving title/prefix,
+    by merging from the new_version_obj and reformatting.
+    """
     try:
         with open(file_path, 'r+') as f:
-            content = f.read()
+            lines = f.readlines()
+            updated_lines = []
 
-            def replacer(match: re.Match) -> str:
-                old_line = match.group(0)
-                logger.debug(f"Replacing old version line: {old_line} -> {str(new_version_obj)}")
-                return str(new_version_obj)
-
-            new_content = Version.version_pattern.sub(replacer, content)
+            for line in lines:
+                try:
+                    current = Version.parse(line)
+                    current.merge_from(new_version_obj)
+                    updated_line = current.format_full_line()
+                    logger.debug(f"Updated: {line.strip()} -> {updated_line.strip()}")
+                    updated_lines.append(updated_line + "\n")
+                except ValueError:
+                    updated_lines.append(line)
 
             f.seek(0)
-            f.write(new_content)
+            f.writelines(updated_lines)
             f.truncate()
 
             logger.info(f"Updated version in {file_path} to {str(new_version_obj)}")
-
     except FileNotFoundError:
         logger.warning(f"File not found: {file_path}. Skipping.")
     except Exception as e:
