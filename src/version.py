@@ -5,7 +5,12 @@ logger = logging.getLogger(__name__)
 
 class Version:
     version_pattern = re.compile(
-        r'^(?P<title>[\w\-]+:)?\s*(?P<prefix>v)?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?P<suffix>-[\w\d]+)?$',
+        r'^(?P<title>[\w\-]+:)\s*'
+        r'(?P<quote>["\'])?'               # Optional opening quote
+        r'(?P<prefix>v)?'
+        r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
+        r'(?P<suffix>-[\w\d]+)?'
+        r'(?P=quote)?$', 
         re.MULTILINE
     )
 
@@ -16,7 +21,8 @@ class Version:
         patch: int,
         title: str = "version:",
         prefix: str | None = None,
-        suffix: str | None = None
+        suffix: str | None = None,
+        quote: str | None = None,
     ) -> None:
         self.major = major
         self.minor = minor
@@ -24,6 +30,7 @@ class Version:
         self.title = title
         self.prefix = prefix
         self.suffix = suffix
+        self.quote = quote
 
     @classmethod
     def parse(cls, version_line: str) -> 'Version':
@@ -45,9 +52,11 @@ class Version:
         title = groups.get('title')
         prefix = groups.get('prefix')
         suffix = groups.get('suffix')
+        qoute = groups.get('quote')
 
-        logger.debug(f"Parsed version components - Title: {title}, Prefix: {prefix}, Major: {major}, Minor: {minor}, Patch: {patch}, Suffix: {suffix}")
-        return cls(major, minor, patch, title, prefix, suffix)
+        logger.debug(f"Parsed version components - Title: {title}, Prefix: {prefix}, Major: {major}, Minor: {minor}, Patch: {patch}, Suffix: {suffix}, Quote: {qoute}")
+
+        return cls(major, minor, patch, title, prefix, suffix, qoute)
 
     def __str__(self) -> str:
         """
@@ -64,9 +73,16 @@ class Version:
         Return full version line including title and prefix: 'version: v1.2.3-dev'
         """
         version = str(self)  # Just 1.2.3[-suffix]
+
         if self.prefix:
             version = f"{self.prefix}{version}"
 
+        if self.quote:
+            version = f"{self.quote}{version}{self.quote}"
+
+        if self.title is None:
+            return version
+        
         return f"{self.title} {version}"
     
     def merge_from(self, other: 'Version') -> None:
