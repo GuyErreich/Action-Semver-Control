@@ -117,3 +117,6 @@ class GitOps:
             except Exception as e:
                 logger.error(f"Failed to add {file_path} to git: {e}")
                 raise
+
+        self.repo.index.commit("chore: bump version to " + str(new_version))
+        logger.info("Committed version changes.")
