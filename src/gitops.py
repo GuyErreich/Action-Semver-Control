@@ -30,9 +30,15 @@ class GitOps:
             "body": "Auto-created PR by auto-semver."
         }
 
+        logger.debug("Creating PR with the following parameters:")
+        logger.debug(f"  Repo: {repo_full_name}")
+        logger.debug(f"  Title: {title}")
+        logger.debug(f"  Head (source): {head}")
+        logger.debug(f"  Base (target): {base}")
+
         # Small wait to ensure GitHub sees the pushed branch
         for attempt in range(10):
-            logger.debug(f"Attempt {attempt + 1}: Creating PR with title '{title}', head '{head}', base '{base}'")
+            logger.debug(f"Attempt {attempt + 1}")
             response = requests.post(url, headers=headers, json=data)
             logger.debug(f"Response status code: {response.status_code}")
             if response.status_code == 201:
@@ -42,10 +48,15 @@ class GitOps:
                 return pr_number
             elif response.status_code == 422:
                 logger.warning("PR creation failed with status 422. Retrying after 2 seconds...")
-                time.sleep(2)  # Wait 2 seconds and retry
+                try:
+                    logger.warning(f"GitHub 422 response: {response.json()}")
+                except Exception:
+                    logger.warning("Could not decode 422 response body.")
             else:
                 logger.error(f"PR creation failed with status {response.status_code}. Response: {response.text}")
                 response.raise_for_status()
+            
+            time.sleep(2)  # Wait 2 seconds and retry
 
         logger.error("Failed to create PR after multiple attempts.")
         response.raise_for_status()
@@ -93,6 +104,12 @@ class GitOps:
 
     def commit_version_changes(self, files: list[str], new_version: str) -> None:
         logger.info(f"Staging version bump files: {files}")
+
+        if not self.repo.is_dirty(untracked_files=True):
+            logger.warning("Repo is not dirty — no changes staged or committed.")
+        else:
+            logger.debug("Repo has staged/committed changes.")
+
         for file_path in files:
             try:
                 self.repo.git.add(file_path)
