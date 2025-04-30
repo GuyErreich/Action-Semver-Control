@@ -21,7 +21,6 @@ def main() -> None:
     parser.add_argument('--debug', action='store_true')
     args = parser.parse_args()
 
-
     logger = setup_logger(args.debug)
     config = Config()
     gitops = GitOps()
@@ -36,29 +35,18 @@ def main() -> None:
 
     try:
         with open('version.txt', 'r') as f:
-            current_version_line: str = f.read().strip()
+            current_version_line = f.read().strip()
     except FileNotFoundError:
         current_version_line = config.get_start_version()
 
     logger.info(f"Current version: {current_version_line}")
 
-    version_obj = Version.parse(current_version_line)
-
-    bump_type: str = VersionManager.detect_bump_type(branch_name)
-    logger.info(f"Bump type detected: {bump_type}")
-
-    # Bump the correct segment
-    if bump_type == "major":
-        version_obj.bump_major()
-    elif bump_type == "minor":
-        version_obj.bump_minor()
-    else:
-        version_obj.bump_patch()
-
+    version_obj: Version = Version.parse(current_version_line)
+    version_obj.bump(branch_name)
     suffix: str = config.get_suffix(args.target_branch)
     version_obj.set_suffix(suffix)
-
     new_version: str = str(version_obj)
+
     logger.info(f"New version: {new_version}")
 
     for file_path in config.get_files_to_update():
@@ -72,12 +60,16 @@ def main() -> None:
         gitops.close_old_release_prs(args.github_token, args.repo_full_name)
 
     gitops.create_branch(branch_name, overwrite=(branch_strategy == "single"))
-    gitops.commit_version_changes(config.get_files_to_update(), new_version)
-    gitops.push_branch(branch_name)
+    gitops.add(config.get_files_to_update())
+    
+    commit_messages = gitops.get_recent_commits(branch_name)
+    update_changelog(new_version, commit_messages)
+    gitops.add('CHANGELOG.md') #TODO: make sure the changelog is a class and hold this param
+
+    gitops.commit(f"Release {new_version}")
+    gitops.push(branch_name)
 
     # Get commits for changelog
-    commit_messages = gitops.get_recent_commits(args.target_branch)
-    update_changelog(new_version, commit_messages)
 
     gitops.create_pr(args.github_token, args.repo_full_name, f"Release {new_version}", branch_name, args.target_branch)
 
