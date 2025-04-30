@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class GitOps:
     def __init__(self, repo_path: str = ".") -> None:
         self.repo = git.Repo(repo_path)
-        self.ensure_git_safe_directory()
+        self.__ensure_git_safe_directory()
 
     def create_branch(self, branch_name: str, overwrite: bool) -> None:
         if overwrite and branch_name in self.repo.heads:
@@ -17,8 +17,8 @@ class GitOps:
             self.repo.delete_head(old_branch, force=True)
         self.repo.git.checkout('-b', branch_name)
 
-    def push_branch(self, branch_name: str) -> None:
-        self.repo.git.push('--set-upstream', 'origin', branch_name, force=True)
+    def push(self, branch_name: str) -> None:
+        self.repo.git.push('origin', branch_name)
 
     def create_pr(self, github_token: str, repo_full_name: str, title: str, head: str, base: str) -> int:
         url = f"https://api.github.com/repos/{repo_full_name}/pulls"
@@ -87,7 +87,7 @@ class GitOps:
         commits = list(self.repo.iter_commits(f"{base_branch}..HEAD"))
         return [commit.message.strip() for commit in reversed(commits)]
     
-    def ensure_git_safe_directory(self) -> None:
+    def __ensure_git_safe_directory(self) -> None:
         path = self.repo.working_tree_dir
         git_config = self.repo.config_writer(config_level='global')
 
@@ -102,8 +102,8 @@ class GitOps:
             git_config.set_value('safe', 'directory', path)
             git_config.release()
 
-    def commit_version_changes(self, files: list[str], new_version: str) -> None:
-        logger.info(f"Staging version bump files: {files}")
+    def add(self, files: list[str]) -> None:
+        logger.info(f"Adding files: {files}")
 
         if not self.repo.is_dirty(untracked_files=True):
             logger.warning("Repo is not dirty — no changes staged or committed.")
@@ -113,10 +113,16 @@ class GitOps:
         for file_path in files:
             try:
                 self.repo.git.add(file_path)
-                logger.debug(f"Added {file_path} to git staging.")
+                logger.debug(f"Added {file_path} to git.")
             except Exception as e:
                 logger.error(f"Failed to add {file_path} to git: {e}")
                 raise
 
-        self.repo.index.commit("chore: bump version to " + str(new_version))
-        logger.info("Committed version changes.")
+    #TODO: make it support description 
+    def commit(self, message: str = '') -> None:
+        try:
+            self.repo.index.commit(message)
+            logger.info("Committed changes.")
+        except Exception as e:
+            logger.error(f"Failed to commit changes: {e}")
+            raise

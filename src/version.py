@@ -105,6 +105,32 @@ class Version:
 
         full_line = f"{self.title} {self.prefix or ''}{version_numbers}"
         return full_line
+    
+    def detect_bump_type(branch_name: str) -> str:
+        bump_type: str = 'patch'  # Default bump type
+
+        logger.debug(f"Detecting bump type for branch: {branch_name}")
+
+        if branch_name.startswith(('breaking/', 'major/')):
+            bump_type = 'major'
+        if branch_name.startswith(('feature/',)):
+            bump_type = 'minor'
+        if branch_name.startswith(('fix/', 'bug/', 'hotfix/', 'chore/', 'devops/')):
+            bump_type = 'patch'
+        
+        logger.debug(f"Bump type detected: {bump_type}")
+
+        return bump_type
+
+    def bump(self, branch_name: str) -> None:
+        bump_type: str = self.detect_bump_type(branch_name)
+
+        if bump_type == "major":
+            self.bump_major()
+        elif bump_type == "minor":
+            self.bump_minor()
+        else:
+            self.bump_patch()
 
     def bump_major(self) -> None:
         logger.info(f"Bumping major version: {self.major} -> {self.major + 1}")
