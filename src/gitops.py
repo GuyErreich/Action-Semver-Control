@@ -84,8 +84,15 @@ class GitOps:
         """
         Get commit messages between base_branch and HEAD.
         """
-        commits = list(self.repo.iter_commits(f"{base_branch}..HEAD"))
-        return [commit.message.strip() for commit in reversed(commits)]
+        logger.info(f"Fetching recent commits between {base_branch} and HEAD.")
+        try:
+            commits = list(self.repo.iter_commits(f"{base_branch}..HEAD"))
+            commit_messages = [commit.message.strip() for commit in reversed(commits)]
+            logger.debug(f"Found {len(commit_messages)} commits.")
+            return commit_messages
+        except Exception as e:
+            logger.error(f"Failed to fetch recent commits: {e}")
+            raise
     
     def __ensure_git_safe_directory(self) -> None:
         path = self.repo.working_tree_dir
