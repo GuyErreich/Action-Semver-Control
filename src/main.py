@@ -3,7 +3,6 @@ import re
 
 from src.logger import setup_logger
 from src.config import Config
-from src.versioning import VersionManager
 from src.changelog import update_changelog
 from src.gitops import GitOps
 from src.actionops import extract_branch_from_event
