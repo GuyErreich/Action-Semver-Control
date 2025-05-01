@@ -63,7 +63,7 @@ def main() -> None:
     
     commit_messages = gitops.get_recent_commits(branch_name)
     update_changelog(new_version, commit_messages)
-    gitops.add('CHANGELOG.md') #TODO: make sure the changelog is a class and hold this param
+    gitops.add(['CHANGELOG.md']) #TODO: make sure the changelog is a class and hold this param
 
     gitops.commit(f"Release {new_version}")
     gitops.push(branch_name)
