@@ -106,7 +106,7 @@ class Version:
         full_line = f"{self.title} {self.prefix or ''}{version_numbers}"
         return full_line
     
-    def detect_bump_type(branch_name: str) -> str:
+    def detect_bump_type(self, branch_name: str) -> str:
         bump_type: str = 'patch'  # Default bump type
 
         logger.debug(f"Detecting bump type for branch: {branch_name}")
