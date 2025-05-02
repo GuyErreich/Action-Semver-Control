@@ -46,11 +46,8 @@ class GitOps:
         """
         try:
             logger.info(f"Pushing branch '{branch_name}' to remote '{remote_name}' with overwrite={overwrite}.")
-            
             remote: Remote = self.repo.remote(remote_name)
-            refspec = f"+{branch_name}:{branch_name}" if overwrite else f"{branch_name}:{branch_name}"
-            push_info = remote.push(refspec)
-            
+            push_info = remote.push(branch_name, force=overwrite)
             logger.debug(f"Push result: {push_info}")
         except Exception as e:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {e}")
