@@ -1,9 +1,9 @@
-from typing import List
 import logging
 
 logger = logging.getLogger(__name__)
 
-def update_changelog(new_version: str, commit_messages: List[str]) -> None:
+
+def update_changelog(new_version: str, commit_messages: list[str]) -> None:
     logging.info(f"Updating changelog for version: {new_version}")
     entry = f"\n## {new_version}\n"
     if commit_messages:
@@ -15,7 +15,7 @@ def update_changelog(new_version: str, commit_messages: List[str]) -> None:
         entry += "- No notable changes.\n"
 
     try:
-        with open('CHANGELOG.md', 'r+') as f:
+        with open("CHANGELOG.md", "r+") as f:
             logging.info("Reading existing CHANGELOG.md file.")
             content = f.read()
             f.seek(0, 0)
@@ -23,6 +23,6 @@ def update_changelog(new_version: str, commit_messages: List[str]) -> None:
             f.write(entry + content)
     except FileNotFoundError:
         logging.warning("CHANGELOG.md not found. Creating a new file.")
-        with open('CHANGELOG.md', 'w') as f:
+        with open("CHANGELOG.md", "w") as f:
             logging.info("Writing new changelog entry to the new file.")
             f.write(f"# Changelog\n{entry}")

@@ -1,9 +1,9 @@
-
 import json
-import os
 import logging
+import os
 
 logger = logging.getLogger(__name__)
+
 
 def extract_branch_from_event() -> str:
     logger.debug("Extracting branch name from GitHub event data")
@@ -15,14 +15,14 @@ def extract_branch_from_event() -> str:
 
     logger.debug(f"Reading event data from {event_path}")
 
-    with open(event_path, 'r') as f:
+    with open(event_path) as f:
         event_data = json.load(f)
 
     if not event_data.get("pull_request", {}).get("merged", False):
         logger.error("The pull request was not merged.")
         raise RuntimeError("The pull request was closed but not merged.")
 
-    branch_name = event_data["pull_request"]["head"]["ref"]
+    branch_name: str = event_data["pull_request"]["head"]["ref"]
     if not branch_name:
         logger.error("Failed to extract branch name from event data")
         raise RuntimeError("Failed to extract merged branch name.")

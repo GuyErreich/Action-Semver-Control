@@ -1,17 +1,20 @@
 import logging
-import re
 
 from src.version import Version
 
 logger = logging.getLogger(__name__)
 
+
 def update_version_in_file(file_path: str, new_version_obj: Version) -> None:
     """
-    Update only the version segment in version lines, preserving title/prefix,
+    Update version lines in the file.
+
+    Updates only the version segment in the version lines preserving title/prefix,
     by merging from the new_version_obj and reformatting.
     """
+
     try:
-        with open(file_path, 'r+') as f:
+        with open(file_path, "r+") as f:
             lines = f.readlines()
             updated_lines = []
 
@@ -29,7 +32,7 @@ def update_version_in_file(file_path: str, new_version_obj: Version) -> None:
             f.writelines(updated_lines)
             f.truncate()
 
-            logger.info(f"Updated version in {file_path} to {str(new_version_obj)}")
+            logger.info(f"Updated version in {file_path} to {new_version_obj!s}")
     except FileNotFoundError:
         logger.warning(f"File not found: {file_path}. Skipping.")
     except Exception as e:
