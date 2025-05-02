@@ -1,6 +1,6 @@
 import argparse
 
-from src.actionops import extract_branch_from_event
+from src.actionops import extract_branch_from_event, extract_commit_from_event
 from src.changelog import update_changelog
 from src.config import Config
 from src.gitops import GitOps
@@ -56,11 +56,15 @@ def main() -> None:
     config = Config()
     gitops = GitOps()
 
+    current_commit_hash: str = ""
+
     # Extract branch name if not passed
     current_branch_name: str = args.branch_name
     if not current_branch_name:
         logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
         current_branch_name = extract_branch_from_event()
+        current_commit_hash = extract_commit_from_event()
+
 
     logger.info(f"Branch name: {current_branch_name}")
 
@@ -93,7 +97,7 @@ def main() -> None:
     gitops.create_branch(release_branch_name, overwrite=(branch_strategy == "single"))
     gitops.add(config.get_files_to_update())
 
-    commit_messages = gitops.get_recent_commits(current_branch_name)
+    commit_messages = gitops.get_recent_commits(current_commit_hash)
     update_changelog(new_version, commit_messages)
     gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
 
