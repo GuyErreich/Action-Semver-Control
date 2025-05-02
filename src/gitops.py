@@ -148,18 +148,38 @@ class GitOps:
         Raises:
             requests.exceptions.HTTPError: If the GitHub API request fails.
 
-        """
+        Logs:
+            - Logs an info message indicating the start of the operation.
+            - Logs a debug message with the number of PRs found.
+            - Logs an info message for each PR being closed.
+            - Logs an error message if closing a PR fails.
 
+        """
+        logger.info("Starting to close old release pull requests.")
+        
         url = f"https://api.github.com/repos/{repo_full_name}/pulls?state=open&head={repo_full_name.split('/')[0]}:release/"
         headers = {"Authorization": f"token {github_token}"}
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        prs = response.json()
+        
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            prs = response.json()
+            logger.debug(f"Found {len(prs)} open release pull requests.")
+        except Exception as e:
+            logger.error(f"Failed to fetch open release pull requests: {e}")
+            raise
 
         for pr in prs:
             pr_number = pr["number"]
             close_url = f"https://api.github.com/repos/{repo_full_name}/pulls/{pr_number}"
-            requests.patch(close_url, headers=headers, json={"state": "closed"})
+            try:
+                logger.info(f"Closing pull request #{pr_number}.")
+                close_response = requests.patch(close_url, headers=headers, json={"state": "closed"})
+                close_response.raise_for_status()
+                logger.info(f"Successfully closed pull request #{pr_number}.")
+            except Exception as e:
+                logger.error(f"Failed to close pull request #{pr_number}: {e}")
+                raise
 
     def get_recent_commits(self, base_branch: str) -> list[str]:
         """Get commit messages between base_branch and HEAD."""
