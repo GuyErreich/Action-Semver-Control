@@ -27,8 +27,31 @@ class GitOps:
         new_branch.checkout()
 
     def push(self, branch_name: str, remote_name: str = "origin", overwrite: bool = False) -> None:
-        remote: Remote = self.repo.remote(remote_name)
-        remote.push(branch_name, force_with_lease=overwrite)
+        """
+        Push the specified branch to the remote repository.
+
+        Args:
+            branch_name (str): The name of the branch to push.
+            remote_name (str): The name of the remote repository. Defaults to "origin".
+            overwrite (bool): Whether to force push with lease. Defaults to False.
+
+        Raises:
+            Exception: If the push operation fails, the exception is logged and re-raised.
+
+        Logs:
+            - Logs an info message indicating the branch being pushed and the remote.
+            - Logs a debug message if the push is successful.
+            - Logs an error message if the push fails.
+
+        """
+        try:
+            logger.info(f"Pushing branch '{branch_name}' to remote '{remote_name}' with overwrite={overwrite}.")
+            remote: Remote = self.repo.remote(remote_name)
+            push_info = remote.push(branch_name, force=overwrite)
+            logger.debug(f"Push result: {push_info}")
+        except Exception as e:
+            logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {e}")
+            raise
 
     def create_pr(
         self, github_token: str, repo_full_name: str, title: str, head: str, base: str
