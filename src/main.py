@@ -57,12 +57,12 @@ def main() -> None:
     gitops = GitOps()
 
     # Extract branch name if not passed
-    branch_name: str = args.branch_name
-    if not branch_name:
+    current_branch_name: str = args.branch_name
+    if not current_branch_name:
         logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
-        branch_name = extract_branch_from_event()
+        current_branch_name = extract_branch_from_event()
 
-    logger.info(f"Branch name: {branch_name}")
+    logger.info(f"Branch name: {current_branch_name}")
 
     try:
         with open("version.txt") as f:
@@ -73,7 +73,7 @@ def main() -> None:
     logger.info(f"Current version: {current_version_line}")
 
     version_obj: Version = Version.parse(current_version_line)
-    version_obj.bump(branch_name)
+    version_obj.bump(current_branch_name)
     suffix: str = config.get_suffix(args.target_branch)
     version_obj.set_suffix(suffix)
     new_version: str = str(version_obj)
@@ -84,21 +84,21 @@ def main() -> None:
         update_version_in_file(file_path, version_obj)
 
     branch_strategy: str = config.get_branch_strategy()
-    branch_name = f"release/{new_version}"
+    release_branch_name = f"release/{new_version}"
 
     if branch_strategy == "single":
         logger.info("Closing old release PRs (branch_strategy=single)...")
         gitops.close_old_release_prs(args.github_token, args.repo_full_name)
 
-    gitops.create_branch(branch_name, overwrite=(branch_strategy == "single"))
+    gitops.create_branch(release_branch_name, overwrite=(branch_strategy == "single"))
     gitops.add(config.get_files_to_update())
 
-    commit_messages = gitops.get_recent_commits(args.branch_name)
+    commit_messages = gitops.get_recent_commits(current_branch_name)
     update_changelog(new_version, commit_messages)
     gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
 
     gitops.commit(f"Release {new_version}")
-    gitops.push(branch_name)
+    gitops.push(current_branch_name)
 
     # Get commits for changelog
 
@@ -106,7 +106,7 @@ def main() -> None:
         args.github_token,
         args.repo_full_name,
         f"Release {new_version}",
-        branch_name,
+        current_branch_name,
         args.target_branch,
     )
 
