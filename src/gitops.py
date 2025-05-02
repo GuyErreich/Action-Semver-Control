@@ -3,6 +3,10 @@ import time
 
 import requests
 from git import Commit, Head, Remote, Repo
+from github import Github
+from github.Repository import Repository
+from github.PullRequest import PullRequest
+from github.GithubException import GithubException
 
 logger = logging.getLogger(__name__)
 
@@ -53,133 +57,52 @@ class GitOps:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {e}")
             raise
 
-    def create_pr(
-        self, github_token: str, repo_full_name: str, title: str, head: str, base: str
-    ) -> None:
-        url = f"https://api.github.com/repos/{repo_full_name}/pulls"
-        headers = {"Authorization": f"token {github_token}"}
-        data = {
-            "title": title,
-            "head": head,
-            "base": base,
-            "body": "Auto-created PR by auto-semver.",
-        }
-
+    def create_pr(self, repo_full_name: str, title: str, head: str, base: str, github_token: str, label: str | None = None) -> int:
         logger.debug("Creating PR with the following parameters:")
         logger.debug(f"  Repo: {repo_full_name}")
         logger.debug(f"  Title: {title}")
         logger.debug(f"  Head (source): {head}")
         logger.debug(f"  Base (target): {base}")
 
-        # Small wait to ensure GitHub sees the pushed branch
-        for attempt in range(10):
-            logger.debug(f"Attempt {attempt + 1}")
-            response = requests.post(url, headers=headers, json=data)
-            logger.debug(f"Response status code: {response.status_code}")
-            
-            if response.status_code == 201:
-                pr_number = response.json()["number"]
-                logger.info(f"PR created successfully with number: {pr_number}")
-                self.add_label_to_pr(github_token, repo_full_name, pr_number, "semver-bump")
-            elif response.status_code == 422:
-                logger.warning("PR creation failed with status 422. Retrying after 2 seconds...")
-                try:
-                    logger.warning(f"GitHub 422 response: {response.json()}")
-                except Exception:
-                    logger.warning("Could not decode 422 response body.")
-            else:
-                logger.error(
-                    f"PR creation failed with status {response.status_code}. Response: {response.text}"
-                )
-                response.raise_for_status()
-
-            time.sleep(2)  # Wait 2 seconds and retry
-
-        logger.error("Failed to create PR after multiple attempts.")
-        response.raise_for_status()
-
-    def add_label_to_pr(
-        self, github_token: str, repo_full_name: str, pr_number: int, label: str
-    ) -> None:
-        """
-        Add a label to a pull request.
-
-        This method adds a specified label to a pull request in a GitHub repository.
-        It uses the GitHub API to perform the operation.
-        The method constructs the API URL for adding a label to the pull request,
-        sets the authorization header with the provided GitHub token, and sends a POST request
-        with the label data in JSON format.
-
-        Note:
-            - The label must already exist in the repository.
-            - The method raises an HTTPError if the request fails.
-
-        Args:
-            github_token (str): The personal access token for authenticating with the GitHub API.
-            repo_full_name (str): The full name of the repository in the format "owner/repo".
-            pr_number (int): The pull request number to which the label will be added.
-            label (str): The label to add to the pull request.
-
-        Raises:
-            requests.exceptions.HTTPError: If the GitHub API request fails.
-        Logs:
-            - Logs an info message indicating the label being added.
-            - Logs a debug message with the response status code.
-            - Logs an error message if adding the label fails.
-
-        """
-        url = f"https://api.github.com/repos/{repo_full_name}/issues/{pr_number}/labels"
-        headers = {"Authorization": f"token {github_token}"}
-        data = {"labels": [label]}
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-
-    def close_old_release_prs(self, github_token: str, repo_full_name: str) -> None:
-        """
-        Close all open release pull requests.
-
-        Close all open pull requests in a GitHub repository that have a head branch
-        starting with "release/".
-
-        Args:
-            github_token (str): The personal access token for authenticating with the GitHub API.
-            repo_full_name (str): The full name of the repository in the format "owner/repo".
-
-        Raises:
-            requests.exceptions.HTTPError: If the GitHub API request fails.
-
-        Logs:
-            - Logs an info message indicating the start of the operation.
-            - Logs a debug message with the number of PRs found.
-            - Logs an info message for each PR being closed.
-            - Logs an error message if closing a PR fails.
-
-        """
-        logger.info("Starting to close old release pull requests.")
-        
-        url = f"https://api.github.com/repos/{repo_full_name}/pulls?state=open&head={repo_full_name.split('/')[0]}:release/"
-        headers = {"Authorization": f"token {github_token}"}
-        
+        gh = Github(github_token)
         try:
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            prs = response.json()
-            logger.debug(f"Found {len(prs)} open release pull requests.")
-        except Exception as e:
-            logger.error(f"Failed to fetch open release pull requests: {e}")
+            repo: Repository = gh.get_repo(repo_full_name)
+
+            # Check for existing PRs
+            for pr in repo.get_pulls(state="open"):
+                if pr.head.ref == head and pr.base.ref == base:
+                    logger.warning(f"PR already exists for branch '{head}' → '{base}', skipping creation.")
+                    return pr.number
+
+            new_pr: PullRequest = repo.create_pull(title=title, body="Auto-created PR by auto-semver.", head=head, base=base)
+            if label:
+                try:
+                    new_pr.add_to_labels(label)
+                    logger.info(f"Label '{label}' added to PR #{new_pr.number}.")
+                except GithubException as e:
+                    logger.error(f"Failed to add label '{label}' to PR #{new_pr.number}: {e}")
+                    raise
+            logger.info(f"PR created successfully: #{new_pr.number}")
+            return new_pr.number
+
+        except GithubException as e:
+            logger.error(f"GitHub API error during PR creation: {e}")
             raise
 
-        for pr in prs:
-            pr_number = pr["number"]
-            close_url = f"https://api.github.com/repos/{repo_full_name}/pulls/{pr_number}"
-            try:
-                logger.info(f"Closing pull request #{pr_number}.")
-                close_response = requests.patch(close_url, headers=headers, json={"state": "closed"})
-                close_response.raise_for_status()
-                logger.info(f"Successfully closed pull request #{pr_number}.")
-            except Exception as e:
-                logger.error(f"Failed to close pull request #{pr_number}: {e}")
-                raise
+    def close_existing_prs_for_branch(self, repo_full_name: str, branch_name: str ,github_token: str) -> None:
+        logger.info(f"Checking for existing PRs for head branch: {branch_name}")
+        gh = Github(github_token)
+        try:
+            repo: Repository = gh.get_repo(repo_full_name)
+            open_prs = repo.get_pulls(state="open")
+
+            for pr in open_prs:
+                if pr.head.ref == branch_name:
+                    logger.info(f"Closing PR #{pr.number} from branch '{branch_name}'")
+                    pr.edit(state="closed")
+        except GithubException as e:
+            logger.error(f"GitHub API error while closing PRs: {e}")
+            raise
 
     def get_recent_commits(self, base_branch: str) -> list[str]:
         """Get commit messages between base_branch and HEAD."""
