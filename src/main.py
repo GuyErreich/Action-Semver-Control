@@ -93,7 +93,7 @@ def main() -> None:
     gitops.create_branch(branch_name, overwrite=(branch_strategy == "single"))
     gitops.add(config.get_files_to_update())
 
-    commit_messages = gitops.get_recent_commits(branch_name)
+    commit_messages = gitops.get_recent_commits(args.branch_name)
     update_changelog(new_version, commit_messages)
     gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
 
