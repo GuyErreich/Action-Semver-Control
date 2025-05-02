@@ -110,7 +110,7 @@ def main() -> None:
         args.github_token,
         args.repo_full_name,
         f"Release {new_version}",
-        current_branch_name,
+        release_branch_name,
         args.target_branch,
     )
 
