@@ -102,7 +102,7 @@ def main() -> None:
     gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
 
     gitops.commit(f"Release {new_version}")
-    gitops.push(current_branch_name)
+    gitops.push(release_branch_name)
 
     # Get commits for changelog
 
