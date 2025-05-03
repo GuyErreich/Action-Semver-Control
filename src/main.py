@@ -90,10 +90,6 @@ def main() -> None:
     branch_strategy: str = config.get_branch_strategy()
     release_branch_name = f"release/{new_version}"
 
-    if branch_strategy == "single":
-        logger.info("Closing old release PRs (branch_strategy=single)...")
-        gitops.close_old_release_prs(args.github_token, args.repo_full_name)
-
     gitops.create_branch(release_branch_name, overwrite=(branch_strategy == "single"))
     gitops.add(config.get_files_to_update())
 
@@ -106,12 +102,17 @@ def main() -> None:
 
     # Get commits for changelog
 
+    if branch_strategy == "single":
+        logger.info("Closing old release PRs (branch_strategy=single)...")
+        gitops.close_existing_prs_for_branch(args.repo_full_name, release_branch_name, args.github_token)
+
     gitops.create_pr(
-        args.github_token,
         args.repo_full_name,
         f"Release {new_version}",
         release_branch_name,
         args.target_branch,
+        args.github_token,
+        label="semver-bump"
     )
 
 
