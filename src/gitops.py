@@ -1,12 +1,10 @@
 import logging
-import time
 
-import requests
 from git import Commit, Head, Remote, Repo
 from github import Github
-from github.Repository import Repository
-from github.PullRequest import PullRequest
 from github.GithubException import GithubException
+from github.PullRequest import PullRequest
+from github.Repository import Repository
 
 logger = logging.getLogger(__name__)
 
