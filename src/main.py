@@ -1,3 +1,10 @@
+"""
+Entry point for the semantic version automation tool.
+
+This script performs version bumping, changelog updating, git operations, and GitHub PR creation
+based on CI/CD context and branch strategy (e.g., single-branch release workflows).
+"""
+
 import argparse
 
 from src.actionops import extract_branch_from_event, extract_commit_from_event
@@ -56,17 +63,16 @@ def main() -> None:
     config = Config()
     gitops = GitOps()
 
-    current_commit_hash: str = ""
+    current_branch: str = args.branch_name
+    current_commit_sha: str = ""
 
-    # Extract branch name if not passed
-    current_branch_name: str = args.branch_name
-    if not current_branch_name:
+    # Fallback to GitHub event context if no branch is passed
+    if not current_branch:
         logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
-        current_branch_name = extract_branch_from_event()
-        current_commit_hash = extract_commit_from_event()
+        current_branch = extract_branch_from_event()
+        current_commit_sha = extract_commit_from_event()
 
-
-    logger.info(f"Branch name: {current_branch_name}")
+    logger.info(f"Branch name: {current_branch}")
 
     try:
         with open("version.txt") as f:
@@ -76,42 +82,46 @@ def main() -> None:
 
     logger.info(f"Current version: {current_version_line}")
 
-    version_obj: Version = Version.parse(current_version_line)
-    version_obj.bump(current_branch_name)
+    version = Version.parse(current_version_line)
+    version.bump(branch_name=current_branch)
     suffix: str = config.get_suffix(args.target_branch)
-    version_obj.set_suffix(suffix)
-    new_version: str = str(version_obj)
+    version.set_suffix(suffix=suffix)
+    new_version: str = str(version)
 
     logger.info(f"New version: {new_version}")
 
     for file_path in config.get_files_to_update():
-        update_version_in_file(file_path, version_obj)
+        update_version_in_file(file_path=file_path, new_version_obj=version)
 
-    branch_strategy: str = config.get_branch_strategy()
     release_branch_name = f"release/{new_version}"
+    branch_strategy = config.get_branch_strategy()
 
-    gitops.create_branch(release_branch_name, overwrite=(branch_strategy == "single"))
+    gitops.create_branch(branch_name=release_branch_name, force=(branch_strategy == "single"))
     gitops.add(config.get_files_to_update())
 
-    commit_messages = gitops.get_recent_commits(current_commit_hash)
+    commit_messages = gitops.get_recent_commits(current_commit_sha)
     update_changelog(new_version, commit_messages)
     gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
 
     gitops.commit(f"Release {new_version}")
-    gitops.push(release_branch_name, overwrite=(branch_strategy == "single"))
+    gitops.push(branch_name=release_branch_name, force=(branch_strategy == "single"))
 
     # Get commits for changelog
 
     if branch_strategy == "single":
         logger.info("Closing old release PRs (branch_strategy=single)...")
-        gitops.close_existing_prs_for_branch(args.repo_full_name, release_branch_name, args.github_token)
+        gitops.close_existing_prs_for_branch(
+            repo_full_name=args.repo_full_name,
+            branch_name=release_branch_name,
+            github_token=args.github_token
+        )
 
     gitops.create_pr(
-        args.repo_full_name,
-        f"Release {new_version}",
-        release_branch_name,
-        args.target_branch,
-        args.github_token,
+        repo_full_name=args.repo_full_name,
+        title=f"Release {new_version}",
+        source=release_branch_name,
+        target=args.target_branch,
+        github_token=args.github_token,
         label="semver-bump"
     )
 
