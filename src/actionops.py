@@ -1,59 +1,157 @@
+"""GitHub Actions context utilities.
+
+This module provides helper classes and functions to extract relevant data
+(branch name, commit SHA, etc.) from GitHub-provided event payloads.
+It is typically used inside CI/CD pipelines triggered by pull request or push events.
+
+Typical usage::
+
+    event = GitHubEvent()
+    branch_name = event.get_branch_name()
+    commit_sha = event.get_commit_sha()
+"""
+
 import json
 import logging
 import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
-def extract_branch_from_event() -> str:
-    logger.debug("Extracting branch name from GitHub event data")
-
-    event_path = os.getenv("GITHUB_EVENT_PATH")
-    if not event_path:
-        logger.error("GITHUB_EVENT_PATH is not set in environment")
-        raise RuntimeError("GITHUB_EVENT_PATH is not set in environment")
-
-    logger.debug(f"Reading event data from {event_path}")
-
-    with open(event_path) as f:
-        event_data = json.load(f)
-
-    if not event_data.get("pull_request", {}).get("merged", False):
-        logger.error("The pull request was not merged.")
-        raise RuntimeError("The pull request was closed but not merged.")
-
-    branch_name: str = event_data["pull_request"]["head"]["ref"]
-    if not branch_name:
-        logger.error("Failed to extract branch name from event data")
-        raise RuntimeError("Failed to extract merged branch name.")
-
-    logger.debug(f"Extracted branch name: {branch_name}")
-
-    return branch_name
+_GITHUB_EVENT_PATH_ENV = "GITHUB_EVENT_PATH"
+_PULL_REQUEST_KEY = "pull_request"
 
 
-def extract_commit_from_event() -> str:
-    logger.debug("Extracting commit message from GitHub event data")
+class GitHubEvent:
+    """Encapsulates GitHub event data for convenient access to pull request information.
 
-    event_path = os.getenv("GITHUB_EVENT_PATH")
-    if not event_path:
-        logger.error("GITHUB_EVENT_PATH is not set in environment")
-        raise RuntimeError("GITHUB_EVENT_PATH is not set in environment")
+    Loads and parses the event payload once during instantiation, and provides methods
+    to extract specific fields like branch name, commit SHA, and merge status.
+    """
 
-    logger.debug(f"Reading event data from {event_path}")
+    def __init__(self) -> None:
+        """Initializes the GitHubEvent by loading the event payload once."""
+        self._event_data = self._load_event_data()
 
-    with open(event_path) as f:
-        event_data = json.load(f)
+    def _load_event_data(self) -> dict[str, Any]:
+        """Loads GitHub event data from a JSON file defined by the environment variable.
 
-    if not event_data.get("pull_request", {}).get("merged", False):
-        logger.error("The pull request was not merged.")
-        raise RuntimeError("The pull request was closed but not merged.")
+        Returns:
+            dict[str, Any]: Parsed JSON data.
 
-    commit_sha: str = event_data["pull_request"]["head"]["sha"]
-    if not commit_sha:
-        logger.error("Failed to extract commit sha from event data.")
-        raise RuntimeError("Failed to extract merged commit sha.")
+        Raises:
+            RuntimeError: If the environment variable is missing or the file can't be read.
+        """
 
-    logger.debug(f"Extracted commit: {commit_sha}")
+        event_path = os.getenv(_GITHUB_EVENT_PATH_ENV)
+        if not event_path:
+            logger.error(f"{_GITHUB_EVENT_PATH_ENV} is not set.")
+            raise RuntimeError(f"{_GITHUB_EVENT_PATH_ENV} is not set in environment.")
 
-    return commit_sha
+        logger.debug(f"Reading event data from {event_path}")
+        try:
+            with open(event_path) as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError) as e:
+            logger.error(f"Failed to load event data: {e}")
+            raise RuntimeError(f"Failed to load GitHub event data: {e}")
+
+    def _get(self, path: list[str]) -> Any:
+        """Retrieves a nested value from the loaded event data.
+
+        Args:
+            path: A list of keys forming the path to the desired value.
+
+        Returns:
+            Any: The value at the given path.
+
+        Raises:
+            RuntimeError: If a key along the path is missing.
+        """
+
+        try:
+            data = self._event_data
+            for key in path:
+                data = data[key]
+            return data
+        except KeyError as e:
+            dotted_path = ".".join(path)
+            logger.error(f"Missing key in event data at path '{dotted_path}': {e}")
+            raise RuntimeError(f"Malformed event data: missing '{dotted_path}'")
+
+    def is_merged(self) -> bool:
+        """Checks whether the pull request was merged.
+
+        Returns:
+            bool: True if merged, False otherwise.
+
+        Raises:
+            RuntimeError: If the merged key is missing in the event data.
+        """
+
+        return self._get([_PULL_REQUEST_KEY, "merged"])
+
+    def get_source_branch_name(self) -> str:
+        """Gets the source branch name from the pull request event data.
+
+        Returns:
+            str: The name of the source branch.
+
+        Raises:
+            RuntimeError: If the branch name is missing in the event data.
+        """
+
+        return self._get([_PULL_REQUEST_KEY, "head", "ref"])
+
+    def get_source_commit_sha(self) -> str:
+        """Gets the commit SHA of the source branch from the pull request event data.
+        
+        Returns:
+            str: The commit SHA of the source branch.
+
+        Raises:
+            RuntimeError: If the sha is missing in the event data.
+        """
+
+        return self._get([_PULL_REQUEST_KEY, "head", "sha"])
+    
+    def get_target_branch_name(self) -> str:
+        """Gets the target branch name from the pull request event data.
+
+        Returns:
+            str: The name of the target branch.
+
+        Raises:
+            RuntimeError: If the branch name is missing in the event data.
+        """
+
+        return self._get([_PULL_REQUEST_KEY, "base", "ref"])
+
+    def get_target_commit_sha(self) -> str:
+        """Gets the commit SHA of the target branch from the pull request event data.
+
+        Returns:
+            str: The commit SHA of the target branch.
+
+        Raises:
+            RuntimeError: If the sha is missing in the event data.
+        """
+
+        return self._get([_PULL_REQUEST_KEY, "base", "sha"])
+    
+    def get_merged_commit_sha(self) -> str:
+        """Gets the commit SHA of the merged pull request.
+
+        Returns:
+            str: The merge commit SHA.
+
+        Raises:
+            RuntimeError: If the pull request was not merged.
+            RuntimeError: If the merge commit SHA is missing in the event data.
+        """
+
+        if not self.is_merged():
+            logger.error("The pull request was closed but not merged.")
+            raise RuntimeError("The pull request was closed but not merged.")
+        
+        return self._get([_PULL_REQUEST_KEY, "merge_commit_sha"])
