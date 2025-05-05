@@ -42,7 +42,7 @@ class GitOps:
 
     """
 
-    def __init__(self, repo_path: str = ".", ensure_safe: bool = False) -> None:
+    def __init__(self, *, repo_path: str = ".", ensure_safe: bool = False) -> None:
         """
         Initialize GitOps for the given repository path.
 

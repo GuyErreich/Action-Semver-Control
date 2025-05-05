@@ -61,7 +61,7 @@ def main() -> None:
 
     logger = setup_logger(args.debug)
     config = Config()
-    gitops = GitOps()
+    gitops = GitOps(ensure_safe=True)
 
     current_branch: str = args.branch_name
     current_commit_sha: str = ""
