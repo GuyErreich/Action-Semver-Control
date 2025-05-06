@@ -21,7 +21,7 @@ def main() -> None:
     Automating semantic versioning and release processes.
 
     This script performs the following tasks:
-    1. Parses command-line arguments for branch name, target branch, GitHub token, repository name, 
+    1. Parses command-line arguments for branch name, target branch, GitHub token, repository name,
        and debug mode.
     2. Sets up logging and configuration.
     3. Extracts the branch name if not provided explicitly.
@@ -113,7 +113,7 @@ def main() -> None:
         gitops.close_existing_prs_for_branch(
             repo_full_name=args.repo_full_name,
             branch_name=release_branch_name,
-            github_token=args.github_token
+            github_token=args.github_token,
         )
 
     gitops.create_pr(
@@ -122,7 +122,7 @@ def main() -> None:
         source=release_branch_name,
         target=args.target_branch,
         github_token=args.github_token,
-        label="semver-bump"
+        label="semver-bump",
     )
 
 

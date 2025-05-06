@@ -32,6 +32,7 @@ from github.Repository import Repository
 
 logger = logging.getLogger(__name__)
 
+
 class GitOps:
 
     """
@@ -64,9 +65,9 @@ class GitOps:
         """
 
         logger.info("Ensuring the repository is marked as a safe directory.")
-        
+
         safe_key: str = "safe"
-        directory_key: str = "directory" 
+        directory_key: str = "directory"
 
         path: str = str(self.repo.working_tree_dir)
 
@@ -75,7 +76,7 @@ class GitOps:
         git_config = self.repo.config_writer(config_level="global")
 
         logger.debug(f"Checking if {path} is in safe directories.")
-        
+
         raw_values = git_config.get_values(section=safe_key, option=directory_key, default="")
         safe_dirs: list[str] = [v for v in raw_values if isinstance(v, str)]
 
@@ -83,11 +84,7 @@ class GitOps:
             logger.debug(f"{path} is not in safe directories.")
             logger.info(f"Adding {path} to safe directories.")
 
-            git_config.set_value(
-                section=safe_key,
-                option=directory_key,
-                value=path
-            )
+            git_config.set_value(section=safe_key, option=directory_key, value=path)
 
             git_config.release()
 
@@ -104,7 +101,7 @@ class GitOps:
                 Defaults to False, which prevents overwriting.
 
         """
-        
+
         if branch_name in self.repo.heads:
             if not force:
                 logger.info(f"Branch '{branch_name}' already exists and force is False.")
@@ -177,9 +174,9 @@ class GitOps:
             force (bool): If True, force push the branch.
 
         """
-        
+
         logger.info(f"Pushing branch '{branch_name}' to remote '{remote_name}' with force={force}.")
-        
+
         try:
             remote: Remote = self.repo.remote(name=remote_name)
             push_info = remote.push(refspec=branch_name, force=force)
@@ -191,11 +188,7 @@ class GitOps:
             raise
 
     def close_existing_prs_for_branch(
-        self,
-        *,
-        github_token: str,
-        repo_full_name: str,
-        branch_name: str
+        self, *, github_token: str, repo_full_name: str, branch_name: str
     ) -> None:
         """
         Close all open pull requests that originate from the specified branch.
@@ -206,9 +199,9 @@ class GitOps:
             branch_name (str): The branch name used as PR source.
 
         """
-        
+
         logger.info(f"Checking for existing PRs for head branch: {branch_name}")
-        
+
         gh = Github(login_or_token=github_token)
 
         try:
@@ -264,15 +257,14 @@ class GitOps:
 
             for pr in repo.get_pulls(state="open"):
                 if pr.head.ref == source and pr.base.ref == target:
-                    logger.warning(f"PR already exists for branch '{source}' → '{target}', skipping creation.")
+                    logger.warning(
+                        f"PR already exists for branch '{source}' → '{target}', skipping creation."
+                    )
 
                     return pr.number
 
             new_pr: PullRequest = repo.create_pull(
-                title=title,
-                body="Auto-created PR by auto-semver.",
-                head=source,
-                base=target
+                title=title, body="Auto-created PR by auto-semver.", head=source, base=target
             )
 
             if label:
@@ -309,8 +301,9 @@ class GitOps:
 
         Raises:
             RuntimeError: If the git command fails.
+
         """
-        
+
         logger.info(f"Fetching recent commits between {commit_sha} and HEAD.")
 
         try:
@@ -326,7 +319,7 @@ class GitOps:
 
         try:
             commits: list[Commit] = list(self.repo.iter_commits(f"{commit_sha}..HEAD"))
-            messages: str = [str(commit.message).strip() for commit in reversed(commits)]
+            messages: list[str] = [str(commit.message).strip() for commit in reversed(commits)]
 
             for message in messages:
                 logger.debug(f"Commit message: {message}")
