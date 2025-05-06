@@ -23,7 +23,7 @@ Typical usage example::
 
 import logging
 
-from git import GitCommandError, Head, Repo
+from git import Commit, GitCommandError, Head, Repo
 from git.remote import Remote
 from github import Github
 from github.GithubException import GithubException
@@ -295,23 +295,38 @@ class GitOps:
 
             raise
 
-    def get_recent_commits(self, base_branch: str) -> list[str]:
+    def get_recent_commits(self, commit_sha: str) -> list[str]:
         """
-        Get commit messages between the specified base branch and HEAD.
+        Get commit messages between the specified between a given commit SHA and HEAD.
+
+        This method attempts to fetch the commit SHA from the remote if it doesn't exist locally.
 
         Args:
-            base_branch (str): The base branch to compare against HEAD.
+            commit_sha (str): The base commit SHA to compare against HEAD.
 
         Returns:
-            A list of commit messages.
+            list[str]: A list of commit messages.
 
+        Raises:
+            RuntimeError: If the git command fails.
         """
         
-        logger.info(f"Fetching recent commits between {base_branch} and HEAD.")
+        logger.info(f"Fetching recent commits between {commit_sha} and HEAD.")
 
         try:
-            commits = list(self.repo.iter_commits(f"{base_branch}..HEAD"))
-            messages = [str(commit.message).strip() for commit in reversed(commits)]
+            # Check if SHA exists locally
+            self.repo.git.rev_parse(commit_sha)
+        except GitCommandError:
+            logger.warning("SHA %s not found locally. Attempting to fetch...", commit_sha)
+            try:
+                self.repo.git.fetch("origin", commit_sha, "--depth=1")
+            except GitCommandError as fetch_err:
+                logger.error("Failed to fetch missing SHA '%s': %s", commit_sha, fetch_err)
+                raise RuntimeError(f"Failed to fetch SHA {commit_sha}: {fetch_err}") from fetch_err
+
+        try:
+            commits: list[Commit] = list(self.repo.iter_commits(f"{commit_sha}..HEAD"))
+            messages: str = [str(commit.message).strip() for commit in reversed(commits)]
 
             for message in messages:
                 logger.debug(f"Commit message: {message}")
@@ -320,7 +335,7 @@ class GitOps:
 
             return messages
 
-        except Exception as e:
-            logger.error(f"Failed to fetch recent commits: {e}")
+        except GitCommandError as e:
+            logger.error("Failed to fetch recent commits: %s", e)
 
-            raise
+            raise RuntimeError(f"Failed to fetch recent commits: {e}") from e
