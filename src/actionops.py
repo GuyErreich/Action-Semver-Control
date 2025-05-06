@@ -31,6 +31,7 @@ def extract_branch_from_event() -> str:
 
     return branch_name
 
+
 def extract_commit_from_event() -> str:
     logger.debug("Extracting commit message from GitHub event data")
 

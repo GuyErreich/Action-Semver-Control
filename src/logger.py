@@ -14,7 +14,7 @@ def setup_logger(debug: bool = False) -> logging.Logger:
         logging.Logger: A configured logger instance.
 
     """
-    
+
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
 

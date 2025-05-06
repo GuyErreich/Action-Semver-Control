@@ -33,6 +33,7 @@ _PATCH_PREFIXES = ("fix/", "bug/", "hotfix/", "chore/", "devops/")
 
 
 class Version:
+
     """
     Represents a semantic version, optionally with prefix, suffix, or title.
 
@@ -44,6 +45,7 @@ class Version:
         patch (int): Patch version component.
         suffix (str | None): Optional suffix like '-dev' or '-rc.1'.
         quote (str | None): Optional surrounding quote (" or ').
+
     """
 
     def __init__(
@@ -58,7 +60,7 @@ class Version:
         quote: str | None = None,
     ) -> None:
         """
-        Initializes a Version object.
+        Initialize a Version object.
 
         Args:
             major (int): Major version number.
@@ -68,6 +70,7 @@ class Version:
             prefix (str | None): Optional 'v' prefix.
             suffix (str | None): Optional suffix like '-dev' or '-rc.1'.
             quote (str | None): Optional surrounding quote (" or ').
+
         """
 
         self.major = major
@@ -81,7 +84,7 @@ class Version:
     @staticmethod
     def parse(version_line: str) -> "Version":
         """
-        Parses a version line and returns a Version object.
+        Parse a version line and returns a Version object.
 
         Args:
             version_line: The raw version string to parse.
@@ -91,6 +94,7 @@ class Version:
 
         Raises:
             ValueError: If the version format is invalid.
+
         """
 
         logger.debug(f"Parsing version line: {version_line}")
@@ -107,7 +111,7 @@ class Version:
             minor=int(groups["minor"]),
             patch=int(groups["patch"]),
             suffix=groups.get("suffix", ""),
-            quote=groups.get("quote", "")
+            quote=groups.get("quote", ""),
         )
 
         logger.debug(
@@ -117,7 +121,7 @@ class Version:
         )
 
         return version
-    
+
     @staticmethod
     def detect_bump_type(branch_name: str) -> str:
         """
@@ -138,6 +142,7 @@ class Version:
 
         Returns:
             One of 'major', 'minor', or 'patch'.
+
         """
 
         bump_type: str = "patch"  # Default bump type
@@ -154,13 +159,12 @@ class Version:
         logger.debug(f"Bump type detected: {bump_type}")
 
         return bump_type
-    
-    
+
     def bump_major(self) -> None:
         """Increments the major version and resets minor and patch to 0."""
 
         logger.info(f"Bumping major version: {self.major} -> {self.major + 1}")
-        
+
         self.major += 1
         self.minor = 0
         self.patch = 0
@@ -169,7 +173,7 @@ class Version:
         """Increments the minor version and resets patch to 0."""
 
         logger.info(f"Bumping minor version: {self.minor} -> {self.minor + 1}")
-        
+
         self.minor += 1
         self.patch = 0
 
@@ -177,13 +181,13 @@ class Version:
         """Increments the patch version."""
 
         logger.info(f"Bumping patch version: {self.patch} -> {self.patch + 1}")
-        
+
         self.patch += 1
 
     def bump(self, *, branch_name: str) -> None:
         """
         Bumps the version based on the branch name.
-        
+
         This method determines the type of version bump (major, minor, or patch)
         based on the branch name and applies the appropriate bump method.
 
@@ -195,9 +199,10 @@ class Version:
 
         Note:
             If the branch name does not match any of these patterns, it defaults to 'patch'.
-        
+
         Args:
             branch_name (str): The name of the branch to analyze.
+
         """
 
         bump_type: str = self.detect_bump_type(branch_name)
@@ -212,25 +217,26 @@ class Version:
 
     def set_suffix(self, *, suffix: str | None) -> None:
         """
-        Sets a new suffix (e.g. -dev, -rc.1) on the version.
+        Set a new suffix (e.g. -dev, -rc.1) on the version.
 
         Args:
             suffix: Suffix string to apply or None to clear it.
+
         """
 
         logger.info(f"Setting suffix: {self.suffix} -> {suffix}")
-        
+
         self.suffix = suffix
 
     def remove_suffix(self) -> None:
-        """Removes the suffix from the version object."""
+        """Remove the suffix from the version object."""
 
         logger.info(f"Removing suffix: {self.suffix}")
 
         self.suffix = None
 
     def __str__(self) -> str:
-        """Returns the version string in the format 'major.minor.patch' or 'major.minor.patch-suffix'."""
+        """Return the version string in the format 'major.minor.patch' or 'major.minor.patch-suffix'."""
 
         version = f"{self.major}.{self.minor}.{self.patch}"
         if self.suffix:
@@ -239,7 +245,7 @@ class Version:
         return f"{version}"
 
     def format_full_line(self) -> str:
-        """Returns the full version string, including title, prefix, and quotes if present."""
+        """Return the full version string, including title, prefix, and quotes if present."""
 
         version = f"{self.prefix or ''}{self}"
         version = f"{self.quote or ''}{version}{self.quote or ''}"
