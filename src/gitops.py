@@ -277,7 +277,7 @@ class GitOps:
 
             if label:
                 try:
-                    new_pr.add_to_labels(labels=label)
+                    new_pr.add_to_labels(label)
 
                     logger.info(f"Label '{label}' added to PR #{new_pr.number}.")
 
