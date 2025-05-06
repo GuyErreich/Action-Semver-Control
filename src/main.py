@@ -7,7 +7,7 @@ based on CI/CD context and branch strategy (e.g., single-branch release workflow
 
 import argparse
 
-from src.actionops import extract_branch_from_event, extract_commit_from_event
+from src.actionops import GitHubEvent
 from src.changelog import update_changelog
 from src.config import Config
 from src.gitops import GitOps
@@ -69,8 +69,9 @@ def main() -> None:
     # Fallback to GitHub event context if no branch is passed
     if not current_branch:
         logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
-        current_branch = extract_branch_from_event()
-        current_commit_sha = extract_commit_from_event()
+        event = GitHubEvent()
+        current_branch = event.get_source_branch_name()
+        current_commit_sha = event.get_source_commit_sha()
 
     logger.info(f"Branch name: {current_branch}")
 
