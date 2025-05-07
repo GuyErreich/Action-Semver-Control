@@ -8,7 +8,7 @@ based on CI/CD context and branch strategy (e.g., single-branch release workflow
 import argparse
 
 from src.actionops import GitHubEvent
-from src.changelog import update_changelog
+from src.changelog import ChangelogManager
 from src.config import Config
 from src.gitops import GitOps
 from src.logger import setup_logger
@@ -21,17 +21,14 @@ def main() -> None:
     Automating semantic versioning and release processes.
 
     This script performs the following tasks:
-    1. Parses command-line arguments for branch name, target branch, GitHub token, repository name,
-       and debug mode.
-    2. Sets up logging and configuration.
-    3. Extracts the branch name if not provided explicitly.
-    4. Reads the current version from a `version.txt` file or initializes it with a default start version.
-    5. Bumps the version based on the branch name and applies a suffix based on the target branch.
-    6. Updates version information in specified files.
-    7. Handles branch strategies (e.g., closing old release PRs for single-branch strategies).
-    8. Creates a new release branch and commits changes.
-    9. Updates the changelog with recent commits.
-    10. Pushes the release branch and creates a pull request for merging into the target branch.
+        1. Parse CLI args
+        2. Setup logging/config
+        3. Determine branch + SHA from GitHub if missing
+        4. Bump version + set suffix
+        5. Update version files
+        6. Create release branch + commit changes
+        7. Update changelog
+        8. Push branch + open PR
 
     Command-line Arguments:
     - `--branch-name`: Name of the branch triggering the release process.
@@ -61,6 +58,7 @@ def main() -> None:
 
     logger = setup_logger(args.debug)
     config = Config()
+    changelog = ChangelogManager.from_config(config)
     gitops = GitOps(ensure_safe=True)
 
     current_branch: str = args.branch_name
@@ -101,7 +99,8 @@ def main() -> None:
     gitops.add(config.get_files_to_update())
 
     commit_messages = gitops.get_recent_commits(current_commit_sha)
-    update_changelog(new_version, commit_messages)
+    changelog.update(version=new_version, messages=commit_messages)
+
     gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
 
     gitops.commit(f"Release {new_version}")
