@@ -9,3 +9,19 @@ branch_strategy: "single"  # "single" or "multi"
 
 files_to_update:
   - "version.txt"
+changlog:
+  file: "CHANGELOG.md"
+  truncate: true
+  template: |
+    ## [{{version}}] - {{date}}
+    - {{message}}
+
+  # Optional: Specify a custom changelog header
+  header: |
+    # Changelog
+    All notable changes to this project will be documented in this file.
+
+  # Optional: Specify a custom changelog footer
+  footer: |
+    ## License
+    This project is licensed under the MIT License.
