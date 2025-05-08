@@ -187,20 +187,35 @@ class GitOps:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {e}")
             raise
 
-    def close_existing_prs_for_branch(
-        self, *, github_token: str, repo_full_name: str, branch_name: str
+    def close_old_release_prs(
+        self,
+        *,
+        github_token: str,
+        repo_full_name: str,
+        target_branch: str,
+        labels: list[str] | None = None,
     ) -> None:
         """
-        Close all open pull requests that originate from the specified branch.
+        Close open PRs.
+
+        This method checks for open pull requests in the specified GitHub repository 
+        that are targeting the specified branch. It closes any open pull requests
+        that match the specified labels and are based on branches starting with "release/".
+        This is useful for cleaning up old pull requests before creating a new one.
 
         Args:
-            github_token (str): GitHub API token.
-            repo_full_name (str): Repository name in "owner/repo" format.
-            branch_name (str): The branch name used as PR source.
+            github_token: GitHub access token.
+            repo_full_name: The repository name (e.g., "owner/repo").
+            target_branch: The target branch (e.g., 'dev' or 'main').
+            labels: Optional list of label names to match.
+
+    
+        Raises:
+            GithubException: If there is an error with the GitHub API.
 
         """
 
-        logger.info(f"Checking for existing PRs for head branch: {branch_name}")
+        logger.info(f"Checking for existing PRs for target branch: {target_branch}")
 
         gh = Github(login_or_token=github_token)
 
@@ -209,8 +224,16 @@ class GitOps:
             open_prs = repo.get_pulls(state="open")
 
             for pr in open_prs:
-                if pr.head.ref == branch_name:
-                    logger.info(f"Closing PR #{pr.number} from branch '{branch_name}'")
+                head_ref: str = pr.head.ref
+                base_ref: str = pr.base.ref
+                pr_labels: list[str] = [label.name for label in pr.labels]
+            
+                if (
+                    head_ref.startswith("release/")
+                    and base_ref == target_branch
+                    and (not labels or any(label in pr_labels for label in labels))
+                ):
+                    logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
                     pr.edit(state="closed")
 
         except GithubException as e:

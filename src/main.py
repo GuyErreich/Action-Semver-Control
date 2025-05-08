@@ -110,10 +110,11 @@ def main() -> None:
 
     if branch_strategy == "single":
         logger.info("Closing old release PRs (branch_strategy=single)...")
-        gitops.close_existing_prs_for_branch(
-            repo_full_name=args.repo_full_name,
-            branch_name=release_branch_name,
+        gitops.close_old_release_prs(
             github_token=args.github_token,
+            repo_full_name=args.repo_full_name,
+            target_branch=args.target_branch,
+            labels=config.get_pr_labels(),
         )
 
     gitops.create_pr(
