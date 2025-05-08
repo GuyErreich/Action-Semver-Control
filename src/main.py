@@ -13,7 +13,7 @@ from src.config import Config
 from src.gitops import GitOps
 from src.logger import setup_logger
 from src.version import Version
-from src.version_updater import update_version_in_file
+from src.version_updater import VersionFileUpdater
 
 
 def main() -> None:
@@ -89,8 +89,8 @@ def main() -> None:
 
     logger.info(f"New version: {new_version}")
 
-    for file_path in config.get_files_to_update():
-        update_version_in_file(file_path=file_path, new_version_obj=version)
+    for path in config.get_files_to_update():
+        VersionFileUpdater(file_path=path, version=version).update()
 
     release_branch_name = f"release/{new_version}"
     branch_strategy = config.get_branch_strategy()
