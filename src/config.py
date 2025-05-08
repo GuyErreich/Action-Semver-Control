@@ -89,13 +89,17 @@ class Config:
             KeyError: If the key is not found and no default value is provided.
 
         """
+        logger.debug(f"Accessing config key path: {' -> '.join(keys)}")
+        
         try:
             value = self._config
             for key in keys:
                 value = value[key]
+            logger.debug(f"Found value for key path {' -> '.join(keys)}: {value}")
             return value
         except KeyError:
             if default is not None:
+                logger.warning(f"Key path {' -> '.join(keys)} not found. Using default: {default}")
                 return default
             logger.error(f"Missing key in config: {' -> '.join(keys)}")
             raise
