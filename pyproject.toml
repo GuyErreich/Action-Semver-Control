@@ -29,9 +29,10 @@ select = [
   "PL",   # pylint
 ]
 ignore = [
-  "D202",  # No blank lines after function docstring
-  "D211",  # 1 blank line required before class docstring
-  "D212",  # Multi-line docstring summary should start at the first line
+  "D202",     # No blank lines after function docstring
+  "D211",     # 1 blank line required before class docstring
+  "D212",     # Multi-line docstring summary should start at the first line
+  "D104",     # Missing docstring in public module
   "PLR0913",  # Too many arguments
 ]
 

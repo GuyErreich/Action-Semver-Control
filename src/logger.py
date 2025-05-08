@@ -1,3 +1,16 @@
+"""
+Logger configuration module.
+
+This module provides a function to set up a logger with a specified logging level and format.
+It allows for easy debugging and tracking of events in the application.
+The logger can be configured to display detailed debug information or a more concise info format.
+
+Typical use case::
+    logger = setup_logger(debug=True)
+    logger.info("This is an info message.")
+    logger.debug("This is a debug message.")
+"""
+
 import logging
 import sys
 
