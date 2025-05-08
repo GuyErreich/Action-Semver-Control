@@ -11,7 +11,7 @@ Typical usage::
     start_version = config.get_start_version()
     suffix = config.get_suffix("main")
     branch_strategy = config.get_branch_strategy()
-    label = config.get_label()
+    label = config.get_pr_labels()
     changelog_file = config.get_changelog_file()
     should_truncate_changelog = config.should_truncate_changelog()
     changelog_template = config.get_changelog_template()
@@ -90,7 +90,7 @@ class Config:
 
         """
         logger.debug(f"Accessing config key path: {' -> '.join(keys)}")
-        
+
         try:
             value = self._config
             for key in keys:
@@ -120,7 +120,7 @@ class Config:
         """Get the branch strategy for versioning."""
         return str(self._get("branch_strategy", default="single"))
 
-    def get_label(self) -> list[str]:
+    def get_pr_labels(self) -> list[str]:
         """Get the labels to add to the pull request."""
         return list[str](self._get("pull_request", "labels", default=["semver-bump"]))
 
