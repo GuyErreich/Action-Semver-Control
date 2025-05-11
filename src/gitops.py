@@ -387,7 +387,8 @@ class GitOps:
 
                 try:
                     blob = self.repo.git.show(f"{branch_name}:{SemverLock.FILE_NAME}")
-                    lock = SemverLock.from_dict(yaml.safe_load(blob))
+                    lock = SemverLock.load_from_file(blob)
+                    logger.debug(f"Loaded lockfile from {branch_name}: {lock}")
 
                     if target_branch and lock.target_branch != target_branch:
                         logger.debug(f"Skipping lockfile on {branch_name} for target branch {target_branch}.")

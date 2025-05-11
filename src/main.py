@@ -14,6 +14,7 @@ from src.gitops import GitOps
 from src.logger import setup_logger
 from src.version import Version
 from src.version_updater import VersionFileUpdater
+from semver_lock import SemverLock
 
 
 def main() -> None:
@@ -57,7 +58,7 @@ def main() -> None:
     args = parser.parse_args()
 
     logger = setup_logger(args.debug)
-    config = Config()
+    config = Config() # TODO: make it a data class
     changelog = ChangelogManager.from_config(config)
     gitops = GitOps(ensure_safe=True)
 
@@ -106,10 +107,19 @@ def main() -> None:
     gitops.create_branch(branch_name=release_branch_name, force=(branch_strategy == "single"))
     gitops.add(config.get_files_to_update())
 
+    # Update the lockfile with the new version
+    lockfile = SemverLock(
+        version=version,
+        source_branch=current_branch,
+        target_branch=target_branch,
+    ).save_to_file()
+
+    gitops.add([lockfile.FILE_NAME])
+
     commit_messages = gitops.get_recent_commits(current_commit_sha)
     changelog.update(version=new_version, messages=commit_messages)
 
-    gitops.add(["CHANGELOG.md"])  # TODO: make sure the changelog is a class and hold this param
+    gitops.add([changelog.path])  # TODO: make sure the changelog is a class and hold this param
 
     gitops.commit(f"Release {new_version}")
     gitops.push(branch_name=release_branch_name, force=(branch_strategy == "single"))
