@@ -92,6 +92,8 @@ class ChangelogManager:
             IOError: If writing to the changelog file fails.
 
         """
+        logger.info("Updating changelog file.")
+
         if not messages:
             logger.warning("No commit messages provided. Adding default message.")
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
@@ -103,7 +105,8 @@ class ChangelogManager:
             message=formatted_message,
         )
 
-        logger.info("Updating changelog file.")
+        logger.debug(f"Rendered template: {rendered}")
+
         if not self.path.exists():
             logger.warning("Changelog file not found. Creating a new file.")
             content = self._compose_new_changelog(rendered)
