@@ -14,7 +14,7 @@ Typical usage::
 import datetime
 import logging
 from pathlib import Path
-from string import Template
+from jinja2 import Template
 
 from src.config import Config
 
@@ -99,10 +99,11 @@ class ChangelogManager:
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
         formatted_message: str = "\n".join(f"- {msg}" for msg in messages)
-        rendered: str = Template(self.template).substitute(
+        template: Template = Template(self.template)
+        rendered: str = template.render(
             version=version,
-            date=datetime.date.today().isoformat(),
-            message=formatted_message,
+            date=datetime.date.today().strftime("%d-%m-%Y"),
+            message=formatted_message
         )
 
         logger.debug(f"Rendered template: {rendered}")
@@ -114,6 +115,8 @@ class ChangelogManager:
             with open(self.path, encoding="utf-8") as f:
                 existing = f.read().strip()
             content = self._compose_updated_changelog(existing=existing, rendered=rendered)
+
+        logger.debug(f"Final file content: {content}")
 
         with open(self.path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -146,6 +149,7 @@ class ChangelogManager:
 
         """
         if self.truncate:
+            logger.debug("Truncating the file")
             return self._compose_new_changelog(rendered)
 
         parts = [self.header.strip(), rendered.strip(), existing.strip(), self.footer.strip()]
