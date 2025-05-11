@@ -25,7 +25,7 @@ from typing import Any, cast
 
 import yaml
 
-from version import Version
+from src.version import Version
 
 logger = logging.getLogger(__name__)
 
