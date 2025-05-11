@@ -18,11 +18,11 @@ FILE_NAME: Path = Path(".semver.lock")
 
 @dataclass
 class SemverLock:
-    _path: Path = FILE_NAME
     version: Version
     source_branch: str
     target_branch: str
     finalized: bool = False
+    _path: Path = FILE_NAME
 
     @classmethod
     def load_from_file(cls) -> 'SemverLock':
