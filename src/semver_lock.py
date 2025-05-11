@@ -1,20 +1,22 @@
 """
-semver_lock.py
+semver_lock.py.
 
 Defines SemverLock, a utility class for reading and writing .semver.lock metadata files.
 These lockfiles live on release branches and track bump state to avoid version regressions.
 """
 
 import logging
-import yaml
 from dataclasses import dataclass
-from pathlib import Path
+from typing import Any
+
+import yaml
+
 from src.version import Version
 
 logger = logging.getLogger(__name__)
 
 
-FILE_NAME: Path = Path(".semver.lock")
+FILE_NAME: str = ".semver.lock"
 
 @dataclass
 class SemverLock:
@@ -22,7 +24,7 @@ class SemverLock:
     source_branch: str
     target_branch: str
     finalized: bool = False
-    path: Path = FILE_NAME
+    path: str = FILE_NAME
 
     @classmethod
     def load_from_file(cls) -> 'SemverLock':
@@ -30,7 +32,7 @@ class SemverLock:
         logger.info("Loading lockfile from: %s", FILE_NAME)
         
         try:
-            with open(FILE_NAME, "r", encoding="utf-8") as f:
+            with open(FILE_NAME, encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
             return cls.from_dict(raw)
         except Exception as e:
@@ -38,7 +40,7 @@ class SemverLock:
             raise
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'SemverLock':
+    def from_dict(cls, data: dict[str, Any]) -> 'SemverLock':
         """Build a SemverLock instance from a parsed dict."""
         return cls(
             version=Version.parse(data["version"]),
@@ -47,7 +49,7 @@ class SemverLock:
             finalized=data.get("finalized", False),
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert this object to a dict for YAML serialization."""
         return {
             "version": str(self.version),
