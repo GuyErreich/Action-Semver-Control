@@ -59,9 +59,9 @@ class SemverLock:
     def save_to_file(self) -> None:
         """Write this lockfile to disk."""
         try:
-            with open(self.path, "w", encoding="utf-8") as f:
+            with open(self._path, "w", encoding="utf-8") as f:
                 yaml.dump(self.to_dict(), f, default_flow_style=False)
-            logger.info("Saved lockfile to: %s", self.path)
+            logger.info("Saved lockfile to: %s", self._path)
         except Exception as e:
             logger.error("Failed to write lockfile: %s", e)
             raise
