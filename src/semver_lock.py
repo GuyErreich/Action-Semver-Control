@@ -29,14 +29,14 @@ class SemverLock:
     @classmethod
     def load_from_file(cls) -> 'SemverLock':
         """Load and parse a .semver.lock file from disk."""
-        logger.info("Loading lockfile from: %s", FILE_NAME)
+        logger.info(f"Loading lockfile from: {FILE_NAME}")
         
         try:
             with open(FILE_NAME, encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
             return cls.from_dict(raw)
-        except Exception as e:
-            logger.error("Failed to load lockfile at %s: %s", FILE_NAME, e)
+        except Exception as err:
+            logger.error(f"Failed to load lockfile at {FILE_NAME}: {err}")
             raise
 
     @classmethod
@@ -62,8 +62,8 @@ class SemverLock:
         """Write this lockfile to disk."""
         try:
             with open(self.path, "w", encoding="utf-8") as f:
-                yaml.dump(self.to_dict(), f, default_flow_style=False)
-            logger.info("Saved lockfile to: %s", self.path)
-        except Exception as e:
-            logger.error("Failed to write lockfile: %s", e)
+                yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
+            logger.info(f"Saved lockfile to: {self.path}")
+        except Exception as err:
+            logger.error(f"Failed to write lockfile: {err}")
             raise
