@@ -281,3 +281,21 @@ class Version:
         self.minor = other.minor
         self.patch = other.patch
         self.suffix = other.suffix
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return (
+            self.major == other.major and
+            self.minor == other.minor and
+            self.patch == other.patch and
+            self.suffix == other.suffix
+        )
+
+    def __lt__(self, other: "Version") -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return (
+            (self.major, self.minor, self.patch) <
+            (other.major, other.minor, other.patch)
+        )

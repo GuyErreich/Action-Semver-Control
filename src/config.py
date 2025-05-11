@@ -25,6 +25,8 @@ from typing import Any, cast
 
 import yaml
 
+from version import Version
+
 logger = logging.getLogger(__name__)
 
 CONFIG_FILE: str = "auto_semver_config.yml"
@@ -108,9 +110,9 @@ class Config:
         """Get the list of files to update with the new version."""
         return list[str](self._get("version_files", default=["version.txt"]))
 
-    def get_start_version(self) -> str:
+    def get_start_version(self) -> Version:
         """Get the starting version for the versioning process."""
-        return str(self._get("start_version", default="0.1.0"))
+        return Version.parse(self._get("start_version", default="0.1.0"))
 
     def get_suffix(self, target_branch: str) -> str:
         """Get the suffix for the specified target branch."""
