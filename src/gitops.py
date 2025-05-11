@@ -32,7 +32,7 @@ from github.Repository import Repository
 import yaml
 
 from semver_lock import SemverLock
-from version import Version
+from src.version import Version
 
 logger = logging.getLogger(__name__)
 
