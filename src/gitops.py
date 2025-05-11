@@ -29,6 +29,10 @@ from github import Github
 from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
+import yaml
+
+from semver_lock import SemverLock
+from version import Version
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,6 @@ class GitOps:
 
     Attributes:
         repo (Repo): The Git repository object from GitPython.
-
     """
 
     def __init__(self, *, repo_path: str = ".", ensure_safe: bool = False) -> None:
@@ -139,8 +142,8 @@ class GitOps:
 
                 logger.debug(f"Added {file_path} to git.")
 
-            except GitCommandError as e:
-                logger.error(f"Failed to add {file_path} to git: {e}")
+            except GitCommandError as err:
+                logger.error(f"Failed to add {file_path} to git: {err}")
                 raise
 
     def commit(self, message: str) -> None:
@@ -160,8 +163,8 @@ class GitOps:
 
             logger.info("Committed changes.")
 
-        except GitCommandError as e:
-            logger.error(f"Failed to commit changes: {e}")
+        except GitCommandError as err:
+            logger.error(f"Failed to commit changes: {err}")
             raise
 
     def push(self, *, branch_name: str, remote_name: str = "origin", force: bool = False) -> None:
@@ -183,8 +186,8 @@ class GitOps:
 
             logger.debug(f"Push result: {push_info}")
 
-        except GitCommandError as e:
-            logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {e}")
+        except GitCommandError as err:
+            logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {err}")
             raise
 
     def close_old_release_prs(
@@ -236,8 +239,8 @@ class GitOps:
                     logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
                     pr.edit(state="closed")
 
-        except GithubException as e:
-            logger.error(f"GitHub API error while closing PRs: {e}")
+        except GithubException as err:
+            logger.error(f"GitHub API error while closing PRs: {err}")
             raise
 
     def create_pr(
@@ -296,8 +299,8 @@ class GitOps:
 
                     logger.info(f"Label '{label}' added to PR #{new_pr.number}.")
 
-                except GithubException as e:
-                    logger.error(f"Failed to add label '{label}' to PR #{new_pr.number}: {e}")
+                except GithubException as err:
+                    logger.error(f"Failed to add label '{label}' to PR #{new_pr.number}: {err}")
 
                     raise
 
@@ -305,8 +308,8 @@ class GitOps:
 
             return new_pr.number
 
-        except GithubException as e:
-            logger.error(f"GitHub API error during PR creation: {e}")
+        except GithubException as err:
+            logger.error(f"GitHub API error during PR creation: {err}")
 
             raise
 
@@ -333,11 +336,11 @@ class GitOps:
             # Check if SHA exists locally
             self.repo.git.rev_parse(commit_sha)
         except GitCommandError:
-            logger.warning("SHA %s not found locally. Attempting to fetch...", commit_sha)
+            logger.warning(f"SHA {commit_sha} not found locally. Attempting to fetch...")
             try:
                 self.repo.git.fetch("origin", commit_sha, "--depth=1")
             except GitCommandError as fetch_err:
-                logger.error("Failed to fetch missing SHA '%s': %s", commit_sha, fetch_err)
+                logger.error(f"Failed to fetch missing SHA '{commit_sha}': {fetch_err}")
                 raise RuntimeError(f"Failed to fetch SHA {commit_sha}: {fetch_err}") from fetch_err
 
         try:
@@ -351,7 +354,58 @@ class GitOps:
 
             return messages
 
-        except GitCommandError as e:
-            logger.error("Failed to fetch recent commits: %s", e)
+        except GitCommandError as err:
+            logger.error(f"Failed to fetch recent commits: {err}")
 
-            raise RuntimeError(f"Failed to fetch recent commits: {e}") from e
+            raise RuntimeError(f"Failed to fetch recent commits: {err}") from err
+
+    def get_highest_release_lock_version_for_target(self, target_branch: str | None = None) -> Version | None:
+        """
+        Scans all release/* branches, loads .semver.lock from each,
+        and returns the highest declared version.
+
+        Args:
+            target_branch (str): The target branch to check against.
+
+        Returns:
+            The highest Version object found, or None if none found.
+        """
+        highest: Version | None = None
+        origin = self.repo.remotes.origin
+
+        try:
+            logger.info("Fetching all remote branches...")
+            origin.fetch(prune=True)
+
+            for ref in origin.refs:
+                if not ref.name.startswith("origin/release/") or ref.name != f"origin/{target_branch}":
+                    logger.debug(f"Skipping branch {ref.name}.")
+                    continue
+
+                branch_name = ref.name.removeprefix("origin/")
+                logger.debug(f"Checking branch for lockfile: {branch_name}")
+
+                try:
+                    blob = self.repo.git.show(f"{branch_name}:{SemverLock.FILE_NAME}")
+                    lock = SemverLock.from_dict(yaml.safe_load(blob))
+
+                    if target_branch and lock.target_branch != target_branch:
+                        logger.debug(f"Skipping lockfile on {branch_name} for target branch {target_branch}.")
+                        continue
+
+                    logger.debug(f"Found lock version {lock.version} on {branch_name}")
+
+                    if highest is None:
+                        highest = lock.version
+                        logger.debug(f"First lockfile found: {highest}")
+                    else:
+                        highest = max(highest, lock.version)
+                        logger.debug(f"New highest version: {highest}")
+                except Exception as err:
+                    logger.warning(f"No lockfile in {branch_name}: {err}")
+
+            return highest
+
+        except Exception as err:
+            logger.error(f"Failed to scan remote release branches: {err}")
+            return None

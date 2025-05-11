@@ -63,6 +63,7 @@ def main() -> None:
 
     current_branch: str = args.branch_name
     current_commit_sha: str = ""
+    target_branch: str = args.target_branch
 
     # Fallback to GitHub event context if no branch is passed
     if not current_branch:
@@ -71,17 +72,24 @@ def main() -> None:
         current_branch = event.get_source_branch_name()
         current_commit_sha = event.get_source_commit_sha()
 
+    if not target_branch:
+        logger.info("Target branch not provided. Extracting from GITHUB_EVENT_PATH...")
+        target_branch = event.get_target_branch_name()
+
     logger.info(f"Branch name: {current_branch}")
 
-    try:
-        with open("version.txt") as f:
-            current_version_line = f.read().strip()
-    except FileNotFoundError:
-        current_version_line = config.get_start_version()
+    version = gitops.get_highest_release_lock_version_for_target(target_branch)
 
-    logger.info(f"Current version: {current_version_line}")
+    if not version:
+        try:
+            with open("version.txt") as f:
+                current_version_line = f.read().strip()
+                version = Version.parse(current_version_line)
+        except FileNotFoundError:
+            version = config.get_start_version()
 
-    version = Version.parse(current_version_line)
+    logger.info(f"Current version: {version}")
+
     version.bump(branch_name=current_branch)
     suffix: str = config.get_suffix(args.target_branch)
     version.set_suffix(suffix=suffix)
