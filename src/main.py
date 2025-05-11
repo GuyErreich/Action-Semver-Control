@@ -12,9 +12,9 @@ from src.changelog import ChangelogManager
 from src.config import Config
 from src.gitops import GitOps
 from src.logger import setup_logger
+from src.semver_lock import SemverLock
 from src.version import Version
 from src.version_updater import VersionFileUpdater
-from src.semver_lock import SemverLock
 
 
 def main() -> None:
@@ -112,8 +112,8 @@ def main() -> None:
         version=version,
         source_branch=current_branch,
         target_branch=target_branch,
-    ).save_to_file()
-
+    )
+    lockfile.save_to_file()
     gitops.add([lockfile.path])
 
     commit_messages = gitops.get_recent_commits(current_commit_sha)

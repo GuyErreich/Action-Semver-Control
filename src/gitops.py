@@ -22,6 +22,7 @@ Typical usage example::
 """
 
 import logging
+from pathlib import Path
 
 from git import Commit, GitCommandError, Head, Repo
 from git.remote import Remote
@@ -44,6 +45,7 @@ class GitOps:
 
     Attributes:
         repo (Repo): The Git repository object from GitPython.
+
     """
 
     def __init__(self, *, repo_path: str = ".", ensure_safe: bool = False) -> None:
@@ -120,7 +122,7 @@ class GitOps:
         new_branch: Head = self.repo.create_head(path=branch_name)
         new_branch.checkout()
 
-    def add(self, files: list[str]) -> None:
+    def add(self, files: list[str] | list[Path] | list[str | Path]) -> None:
         """
         Stage the specified files for commit.
 
@@ -128,6 +130,7 @@ class GitOps:
             files (list[str]): List of file paths to add to the Git index.
 
         """
+        files = [str(f) for f in files]
 
         logger.info(f"Adding files: {files}")
 
@@ -361,14 +364,14 @@ class GitOps:
 
     def get_highest_release_lock_version_for_target(self, target_branch: str | None = None) -> Version | None:
         """
-        Scans all release/* branches, loads .semver.lock from each,
-        and returns the highest declared version.
+        Scan all release/* branches, for lockfile.
 
         Args:
             target_branch (str): The target branch to check against.
 
         Returns:
             The highest Version object found, or None if none found.
+
         """
         highest: Version | None = None
         origin = self.repo.remotes.origin
@@ -386,8 +389,8 @@ class GitOps:
                 logger.debug(f"Checking branch for lockfile: {branch_name}")
 
                 try:
-                    blob = self.repo.git.show(f"{branch_name}:{SemverLock.FILE_NAME}")
-                    lock = SemverLock.load_from_file(blob)
+                    blob = self.repo.git.show(f"{branch_name}:{SemverLock.path}")
+                    lock = SemverLock.from_dict(yaml.safe_load(blob))
                     logger.debug(f"Loaded lockfile from {branch_name}: {lock}")
 
                     if target_branch and lock.target_branch != target_branch:
