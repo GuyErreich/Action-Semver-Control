@@ -114,7 +114,7 @@ def main() -> None:
         target_branch=target_branch,
     ).save_to_file()
 
-    gitops.add([lockfile.FILE_NAME])
+    gitops.add([lockfile.path])
 
     commit_messages = gitops.get_recent_commits(current_commit_sha)
     changelog.update(version=new_version, messages=commit_messages)
