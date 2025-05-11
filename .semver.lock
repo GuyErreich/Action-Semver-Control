@@ -1,0 +1,4 @@
+finalized: false
+source_branch: feature/lockfile
+target_branch: dev
+version: 0.2.0-dev
