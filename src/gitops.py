@@ -31,7 +31,7 @@ from github.PullRequest import PullRequest
 from github.Repository import Repository
 import yaml
 
-from semver_lock import SemverLock
+from src.semver_lock import SemverLock
 from src.version import Version
 
 logger = logging.getLogger(__name__)
