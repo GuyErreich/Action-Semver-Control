@@ -14,7 +14,7 @@ from src.version import Version
 logger = logging.getLogger(__name__)
 
 
-FILE_NAME: str = ".semver.lock"
+FILE_NAME: Path = Path(".semver.lock")
 
 @dataclass
 class SemverLock:
@@ -24,8 +24,11 @@ class SemverLock:
     finalized: bool = False
 
     @classmethod
-    def load_from_file(cls, path: str | Path) -> 'SemverLock':
+    def load_from_file(cls, path: str | Path = FILE_NAME) -> 'SemverLock':
         """Load and parse a .semver.lock file from disk."""
+        logger.info("Loading lockfile from: %s", path)
+        path = Path(path)
+        
         try:
             with open(path, "r", encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
@@ -53,9 +56,9 @@ class SemverLock:
             "finalized": self.finalized,
         }
 
-    def save_to_file(self, path: str | Path | None = None) -> None:
+    def save_to_file(self, path: str | Path = FILE_NAME) -> None:
         """Write this lockfile to disk."""
-        path = Path(path or self.FILE_NAME)
+        path = Path(path)
         try:
             with open(path, "w", encoding="utf-8") as f:
                 yaml.dump(self.to_dict(), f, default_flow_style=False)
