@@ -18,23 +18,23 @@ FILE_NAME: Path = Path(".semver.lock")
 
 @dataclass
 class SemverLock:
+    _path: Path = FILE_NAME
     version: Version
     source_branch: str
     target_branch: str
     finalized: bool = False
 
     @classmethod
-    def load_from_file(cls, path: str | Path = FILE_NAME) -> 'SemverLock':
+    def load_from_file(cls) -> 'SemverLock':
         """Load and parse a .semver.lock file from disk."""
-        logger.info("Loading lockfile from: %s", path)
-        path = Path(path)
+        logger.info("Loading lockfile from: %s", FILE_NAME)
         
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(FILE_NAME, "r", encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
             return cls.from_dict(raw)
         except Exception as e:
-            logger.error("Failed to load lockfile at %s: %s", path, e)
+            logger.error("Failed to load lockfile at %s: %s", FILE_NAME, e)
             raise
 
     @classmethod
@@ -56,13 +56,12 @@ class SemverLock:
             "finalized": self.finalized,
         }
 
-    def save_to_file(self, path: str | Path = FILE_NAME) -> None:
+    def save_to_file(self) -> None:
         """Write this lockfile to disk."""
-        path = Path(path)
         try:
-            with open(path, "w", encoding="utf-8") as f:
+            with open(self.path, "w", encoding="utf-8") as f:
                 yaml.dump(self.to_dict(), f, default_flow_style=False)
-            logger.info("Saved lockfile to: %s", path)
+            logger.info("Saved lockfile to: %s", self.path)
         except Exception as e:
             logger.error("Failed to write lockfile: %s", e)
             raise
