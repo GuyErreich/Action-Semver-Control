@@ -24,13 +24,13 @@ Typical usage example::
 import logging
 from pathlib import Path
 
+import yaml
 from git import Commit, GitCommandError, Head, Repo
 from git.remote import Remote
 from github import Github
 from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
-import yaml
 
 from src.semver_lock import SemverLock
 from src.version import Version
