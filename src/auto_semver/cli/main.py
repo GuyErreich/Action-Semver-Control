@@ -143,7 +143,3 @@ def main() -> None:
         github_token=args.github_token,
         label="semver-bump",
     )
-
-
-if __name__ == "__main__":
-    main()
