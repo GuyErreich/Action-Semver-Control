@@ -7,14 +7,14 @@ based on CI/CD context and branch strategy (e.g., single-branch release workflow
 
 import argparse
 
-from src.actionops import GitHubEvent
-from src.changelog import ChangelogManager
-from src.config import Config
-from src.gitops import GitOps
-from src.logger import setup_logger
-from src.semver_lock import SemverLock
-from src.version import Version
-from src.version_updater import VersionFileUpdater
+from auto_semver.gh import GitHubEvent
+from auto_semver.changelog import ChangelogManager
+from auto_semver.config import Config
+from auto_semver.git import GitOps
+from auto_semver.utils import setup_logger
+from auto_semver.semver import SemverLock
+from auto_semver.semver import Version
+from auto_semver.semver import VersionFileUpdater
 
 
 def main() -> None:

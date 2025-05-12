@@ -32,8 +32,8 @@ from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-from src.semver_lock import SemverLock
-from src.version import Version
+from auto_semver.semver import SemverLock
+from auto_semver.semver import Version
 
 logger = logging.getLogger(__name__)
 
