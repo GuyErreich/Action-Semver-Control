@@ -12,7 +12,7 @@ Typical use case:
 
 import logging
 
-from src.version import Version
+from auto_semver.semver import Version
 
 logger = logging.getLogger(__name__)
 

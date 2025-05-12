@@ -16,7 +16,7 @@ import logging
 from pathlib import Path
 from jinja2 import Template
 
-from src.config import Config
+from auto_semver.config import Config
 
 logger = logging.getLogger(__name__)
 
