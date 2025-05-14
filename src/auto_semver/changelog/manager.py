@@ -14,6 +14,7 @@ Typical usage::
 import datetime
 import logging
 from pathlib import Path
+
 from jinja2 import Template
 
 from auto_semver.config import Config
@@ -72,11 +73,11 @@ class ChangelogManager:
 
         """
         return cls(
-            path=config.get_changelog_file(),
-            truncate=config.should_truncate_changelog(),
-            template=config.get_changelog_template(),
-            header=config.get_changelog_header(),
-            footer=config.get_changelog_footer(),
+            path=config.data.changelog.file,
+            truncate=config.data.changelog.truncate,
+            template=config.data.changelog.template,
+            header=config.data.changelog.header or "",
+            footer=config.data.changelog.footer or "",
         )
 
 
@@ -98,12 +99,11 @@ class ChangelogManager:
             logger.warning("No commit messages provided. Adding default message.")
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
-        formatted_message: str = "\n".join(f"- {msg}" for msg in messages)
         template: Template = Template(self.template)
         rendered: str = template.render(
             version=version,
             date=datetime.date.today().strftime("%d-%m-%Y"),
-            message=formatted_message
+            messages=messages
         )
 
         logger.debug(f"Rendered template: {rendered}")
