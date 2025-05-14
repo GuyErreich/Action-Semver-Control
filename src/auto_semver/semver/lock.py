@@ -23,6 +23,7 @@ class SemverLock:
     version: Version
     source_branch: str
     target_branch: str
+    target_base_sha: str | None = None
     finalized: bool = False
     path: str = FILE_NAME
 
@@ -35,6 +36,9 @@ class SemverLock:
             with open(FILE_NAME, encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
             return cls.from_dict(raw)
+        except FileNotFoundError as err:
+            logger.error(f"Lockfile not found at: {FILE_NAME}")
+            raise
         except Exception as err:
             logger.error(f"Failed to load lockfile at {FILE_NAME}: {err}")
             raise
@@ -46,6 +50,7 @@ class SemverLock:
             version=Version.parse(data["version"]),
             source_branch=data["source_branch"],
             target_branch=data["target_branch"],
+            target_base_sha=data.get("target_base_sha"),
             finalized=data.get("finalized", False),
         )
 
@@ -55,6 +60,7 @@ class SemverLock:
             "version": str(self.version),
             "source_branch": self.source_branch,
             "target_branch": self.target_branch,
+            "target_base_sha": self.target_base_sha,
             "finalized": self.finalized,
         }
 

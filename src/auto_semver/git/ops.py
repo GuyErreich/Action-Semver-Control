@@ -252,9 +252,10 @@ class GitOps:
         github_token: str,
         repo_full_name: str,
         title: str,
+        body: str,
         source: str,
         target: str,
-        label: str | None = None,
+        labels: list[str] | None = None,
     ) -> int:
         """
         Create a pull request from the source branch to the target branch.
@@ -276,8 +277,10 @@ class GitOps:
         logger.debug("Creating PR with the following parameters:")
         logger.debug(f"  Repo: {repo_full_name}")
         logger.debug(f"  Title: {title}")
-        logger.debug(f"  Source (source): {source}")
-        logger.debug(f"  Target (target): {target}")
+        logger.debug(f"  Body: {body}")
+        logger.debug(f"  Source: {source}")
+        logger.debug(f"  Target: {target}")
+        logger.debug(f"  Labels: {labels}")
 
         gh = Github(login_or_token=github_token)
 
@@ -293,14 +296,15 @@ class GitOps:
                     return pr.number
 
             new_pr: PullRequest = repo.create_pull(
-                title=title, body="Auto-created PR by auto-semver.", head=source, base=target
+                title=title, body=body, head=source, base=target
             )
 
-            if label:
+            if labels:
                 try:
-                    new_pr.add_to_labels(label)
+                    new_pr.add_to_labels(*labels)
 
-                    logger.info(f"Label '{label}' added to PR #{new_pr.number}.")
+                    label_str = ", ".join(f"'{label}'" for label in labels)
+                    logger.info(f"Labels [{label_str}] added to PR #{new_pr.number}.")
 
                 except GithubException as err:
                     logger.error(f"Failed to add label '{label}' to PR #{new_pr.number}: {err}")

@@ -9,12 +9,29 @@ branch_strategy: "single"  # "single" or "multi"
 
 files_to_update:
   - "version.txt"
+  - "pyproject.toml"
+
+pull_request:
+  title: "Release {{version}}"
+  labels:
+    - "semver-bump"
+  body: |
+    ## Release Notes
+    - Version: {{version}}
+    - Date: {{date}}
+    - Changes:
+      {% for msg in messages %}
+      - {{ msg }}
+      {% endfor %}
+
 changlog:
   file: "CHANGELOG.md"
   truncate: true
   template: |
     ## [{{version}}] - {{date}}
-    - {{message}}
+    {% for msg in messages %}
+    - {{ msg }}
+    {% endfor %}
 
   # Optional: Specify a custom changelog header
   header: |

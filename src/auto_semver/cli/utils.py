@@ -1,0 +1,82 @@
+from difflib import unified_diff
+import logging
+import pprint
+import re
+from auto_semver.config import Config
+from auto_semver.gh import GitHubEvent
+from auto_semver.semver import SemverLock
+
+logger = logging.getLogger(__name__)
+
+def is_finalized(*, config: Config) -> bool:
+    logger.info("Checking if the merged PR matches the finalized state")
+
+    event = GitHubEvent()
+
+    title: str = event.get_title()
+    body: str = event.get_body()
+    labels: list[str] = event.get_labels()
+
+    semver_lock = SemverLock.load_from_file()
+    version: str = str(semver_lock.version)
+
+    expected_labels: list[str]  = config.data.pull_request.labels
+    expected_title: str = config.data.pull_request.render_title(version=version)
+    expected_body_template: str = config.data.pull_request.body
+
+    matched_body, parsed_vars = match_template(body, expected_body_template)
+
+    reasons = []
+
+    # Labels
+    missing_labels = set(expected_labels) - set(labels)
+    if missing_labels:
+        reasons.append(f"Missing labels: {sorted(missing_labels)}")
+        reasons.append(f"All PR labels: {sorted(labels)}")
+        reasons.append(f"Expected labels: {sorted(expected_labels)}")
+
+    # Title
+    if title != expected_title:
+        reasons.append("Title mismatch:")
+        reasons.append(f"Expected: {expected_title}")
+        reasons.append(f"Actual:   {title}")
+
+    # Body
+    if not matched_body:
+        reasons.append("Body template mismatch:")
+        reasons.append("Expected template:")
+        reasons.append(expected_body_template)
+        reasons.append("Actual PR body:")
+        reasons.append(body)
+        reasons.append(f"Parsed variables: {parsed_vars}")
+
+    if reasons:
+        logger.info("This is not a finalized process")
+        for reason in reasons:
+            logger.debug(reason)
+        return False
+    
+    logger.info("This is a finalized process")
+
+    return True
+
+def match_template(text: str, template_str: str) -> tuple[bool, dict[str, str]]:
+    """
+    Compare text with a Jinja-style template and extract variables if it matches.
+
+    Args:
+        text (str): Rendered text (e.g., "Version: 1.2.3-dev")
+        template_str (str): Jinja-style template (e.g., "Version: {{version}}")
+
+    Returns:
+        (bool, dict): Tuple of match status and extracted variables (if match).
+    """
+    # Convert the Jinja template into a regex pattern
+    regex = re.sub(r"\{\{\s*(\w+)\s*\}\}", r"(?P<\1>.+?)", template_str)
+    regex = f"^{regex}$"
+
+    match = re.match(regex, text)
+    if match:
+        return True, match.groupdict()
+    return False, {}
+

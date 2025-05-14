@@ -174,3 +174,20 @@ class GitHubEvent:
             raise RuntimeError("The pull request was closed but not merged.")
         
         return str(self._get([_PULL_REQUEST_KEY, "merge_commit_sha"]))
+    
+    def get_body(self) -> str:
+        return str(self._get([_PULL_REQUEST_KEY, "body"]))
+    
+    def get_title(self) -> str:
+        return str(self._get([_PULL_REQUEST_KEY, "title"]))
+    
+    def get_labels(self) -> list[str]:
+        labels: list[object] = self._get([_PULL_REQUEST_KEY, "labels"])
+
+        if not labels:
+            raise ValueError("No labels found")
+        
+
+        labels_str: list[str] = [label["name"] for label in labels]
+
+        return labels_str
