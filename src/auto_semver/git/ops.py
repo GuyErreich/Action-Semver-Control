@@ -32,8 +32,7 @@ from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-from auto_semver.semver import SemverLock
-from auto_semver.semver import Version
+from auto_semver.semver import SemverLock, Version
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +192,18 @@ class GitOps:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {err}")
             raise
 
+    def tag(self, *, tag: str, branch: str) -> None:
+        """
+        Create a new tag on the given branch.
+
+        Args:
+            tag (str): Tag name.
+            branch (str): Branch name.
+
+        """
+
+        self.repo.create_tag(path=tag, ref=branch, message="")
+
     def close_old_release_prs(
         self,
         *,
@@ -252,9 +263,10 @@ class GitOps:
         github_token: str,
         repo_full_name: str,
         title: str,
+        body: str,
         source: str,
         target: str,
-        label: str | None = None,
+        labels: list[str] | None = None,
     ) -> int:
         """
         Create a pull request from the source branch to the target branch.
@@ -263,9 +275,10 @@ class GitOps:
             github_token (str): GitHub API token.
             repo_full_name (str): Repository name in "owner/repo" format.
             title (str): Title for the PR.
+            body (str): Body for the PR content.
             source (str): Source branch.
             target (str): Target branch.
-            label (str | None): Optional label to add to the PR.
+            labels (str | None): Optional label to add to the PR.
                 If None, no label is added.
 
         Returns:
@@ -276,8 +289,10 @@ class GitOps:
         logger.debug("Creating PR with the following parameters:")
         logger.debug(f"  Repo: {repo_full_name}")
         logger.debug(f"  Title: {title}")
-        logger.debug(f"  Source (source): {source}")
-        logger.debug(f"  Target (target): {target}")
+        logger.debug(f"  Body: {body}")
+        logger.debug(f"  Source: {source}")
+        logger.debug(f"  Target: {target}")
+        logger.debug(f"  Labels: {labels}")
 
         gh = Github(login_or_token=github_token)
 
@@ -293,17 +308,18 @@ class GitOps:
                     return pr.number
 
             new_pr: PullRequest = repo.create_pull(
-                title=title, body="Auto-created PR by auto-semver.", head=source, base=target
+                title=title, body=body, head=source, base=target
             )
 
-            if label:
+            if labels:
                 try:
-                    new_pr.add_to_labels(label)
+                    new_pr.add_to_labels(*labels)
 
-                    logger.info(f"Label '{label}' added to PR #{new_pr.number}.")
+                    label_str = ", ".join(f"'{label}'" for label in labels)
+                    logger.info(f"Labels [{label_str}] added to PR #{new_pr.number}.")
 
                 except GithubException as err:
-                    logger.error(f"Failed to add label '{label}' to PR #{new_pr.number}: {err}")
+                    logger.error(f"Failed to add labels '{labels}' to PR #{new_pr.number}: {err}")
 
                     raise
 
