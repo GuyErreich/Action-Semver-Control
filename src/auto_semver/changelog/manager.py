@@ -14,6 +14,7 @@ Typical usage::
 import datetime
 import logging
 from pathlib import Path
+
 from jinja2 import Template
 
 from auto_semver.config import Config
@@ -75,8 +76,8 @@ class ChangelogManager:
             path=config.data.changelog.file,
             truncate=config.data.changelog.truncate,
             template=config.data.changelog.template,
-            header=config.data.changelog.header,
-            footer=config.data.changelog.footer,
+            header=config.data.changelog.header or "",
+            footer=config.data.changelog.footer or "",
         )
 
 

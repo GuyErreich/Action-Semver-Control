@@ -283,6 +283,7 @@ class Version:
         self.suffix = other.suffix
 
     def __eq__(self, other: object) -> bool:
+        """Check if the two given versions are equal."""
         if not isinstance(other, Version):
             return NotImplemented
         return (
@@ -293,6 +294,7 @@ class Version:
         )
 
     def __lt__(self, other: "Version") -> bool:
+        """Check if the the current instace of the version is smaller then the given version."""
         if not isinstance(other, Version):
             return NotImplemented
         return (

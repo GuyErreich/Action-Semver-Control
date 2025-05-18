@@ -1,1 +1,2 @@
+# noqa: D100
 DEFAULT_CHANGELOG: str = "CHANGELOG.md"

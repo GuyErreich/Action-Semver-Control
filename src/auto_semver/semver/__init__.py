@@ -1,5 +1,5 @@
-from .version import Version
-from .updater import VersionFileUpdater
 from .lock import SemverLock
+from .updater import VersionFileUpdater
+from .version import Version
 
-__all__ = ["Version", "VersionFileUpdater", "SemverLock"]
+__all__ = ["SemverLock", "Version", "VersionFileUpdater"]

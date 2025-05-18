@@ -18,8 +18,27 @@ logger = logging.getLogger(__name__)
 
 FILE_NAME: str = ".semver.lock"
 
+# TODO: improve docs
 @dataclass
 class SemverLock:
+
+    """
+    Represents the state of a semantic version bump in progress.
+
+    The lockfile captures the in-progress release metadata, including the version,
+    source and target branches, and the base SHA used to compute changelog entries.
+    This helps ensure consistency between the bump and finalize steps.
+
+    Attributes:
+        version (Version): The semantic version being prepared.
+        source_branch (str): The name of the branch where the release PR originated.
+        target_branch (str): The base branch the PR targets (e.g., `main` or `dev`).
+        target_base_sha (str | None): The SHA from which commit messages were collected.
+        finalized (bool): Whether the bump has been finalized (i.e., merged and tagged).
+        path (str): The file path of the lockfile on disk.
+
+    """
+
     version: Version
     source_branch: str
     target_branch: str
@@ -36,7 +55,7 @@ class SemverLock:
             with open(FILE_NAME, encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
             return cls.from_dict(raw)
-        except FileNotFoundError as err:
+        except FileNotFoundError:
             logger.error(f"Lockfile not found at: {FILE_NAME}")
             raise
         except Exception as err:

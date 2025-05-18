@@ -21,9 +21,10 @@ Typical usage::
 
 import logging
 import os
+from typing import Any
 
-from pydantic import ValidationError
 import yaml
+from pydantic import ValidationError
 
 from .data import ConfigData
 
@@ -63,7 +64,7 @@ class Config:
             raise FileNotFoundError(f"Configuration file '{self.path}' not found.")
 
         try:
-            with open(self.path, 'r', encoding='utf-8') as f:
+            with open(self.path, encoding='utf-8') as f:
                 raw_config = yaml.safe_load(f) or {}
             return ConfigData(**raw_config)
         except yaml.YAMLError as err:
@@ -73,5 +74,6 @@ class Config:
             logger.error(f"Configuration validation error: {e}")
             raise
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
+        """Use for returning the named property in data."""
         return getattr(self.data, item)

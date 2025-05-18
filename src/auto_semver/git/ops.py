@@ -32,8 +32,7 @@ from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
-from auto_semver.semver import SemverLock
-from auto_semver.semver import Version
+from auto_semver.semver import SemverLock, Version
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +192,18 @@ class GitOps:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {err}")
             raise
 
+    def tag(self, *, tag: str, branch: str) -> None:
+        """
+        Create a new tag on the given branch.
+
+        Args:
+            tag (str): Tag name.
+            branch (str): Branch name.
+
+        """
+
+        self.repo.create_tag(path=tag, ref=branch, message="")
+
     def close_old_release_prs(
         self,
         *,
@@ -264,9 +275,10 @@ class GitOps:
             github_token (str): GitHub API token.
             repo_full_name (str): Repository name in "owner/repo" format.
             title (str): Title for the PR.
+            body (str): Body for the PR content.
             source (str): Source branch.
             target (str): Target branch.
-            label (str | None): Optional label to add to the PR.
+            labels (str | None): Optional label to add to the PR.
                 If None, no label is added.
 
         Returns:
@@ -307,7 +319,7 @@ class GitOps:
                     logger.info(f"Labels [{label_str}] added to PR #{new_pr.number}.")
 
                 except GithubException as err:
-                    logger.error(f"Failed to add label '{label}' to PR #{new_pr.number}: {err}")
+                    logger.error(f"Failed to add labels '{labels}' to PR #{new_pr.number}: {err}")
 
                     raise
 
