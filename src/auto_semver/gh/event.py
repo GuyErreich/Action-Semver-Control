@@ -189,7 +189,6 @@ class GitHubEvent:
 
         if not labels:
             raise ValueError("No labels found")
-        
 
         labels_str: list[str] = [label["name"] for label in labels]
 
