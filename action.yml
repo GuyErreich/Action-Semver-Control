@@ -2,18 +2,18 @@ name: 'Auto Semver Bumper'
 description: 'Automatically bumps semver and opens a PR.'
 
 inputs:
-  branch-name:
-    required: false
-    description: 'Source branch name'
-  target-branch:
-    required: true
-    description: 'Target branch name'
+  # branch-name:
+  #   required: false
+  #   description: 'Source branch name'
+  # target-branch:
+  #   required: true
+  #   description: 'Target branch name'
   github-token:
     required: true
     description: 'GitHub Token (secrets.GITHUB_TOKEN or PAT)'
-  repo-full-name:
-    required: true
-    description: 'Owner/Repo name, e.g., user/repo'
+  # repo-full-name:
+  #   required: true
+  #   description: 'Owner/Repo name, e.g., user/repo'
   debug:
     required: false
     description: 'Enable debug mode'
@@ -22,8 +22,8 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
-    - --branch-name=${{ inputs.branch-name }}
-    - --target-branch=${{ inputs.target-branch }}
+    # - --branch-name=${{ inputs.branch-name }}
+    # - --target-branch=${{ inputs.target-branch }}
     - --github-token=${{ inputs.github-token }}
-    - --repo-full-name=${{ inputs.repo-full-name }}
+    # - --repo-full-name=${{ inputs.repo-full-name }}
     - ${{ inputs.debug && '--debug' }}

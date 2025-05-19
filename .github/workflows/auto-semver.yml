@@ -26,7 +26,7 @@ jobs:
     - name: Run Auto Semver Action
       uses: ./  # Local Docker action
       with:
-        target-branch: ${{ github.ref_name }}
+        # target-branch: ${{ github.ref_name }}
         github-token: ${{ secrets.GH_TOKEN }}
-        repo-full-name: ${{ github.repository }}
+        # repo-full-name: ${{ github.repository }}
         debug: true
