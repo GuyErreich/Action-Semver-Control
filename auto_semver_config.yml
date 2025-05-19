@@ -24,7 +24,7 @@ pull_request:
       - {{ msg }}
       {% endfor %}
 
-changlog:
+changelog:
   file: "CHANGELOG.md"
   truncate: true
   template: |
