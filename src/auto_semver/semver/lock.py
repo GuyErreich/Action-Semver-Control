@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from auto_semver.semver import Version
+from .version import Version
 
 logger = logging.getLogger(__name__)
 

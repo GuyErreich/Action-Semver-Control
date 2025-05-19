@@ -155,3 +155,12 @@ class ConfigData(BaseModel):
     model_config = {
         "arbitrary_types_allowed": True
     }
+
+    @field_validator("start_version", mode="before")
+    @classmethod
+    def validate_version(cls, value: str) -> Version:
+        try: 
+            return Version.parse(value)
+        except ValueError as err:
+            raise
+

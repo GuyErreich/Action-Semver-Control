@@ -12,7 +12,7 @@ Typical use case:
 
 import logging
 
-from auto_semver.semver import Version
+from .version import Version
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class VersionFileUpdater:
     It uses the Version object to intelligently detect and replace version lines.
     """
 
-    def __init__(self, *, file_path: str, version: Version) -> None:
+    def __init__(self, *, file_path: str, version: "Version") -> None:
         """
         Initialize the VersionFileUpdater with a file path and a new version.
 
