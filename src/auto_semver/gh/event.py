@@ -194,6 +194,17 @@ class GitHubEvent:
 
         return labels_str
     
+    def get_labels_safe(self) -> list[str]:
+        """
+        Return the PR labels safely.
+        
+        If no labels are found return an empty list.
+        """
+        try:
+            self.get_labels()
+        except ValueError:
+            return []
+    
     def get_repository(self) -> str:
         """Return the repository full name."""
         return str(self._get(["repository", "full_name"]))

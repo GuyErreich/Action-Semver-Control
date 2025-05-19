@@ -23,7 +23,7 @@ def is_finalized(*, config: Config, event: GitHubEvent) -> bool:
 
     title: str = event.get_title()
     body: str = event.get_body()
-    labels: list[str] = event.get_labels() or []
+    labels: list[str] = event.get_labels_safe()
 
     semver_lock = SemverLock.load_from_file()
     version: str = str(semver_lock.version)
