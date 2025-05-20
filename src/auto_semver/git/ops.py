@@ -397,7 +397,7 @@ class GitOps:
             origin.fetch(prune=True)
 
             for ref in origin.refs:
-                if not ref.name.startswith("origin/release/") or ref.name != f"origin/{target_branch}":
+                if not ref.name.startswith("origin/release/") and ref.name != f"origin/{target_branch}":
                     logger.debug(f"Skipping branch {ref.name}.")
                     continue
 

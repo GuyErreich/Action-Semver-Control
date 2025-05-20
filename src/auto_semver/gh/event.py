@@ -201,7 +201,7 @@ class GitHubEvent:
         If no labels are found return an empty list.
         """
         try:
-            self.get_labels()
+            return self.get_labels()
         except ValueError:
             return []
     
