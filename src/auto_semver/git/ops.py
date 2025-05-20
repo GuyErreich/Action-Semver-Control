@@ -192,17 +192,15 @@ class GitOps:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {err}")
             raise
 
-    def tag(self, *, tag: str, branch: str) -> None:
+    def tag(self, *, tag: str, branch: str) -> str:
         """
         Create a new tag on the given branch.
 
         Args:
             tag (str): Tag name.
             branch (str): Branch name.
-
         """
-
-        self.repo.create_tag(path=tag, ref=branch, message="")
+        return self.repo.create_tag(path=tag, ref=branch, message="").name
 
     def close_old_release_prs(
         self,
