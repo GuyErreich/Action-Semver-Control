@@ -401,19 +401,20 @@ class GitOps:
                     logger.debug(f"Skipping branch {ref.name}.")
                     continue
 
-                branch_name = ref.name.removeprefix("origin/")
-                logger.debug(f"Checking branch for lockfile: {branch_name}")
+                branch_name = ref.name
+                short_branch_name = branch_name.removeprefix("origin/")
+                logger.debug(f"Checking branch for lockfile: {short_branch_name}")
 
                 try:
                     blob = self.repo.git.show(f"{branch_name}:{SemverLock.path}")
                     lock = SemverLock.from_dict(yaml.safe_load(blob))
-                    logger.debug(f"Loaded lockfile from {branch_name}: {lock}")
+                    logger.debug(f"Loaded lockfile from {short_branch_name}: {lock}")
 
                     if target_branch and lock.target_branch != target_branch:
-                        logger.debug(f"Skipping lockfile on {branch_name} for target branch {target_branch}.")
+                        logger.debug(f"Skipping lockfile on {short_branch_name} for target branch {target_branch}.")
                         continue
 
-                    logger.debug(f"Found lock version {lock.version} on {branch_name}")
+                    logger.debug(f"Found lock version {lock.version} on {short_branch_name}")
 
                     if highest is None:
                         highest = lock.version
@@ -422,7 +423,7 @@ class GitOps:
                         highest = max(highest, lock.version)
                         logger.debug(f"New highest version: {highest}")
                 except Exception as err:
-                    logger.warning(f"No lockfile in {branch_name}: {err}")
+                    logger.warning(f"No lockfile in {short_branch_name}: {err}")
 
             return highest
 
