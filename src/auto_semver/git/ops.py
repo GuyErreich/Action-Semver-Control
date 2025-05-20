@@ -34,7 +34,7 @@ from github.Repository import Repository
 
 from auto_semver.semver import SemverLock, Version
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 
 class GitOps:

@@ -15,7 +15,7 @@ Typical usage example::
 import logging
 import re
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 _VERSION_PATTERN = re.compile(
     r"^(?P<title>[\w\-]+:\s*)?"

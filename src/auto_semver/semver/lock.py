@@ -13,7 +13,7 @@ import yaml
 
 from .version import Version
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 
 FILE_NAME: str = ".semver.lock"

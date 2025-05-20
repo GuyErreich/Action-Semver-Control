@@ -19,7 +19,7 @@ from jinja2 import Template
 
 from auto_semver.config import Config
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 
 _DEFAULT_COMMIT_PLACEHOLDER: str = "Miscellaneous changes"

@@ -17,7 +17,7 @@ import logging
 import os
 from typing import Any
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 _GITHUB_EVENT_PATH_ENV = "GITHUB_EVENT_PATH"
 _PULL_REQUEST_KEY = "pull_request"

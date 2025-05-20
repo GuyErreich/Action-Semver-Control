@@ -28,7 +28,7 @@ from pydantic import ValidationError
 
 from .data import ConfigData
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 CONFIG_FILE: str = "auto_semver_config.yml"
 
@@ -71,7 +71,12 @@ class Config:
             logger.error(f"Error parsing YAML configuration: {err}")
             raise
         except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
+            logger.error("Configuration validation failed.")
+            for err in e.errors():
+                loc = " -> ".join(str(i) for i in err["loc"])
+                msg = err["msg"]
+                typ = err["type"]
+                logger.error(f"Missing or invalid config field: {loc} | {msg} [{typ}]")
             raise
 
     def __getattr__(self, item: str) -> Any:
