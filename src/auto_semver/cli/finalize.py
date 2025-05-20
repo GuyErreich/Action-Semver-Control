@@ -37,4 +37,4 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config) -> None:
         raise ValueError(f"Tagging not allowed on branch '{target_branch}'.")
 
     tag = gitops.tag(tag=str(version), branch=target_branch)
-    gitops.push(tag)
+    gitops.push(branch_name=tag)
