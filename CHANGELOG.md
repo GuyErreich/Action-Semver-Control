@@ -1,7 +1,9 @@
-## [{{version}}] - {{date}}
-- {{message}}
-
 # Changelog
+All notable changes to this project will be documented in this file.
 
-## 0.1.1-dev
-- Fix
+## [0.2.2-dev] - 20-05-2025
+
+- Miscellaneous changes
+
+## License
+This project is licensed under the MIT License.
