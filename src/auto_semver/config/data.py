@@ -22,7 +22,7 @@ from jinja2 import Template, TemplateSyntaxError
 from pydantic import BaseModel, Field, field_validator
 
 from ..semver import Version
-from .constants import DEFAULT_CHANGELOG
+from .constants import DEFAULT_CHANGELOG, PR_HIDDEN_MARKER
 
 
 class PullRequestConfig(BaseModel):
@@ -75,6 +75,7 @@ class PullRequestConfig(BaseModel):
             Template(value)  # Check if it compiles
         except TemplateSyntaxError as err:
             raise ValueError(f"Invalid Jinja2 template: {err}") from err
+        
         return value
 
     def render_title(self, **kwargs: Any) -> str:
@@ -82,8 +83,9 @@ class PullRequestConfig(BaseModel):
         return Template(self.title).render(**kwargs)
 
     def render_body(self, **kwargs: Any) -> str:
-        """Return the body as a Jinja2 Template."""
-        return Template(self.body).render(**kwargs)
+        """Render the body template and silently append a hidden marker comment."""
+        rendered = Template(self.body).render(**kwargs)
+        return f"<!-- auto-semver:pr -->\n{rendered}"
 
 class ChangelogConfig(BaseModel):
 
