@@ -68,22 +68,19 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     release_branch_name = f"release/{new_version}"
     branch_strategy = config.data.branch_strategy
 
-
     # Update the lockfile with the new version
     try:
         lockfile = SemverLock.load_from_file()
+        lockfile.version = version
     except FileNotFoundError:
         lockfile = SemverLock(
             version=version,
             source_branch=current_branch,
             target_branch=target_branch
         )
-        lockfile.save_to_file()
 
-    latest_commit_sha: str | None = lockfile.target_base_sha
-    if not latest_commit_sha:
-        #TODO: maybe find away to catch correct base sha of the PR rather then using current one
-        latest_commit_sha=event.get_merged_commit_sha()
+    #TODO: maybe find away to catch correct base sha of the PR rather then using current one
+    latest_commit_sha = lockfile.target_base_sha or event.get_merged_commit_sha()
 
     commit_messages = gitops.get_recent_commits(latest_commit_sha)
     changelog.update(version=new_version, messages=commit_messages)
