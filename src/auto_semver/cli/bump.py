@@ -9,7 +9,7 @@ from auto_semver.semver import Version
 from auto_semver.semver.lock import SemverLock
 from auto_semver.semver.updater import VersionFileUpdater
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str) -> None:
     """

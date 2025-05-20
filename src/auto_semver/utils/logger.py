@@ -15,6 +15,15 @@ import logging
 import sys
 
 
+old_factory = logging.getLogRecordFactory()
+
+def record_factory(*args, **kwargs):
+    record = old_factory(*args, **kwargs)
+    record.full_name = f"{record.name}.{record.module}"
+    return record
+
+logging.setLogRecordFactory(record_factory)
+
 def setup_logger(debug: bool = False) -> logging.Logger:
     """
     Configure and returns a logger instance with a specified logging level and format.
@@ -33,11 +42,13 @@ def setup_logger(debug: bool = False) -> logging.Logger:
 
     handler = logging.StreamHandler(sys.stdout)
 
-    log_format_debug = "%(asctime)s | %(levelname)s | [%(funcName)s] %(message)s"
-    log_format_basic = "%(asctime)s | %(levelname)s | %(message)s"
+    # log_format_debug = "%(asctime)s | %(levelname)-5s | [%(name)s.%(funcName)s] %()-5s | %(message)s"
+    log_format_debug = "{asctime} | {levelname:^7} | [{full_name:^29}][{funcName:^26}] {message}"
+    log_format_basic = "{asctime} | {levelname:^7} | {message}"
 
     formatter = logging.Formatter(
-        fmt=log_format_debug if debug else log_format_basic, datefmt="%Y-%m-%d %H:%M:%S"
+        fmt=log_format_debug if debug else log_format_basic, datefmt="%Y-%m-%d %H:%M:%S",
+        style="{"
     )
 
     handler.setFormatter(formatter)

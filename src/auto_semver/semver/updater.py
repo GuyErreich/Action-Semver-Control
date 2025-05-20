@@ -14,7 +14,7 @@ import logging
 
 from .version import Version
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 
 class VersionFileUpdater:

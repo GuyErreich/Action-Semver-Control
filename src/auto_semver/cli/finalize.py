@@ -13,7 +13,7 @@ from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import SemverLock
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__package__)
 
 def run(*, gitops: GitOps, event: GitHubEvent, config: Config) -> None:
     """
