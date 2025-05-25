@@ -19,10 +19,10 @@ from textwrap import dedent
 from typing import Any
 
 from jinja2 import Template, TemplateSyntaxError
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ..semver import Version
-from .constants import DEFAULT_CHANGELOG, PR_HIDDEN_MARKER
+from .constants import DEFAULT_CHANGELOG
 
 
 class PullRequestConfig(BaseModel):
@@ -75,7 +75,7 @@ class PullRequestConfig(BaseModel):
             Template(value)  # Check if it compiles
         except TemplateSyntaxError as err:
             raise ValueError(f"Invalid Jinja2 template: {err}") from err
-        
+
         return value
 
     def render_title(self, **kwargs: Any) -> str:
@@ -86,6 +86,7 @@ class PullRequestConfig(BaseModel):
         """Render the body template and silently append a hidden marker comment."""
         rendered = Template(self.body).render(**kwargs)
         return f"<!-- auto-semver:pr -->\n{rendered}"
+
 
 class ChangelogConfig(BaseModel):
 
@@ -105,10 +106,7 @@ class ChangelogConfig(BaseModel):
 
     """
 
-    file: str = Field(
-        default=DEFAULT_CHANGELOG,
-        description="Path to the changelog file."
-    )
+    file: str = Field(default=DEFAULT_CHANGELOG, description="Path to the changelog file.")
     truncate: bool = Field(
         default=False,
         description="If true, overwrite the changelog instead of prepending."
@@ -120,10 +118,16 @@ class ChangelogConfig(BaseModel):
         - {{ msg }}
         {%- endfor %}
         """),
-        description="Jinja template for changelog entries."
+        description="Jinja template for changelog entries.",
     )
     header: str | None = Field(default="", description="Optional header text for the changelog.")
     footer: str | None = Field(default="", description="Optional footer text for the changelog.")
+
+
+class PromotionRule(BaseModel):
+    from_branch: str
+    to_branch: str
+
 
 class ConfigData(BaseModel):
 
@@ -145,24 +149,50 @@ class ConfigData(BaseModel):
 
     """
 
-    start_version: Version =  Field(default_factory=lambda: Version.parse("0.1.0"),
-                                    description="Optional start_version.")
+    start_version: Version = Field(
+        default_factory=lambda: Version.parse("0.1.0"), description="Optional start_version."
+    )
     suffixes: dict[str, str] = Field(..., description="Required branch suffix mapping.")
-    version_files: list[str] = Field(default=["version.txt"],
-                                     description="Optional files that hold version format to update.")
+    promotions: list[PromotionRule] = Field(
+        ..., description="Allowed branch promotion rules (from → to)."
+    )
+    version_files: list[str] = Field(
+        default=["version.txt"], description="Optional files that hold version format to update."
+    )
     branch_strategy: str = "single"
     pull_request: PullRequestConfig
     changelog: ChangelogConfig
 
-    model_config = {
-        "arbitrary_types_allowed": True
-    }
+    model_config = {"arbitrary_types_allowed": True}
 
     @field_validator("start_version", mode="before")
     @classmethod
     def validate_version(cls, value: str) -> Version:
-        try: 
+        try:
             return Version.parse(value)
-        except ValueError as err:
+        except ValueError:
             raise
 
+    @model_validator(mode="after")
+    def validate_promotions_have_suffixes(self) -> "ConfigData":
+        # Validate that all promotion targets have suffixes
+        missing_suffixes = {
+            rule.to_branch for rule in self.promotions if rule.to_branch not in self.suffixes
+        }
+
+        if missing_suffixes:
+            raise ValueError(
+                f"The following promotion targets are missing suffix definitions: {sorted(missing_suffixes)}"
+            )
+
+        # Validate no reverse rules exist
+        seen_pairs = set()
+        for rule in self.promotions:
+            reverse = (rule.to_branch, rule.from_branch)
+            if reverse in seen_pairs:
+                raise ValueError(
+                    f"Invalid promotion configuration: reverse rule found for '{rule.from_branch} → {rule.to_branch}'"
+                )
+            seen_pairs.add((rule.from_branch, rule.to_branch))
+
+        return self

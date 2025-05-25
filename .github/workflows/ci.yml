@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - staging
+      - dev
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install go tasks
+      run: ./install-task.sh
+
+    - name: Install dependencies
+      run: task install
+
+    - name: Lint code
+      run: task lint
+
+    - name: Type check
+      run: task type-check
+
+    - name: Run tests
+      run: task test

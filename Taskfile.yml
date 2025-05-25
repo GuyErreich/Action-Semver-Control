@@ -17,23 +17,23 @@ tasks:
   format:
     desc: Format code with black
     cmds:
-      - black .
+      - .venv/bin/black .
 
   lint:
     desc: Lint code with ruff
     cmds:
-      - ruff check . --fix
+      - .venv/bin/ruff check . --fix
 
   type-check:
     desc: Run mypy type checks
     cmds:
-      - mypy src
+      - .venv/bin/mypy src tests
 
   test:
     desc: Run pytest
     cmds:
       - echo "Running tests..."
-      - pytest
+      - .venv/bin/pytest -s
 
   all:
     desc: Run all checks

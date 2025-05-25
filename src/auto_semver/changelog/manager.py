@@ -28,7 +28,7 @@ class ChangelogManager:
 
     """
     Manage the changelog file, allowing updates and truncation.
-    
+
     This class supports rendering a changelog entry using a customizable template,
     with options to append to or truncate the changelog content.
     It also supports loading configuration from a `Config` instance.
@@ -61,7 +61,7 @@ class ChangelogManager:
         self.footer = footer
 
     @classmethod
-    def from_config(cls, config: Config) -> 'ChangelogManager':
+    def from_config(cls, config: Config) -> "ChangelogManager":
         """
         Instantiate the manager using values from a Config instance.
 
@@ -79,7 +79,6 @@ class ChangelogManager:
             header=config.data.changelog.header or "",
             footer=config.data.changelog.footer or "",
         )
-
 
     def update(self, *, version: str, messages: list[str]) -> None:
         """
@@ -101,9 +100,7 @@ class ChangelogManager:
 
         template: Template = Template(self.template)
         rendered: str = template.render(
-            version=version,
-            date=datetime.date.today().strftime("%d-%m-%Y"),
-            messages=messages
+            version=version, date=datetime.date.today().strftime("%d-%m-%Y"), messages=messages
         )
 
         logger.debug(f"Rendered template: {rendered}")

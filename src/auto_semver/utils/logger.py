@@ -13,16 +13,19 @@ Typical use case::
 
 import logging
 import sys
-
+from logging import LogRecord
 
 old_factory = logging.getLogRecordFactory()
 
-def record_factory(*args, **kwargs):
+
+def record_factory(*args, **kwargs) -> LogRecord:
     record = old_factory(*args, **kwargs)
-    record.full_name = f"{record.name}.{record.module}"
+    record.full_name = f"[{record.name}.{record.module}][{record.funcName}]"
     return record
 
+
 logging.setLogRecordFactory(record_factory)
+
 
 def setup_logger(debug: bool = False) -> logging.Logger:
     """
@@ -43,12 +46,11 @@ def setup_logger(debug: bool = False) -> logging.Logger:
     handler = logging.StreamHandler(sys.stdout)
 
     # log_format_debug = "%(asctime)s | %(levelname)-5s | [%(name)s.%(funcName)s] %()-5s | %(message)s"
-    log_format_debug = "{asctime} | {levelname:^7} | [{full_name:^29}][{funcName:^26}] {message}"
+    log_format_debug = "{asctime} | {levelname:^7} | {full_name:>59} | {message}"
     log_format_basic = "{asctime} | {levelname:^7} | {message}"
 
     formatter = logging.Formatter(
-        fmt=log_format_debug if debug else log_format_basic, datefmt="%Y-%m-%d %H:%M:%S",
-        style="{"
+        fmt=log_format_debug if debug else log_format_basic, datefmt="%Y-%m-%d %H:%M:%S", style="{"
     )
 
     handler.setFormatter(formatter)

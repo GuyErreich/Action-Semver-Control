@@ -32,6 +32,7 @@ logger = logging.getLogger(__package__)
 
 CONFIG_FILE: str = "auto_semver_config.yml"
 
+
 class Config:
 
     """
@@ -64,7 +65,7 @@ class Config:
             raise FileNotFoundError(f"Configuration file '{self.path}' not found.")
 
         try:
-            with open(self.path, encoding='utf-8') as f:
+            with open(self.path, encoding="utf-8") as f:
                 raw_config = yaml.safe_load(f) or {}
             return ConfigData(**raw_config)
         except yaml.YAMLError as err:

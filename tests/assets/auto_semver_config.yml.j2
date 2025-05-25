@@ -1,0 +1,27 @@
+start_version: {{ start_version }}
+suffixes:
+{% for key, val in suffixes.items() %}
+  {{ key }}: "{{ val }}"
+{% endfor %}
+promotions:
+{% for from_branch, to_branch in promotions.items() %}
+  - from_branch: {{ from_branch }}
+    to_branch: {{ to_branch }}
+{% endfor %}
+version_files:
+{% for path in version_files %}
+  - "{{ path }}"
+{% endfor %}
+pull_request:
+  title: "{{ pull_request.title }}"
+  labels:
+{% for label in pull_request.labels %}
+  - "{{ label }}"
+{% endfor %}
+  body: |
+    {{ pull_request.body | indent(4) }}
+changelog:
+  path: "{{ changelog.path }}"
+  prepend: {{ changelog.prepend | lower }}
+  template: |
+    {{ changelog.template | indent(4) }}

@@ -1,0 +1,18 @@
+{
+  "pull_request": {
+    "base": { "ref": "{{ target_branch }}" },
+    "head": { "ref": "{{ source_branch }}" },
+    "title": "{{ pull_request.title }}",
+    "body": "{{ pull_request.body }}",
+    "labels": [
+    {% for label in pull_request.labels %}
+      { "name": "{{ label }}" }{% if not loop.last %},{% endif %}
+    {% endfor %}
+    ],
+    "merged": {{ pull_request.merged | lower }},
+    "merge_commit_sha": "{{ pull_request.merge_commit_sha }}"
+  },
+  "repository": {
+    "full_name": "{{ repository }}"
+  }
+}
