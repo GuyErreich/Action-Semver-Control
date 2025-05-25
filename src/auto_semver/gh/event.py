@@ -117,7 +117,7 @@ class GitHubEvent:
     def get_source_commit_sha(self) -> str:
         """
         Get the commit SHA of the source branch from the pull request event data.
-        
+
         Returns:
             str: The commit SHA of the source branch.
 
@@ -127,7 +127,7 @@ class GitHubEvent:
         """
 
         return str(self._get([_PULL_REQUEST_KEY, "head", "sha"]))
-    
+
     def get_target_branch_name(self) -> str:
         """
         Get the target branch name from the pull request event data.
@@ -155,7 +155,7 @@ class GitHubEvent:
         """
 
         return str(self._get([_PULL_REQUEST_KEY, "base", "sha"]))
-    
+
     def get_merged_commit_sha(self) -> str:
         """
         Get the commit SHA of the merged pull request.
@@ -172,17 +172,17 @@ class GitHubEvent:
         if not self.is_merged():
             logger.error("The pull request was closed but not merged.")
             raise RuntimeError("The pull request was closed but not merged.")
-        
+
         return str(self._get([_PULL_REQUEST_KEY, "merge_commit_sha"]))
-    
+
     def get_body(self) -> str:
         """Return the PR body."""
         return str(self._get([_PULL_REQUEST_KEY, "body"]))
-    
+
     def get_title(self) -> str:
         """Return the PR title."""
         return str(self._get([_PULL_REQUEST_KEY, "title"]))
-    
+
     def get_labels(self) -> list[str]:
         """Return the PR labels."""
         labels: list[dict[str, Any]] = self._get([_PULL_REQUEST_KEY, "labels"])
@@ -193,18 +193,18 @@ class GitHubEvent:
         labels_str: list[str] = [label["name"] for label in labels]
 
         return labels_str
-    
+
     def get_labels_safe(self) -> list[str]:
         """
         Return the PR labels safely.
-        
+
         If no labels are found return an empty list.
         """
         try:
             return self.get_labels()
         except ValueError:
             return []
-    
+
     def get_repository(self) -> str:
         """Return the repository full name."""
         return str(self._get(["repository", "full_name"]))

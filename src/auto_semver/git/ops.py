@@ -199,6 +199,7 @@ class GitOps:
         Args:
             tag (str): Tag name.
             branch (str): Branch name.
+
         """
         return self.repo.create_tag(path=tag, ref=branch, message="").name
 
@@ -213,7 +214,7 @@ class GitOps:
         """
         Close open PRs.
 
-        This method checks for open pull requests in the specified GitHub repository 
+        This method checks for open pull requests in the specified GitHub repository
         that are targeting the specified branch. It closes any open pull requests
         that match the specified labels and are based on branches starting with "release/".
         This is useful for cleaning up old pull requests before creating a new one.
@@ -224,7 +225,7 @@ class GitOps:
             target_branch: The target branch (e.g., 'dev' or 'main').
             labels: Optional list of label names to match.
 
-    
+
         Raises:
             GithubException: If there is an error with the GitHub API.
 
@@ -242,7 +243,7 @@ class GitOps:
                 head_ref: str = pr.head.ref
                 base_ref: str = pr.base.ref
                 pr_labels: list[str] = [label.name for label in pr.labels]
-            
+
                 if (
                     head_ref.startswith("release/")
                     and base_ref == target_branch
@@ -305,9 +306,7 @@ class GitOps:
 
                     return pr.number
 
-            new_pr: PullRequest = repo.create_pull(
-                title=title, body=body, head=source, base=target
-            )
+            new_pr: PullRequest = repo.create_pull(title=title, body=body, head=source, base=target)
 
             if labels:
                 try:
@@ -376,7 +375,9 @@ class GitOps:
 
             raise RuntimeError(f"Failed to fetch recent commits: {err}") from err
 
-    def get_highest_release_lock_version_for_target(self, target_branch: str | None = None) -> Version | None:
+    def get_highest_release_lock_version_for_target(
+        self, target_branch: str | None = None, remote_name: str = "origin"
+    ) -> Version | None:
         """
         Scan all release/* branches, for lockfile.
 
@@ -388,14 +389,17 @@ class GitOps:
 
         """
         highest: Version | None = None
-        origin = self.repo.remotes.origin
+        remote: Remote = self.repo.remote(name=remote_name)
 
         try:
             logger.info("Fetching all remote branches...")
-            origin.fetch(prune=True)
+            remote.fetch(prune=True)
 
-            for ref in origin.refs:
-                if not ref.name.startswith("origin/release/") and ref.name != f"origin/{target_branch}":
+            for ref in remote.refs:
+                if (
+                    not ref.name.startswith("origin/release/")
+                    and ref.name != f"origin/{target_branch}"
+                ):
                     logger.debug(f"Skipping branch {ref.name}.")
                     continue
 
@@ -409,7 +413,9 @@ class GitOps:
                     logger.debug(f"Loaded lockfile from {short_branch_name}: {lock}")
 
                     if target_branch and lock.target_branch != target_branch:
-                        logger.debug(f"Skipping lockfile on {short_branch_name} for target branch {target_branch}.")
+                        logger.debug(
+                            f"Skipping lockfile on {short_branch_name} for target branch {target_branch}."
+                        )
                         continue
 
                     logger.debug(f"Found lock version {lock.version} on {short_branch_name}")

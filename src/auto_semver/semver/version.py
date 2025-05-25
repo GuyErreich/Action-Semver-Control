@@ -287,17 +287,14 @@ class Version:
         if not isinstance(other, Version):
             return NotImplemented
         return (
-            self.major == other.major and
-            self.minor == other.minor and
-            self.patch == other.patch and
-            self.suffix == other.suffix
+            self.major == other.major
+            and self.minor == other.minor
+            and self.patch == other.patch
+            and self.suffix == other.suffix
         )
 
     def __lt__(self, other: "Version") -> bool:
         """Check if the the current instace of the version is smaller then the given version."""
         if not isinstance(other, Version):
             return NotImplemented
-        return (
-            (self.major, self.minor, self.patch) <
-            (other.major, other.minor, other.patch)
-        )
+        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)

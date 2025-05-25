@@ -11,6 +11,7 @@ from auto_semver.semver.updater import VersionFileUpdater
 
 logger = logging.getLogger(__package__)
 
+
 def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str) -> None:
     """
     Run the bump workflow.
@@ -23,19 +24,19 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
 
     """
     changelog = ChangelogManager.from_config(config)
-    
+
     # current_branch: str = args.branch_name
     # current_commit_sha: str = ""
     # target_branch: str = args.target_branch
 
     # Fallback to GitHub event context if no branch is passed
     # if not current_branch:
-        # logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
+    # logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
     current_branch: str = event.get_source_branch_name()
     # current_commit_sha: str = event.get_source_commit_sha()
 
     # if not target_branch:
-        # logger.info("Target branch not provided. Extracting from GITHUB_EVENT_PATH...")
+    # logger.info("Target branch not provided. Extracting from GITHUB_EVENT_PATH...")
     target_branch: str = event.get_target_branch_name()
     repo_full_name: str = event.get_repository()
 
@@ -74,12 +75,10 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
         lockfile.version = version
     except FileNotFoundError:
         lockfile = SemverLock(
-            version=version,
-            source_branch=current_branch,
-            target_branch=target_branch
+            version=version, source_branch=current_branch, target_branch=target_branch
         )
 
-    #TODO: maybe find away to catch correct base sha of the PR rather then using current one
+    # TODO: maybe find away to catch correct base sha of the PR rather then using current one
     latest_commit_sha = lockfile.target_base_sha or event.get_merged_commit_sha()
 
     commit_messages = gitops.get_recent_commits(latest_commit_sha)
@@ -109,9 +108,9 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     pr_body: str = config.data.pull_request.render_body(
         version=new_version,
         date=datetime.date.today().strftime("%d-%m-%Y"),
-        messages=commit_messages
+        messages=commit_messages,
     )
-        
+
     pr_title: str = config.data.pull_request.render_title(version=new_version)
 
     gitops.create_pr(

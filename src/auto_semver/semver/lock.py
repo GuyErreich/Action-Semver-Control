@@ -18,6 +18,7 @@ logger = logging.getLogger(__package__)
 
 FILE_NAME: str = ".semver.lock"
 
+
 # TODO: improve docs
 @dataclass
 class SemverLock:
@@ -47,10 +48,10 @@ class SemverLock:
     path: str = FILE_NAME
 
     @classmethod
-    def load_from_file(cls) -> 'SemverLock':
+    def load_from_file(cls) -> "SemverLock":
         """Load and parse a .semver.lock file from disk."""
         logger.info(f"Loading lockfile from: {FILE_NAME}")
-        
+
         try:
             with open(FILE_NAME, encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
@@ -63,7 +64,7 @@ class SemverLock:
             raise
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'SemverLock':
+    def from_dict(cls, data: dict[str, Any]) -> "SemverLock":
         """Build a SemverLock instance from a parsed dict."""
         return cls(
             version=Version.parse(data["version"]),

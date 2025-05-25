@@ -21,7 +21,7 @@ class VersionFileUpdater:
 
     """
     Handle version updates in structured version declaration lines across files.
-    
+
     This class is designed to parse and update version lines in files,
     preserving the original prefix/title/quote structure of each matched line.
     It uses the Version object to intelligently detect and replace version lines.
