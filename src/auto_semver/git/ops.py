@@ -38,7 +38,6 @@ logger = logging.getLogger(__package__)
 
 
 class GitOps:
-
     """
     Encapsulates Git and GitHub operations such as branch handling, commits, pushing, and pull requests.
 

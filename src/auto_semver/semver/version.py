@@ -18,7 +18,7 @@ import re
 logger = logging.getLogger(__package__)
 
 _VERSION_PATTERN = re.compile(
-    r"^(?P<title>[\w\-]+:\s*)?"
+    r"^(?P<title>[\s\"']*[\w\-\_]*(version|Version|VERSION)[\_]*[\s\"']*[=:]\s*)?"
     r"(?P<quote>[\"'])?"  # Optional opening quote
     r"(?P<prefix>v)?"
     r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
@@ -33,7 +33,6 @@ _PATCH_PREFIXES = ("fix/", "bug/", "hotfix/", "chore/", "devops/")
 
 
 class Version:
-
     """
     Represents a semantic version, optionally with prefix, suffix, or title.
 
@@ -149,11 +148,11 @@ class Version:
 
         logger.debug(f"Detecting bump type for branch: {branch_name}")
 
-        if branch_name.startswith(_MAJOR_PREFIXES):
+        if any(branch_name.startswith(prefix) for prefix in _MAJOR_PREFIXES):
             bump_type = "major"
-        elif branch_name.startswith(_MINOR_PREFIXES):
+        elif any(branch_name.startswith(prefix) for prefix in _MINOR_PREFIXES):
             bump_type = "minor"
-        elif branch_name.startswith(_PATCH_PREFIXES):
+        elif any(branch_name.startswith(prefix) for prefix in _PATCH_PREFIXES):
             bump_type = "patch"
 
         logger.debug(f"Bump type detected: {bump_type}")
@@ -253,7 +252,7 @@ class Version:
         if self.title is None:
             return version
 
-        return f"{self.title} {version}"
+        return f"{self.title}{version}"
 
     def merge_from(self, other: "Version") -> None:
         """
@@ -285,7 +284,8 @@ class Version:
     def __eq__(self, other: object) -> bool:
         """Check if the two given versions are equal."""
         if not isinstance(other, Version):
-            return NotImplemented
+            return False
+        
         return (
             self.major == other.major
             and self.minor == other.minor
@@ -294,7 +294,29 @@ class Version:
         )
 
     def __lt__(self, other: "Version") -> bool:
-        """Check if the the current instace of the version is smaller then the given version."""
+        """Check if the current instance of the version is smaller than the given version."""
         if not isinstance(other, Version):
-            return NotImplemented
+            return False
+        
         return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
+
+    def __gt__(self, other: "Version") -> bool:
+        """Check if the current instance of the version is greater than the given version."""
+        if not isinstance(other, Version):
+            return False
+        
+        return (self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)
+
+    def __le__(self, other: "Version") -> bool:
+        """Check if the current instance of the version is less than or equal to the given version."""
+        if not isinstance(other, Version):
+            return False
+        
+        return (self.major, self.minor, self.patch) <= (other.major, other.minor, other.patch)
+
+    def __ge__(self, other: "Version") -> bool:
+        """Check if the current instance of the version is greater than or equal to the given version."""
+        if not isinstance(other, Version):
+            return False
+        
+        return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)
