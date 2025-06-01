@@ -24,8 +24,8 @@ logger = logging.getLogger(__package__)
 
 _DEFAULT_COMMIT_PLACEHOLDER: str = "Miscellaneous changes"
 
-class ChangelogManager:
 
+class ChangelogManager:
     """
     Manage the changelog file, allowing updates and truncation.
 
@@ -98,7 +98,7 @@ class ChangelogManager:
             logger.warning("No commit messages provided. Adding default message.")
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
-        template: Template = Template(self.template)
+        template: Template = Template(self.template, autoescape=True)
         rendered: str = template.render(
             version=version, date=datetime.date.today().strftime("%d-%m-%Y"), messages=messages
         )

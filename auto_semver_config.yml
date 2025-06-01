@@ -5,6 +5,12 @@ suffixes:
   staging: "-rc"
   main: ""  # Production releases
 
+# promotions:
+#   - from_branch: dev
+#     to_branch: staging
+#   - from_branch: staging
+#     to_branch: dev  
+
 branch_strategy: "single"  # "single" or "multi"
 
 files_to_update:

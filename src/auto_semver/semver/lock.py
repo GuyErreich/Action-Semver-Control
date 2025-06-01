@@ -22,7 +22,6 @@ FILE_NAME: str = ".semver.lock"
 # TODO: improve docs
 @dataclass
 class SemverLock:
-
     """
     Represents the state of a semantic version bump in progress.
 

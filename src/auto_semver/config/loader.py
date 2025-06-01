@@ -34,7 +34,6 @@ CONFIG_FILE: str = "auto_semver_config.yml"
 
 
 class Config:
-
     """
     Configuration management class for auto-semver-bump.
 
@@ -83,3 +82,33 @@ class Config:
     def __getattr__(self, item: str) -> Any:
         """Use for returning the named property in data."""
         return getattr(self.data, item)
+
+    @staticmethod
+    def generate_config_file(config_data: ConfigData, path: str = CONFIG_FILE) -> None:
+        """
+        Generate a YAML configuration file from a ConfigData object.
+
+        Args:
+            config_data (ConfigData): The configuration data to write to file.
+            path (str): Path where the configuration file should be written.
+                Defaults to 'auto_semver_config.yml'.
+
+        Raises:
+            OSError: If there is an error writing the configuration file.
+            yaml.YAMLError: If there is an error dumping the configuration to YAML.
+
+        """
+        # Convert ConfigData to dict, excluding None values
+        config_dict = config_data.model_dump(exclude_none=True)
+
+        # Convert Version object to string for YAML serialization
+        if "start_version" in config_dict:
+            config_dict["start_version"] = str(config_dict["start_version"])
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                yaml.safe_dump(config_dict, f, default_flow_style=False, sort_keys=False)
+            logger.info(f"Configuration file generated at '{path}'")
+        except (OSError, yaml.YAMLError) as err:
+            logger.error(f"Error generating configuration file: {err}")
+            raise

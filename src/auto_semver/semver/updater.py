@@ -18,7 +18,6 @@ logger = logging.getLogger(__package__)
 
 
 class VersionFileUpdater:
-
     """
     Handle version updates in structured version declaration lines across files.
 

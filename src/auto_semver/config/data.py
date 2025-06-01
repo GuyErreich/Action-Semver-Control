@@ -73,10 +73,9 @@ class PullRequestConfig(BaseModel):
 
         try:
             Template(value)  # Check if it compiles
+            return value
         except TemplateSyntaxError as err:
             raise ValueError(f"Invalid Jinja2 template: {err}") from err
-
-        return value
 
     def render_title(self, **kwargs: Any) -> str:
         """Return the title as a Jinja2 Template."""

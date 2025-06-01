@@ -25,6 +25,11 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 log_level = "DEBUG"
+markers = [
+    "unit: mark a test as a unit test",
+    "integration: mark a test as an integration test",
+    "edge_case: mark a test as an edge case test",
+]
 
 [tool.black]
 line-length = 100

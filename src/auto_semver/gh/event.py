@@ -24,7 +24,6 @@ _PULL_REQUEST_KEY = "pull_request"
 
 
 class GitHubEvent:
-
     """
     Encapsulates GitHub event data for convenient access to pull request information.
 
