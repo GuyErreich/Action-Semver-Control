@@ -13,8 +13,12 @@ Typical usage::
     branch_strategy = config.get_branch_strategy()
     label = config.get_pr_labels()
     changelog_file = config.get_changelog_file()
-    should_truncate_changelog = config.should_truncate_changelog()
-    changelog_template = config.get_changelog_template()
+    should_truncate_changelog = (
+        config.should_truncate_changelog()
+    )
+    changelog_template = (
+        config.get_changelog_template()
+    )
     changelog_header = config.get_changelog_header()
     changelog_footer = config.get_changelog_footer()
 """
@@ -72,10 +76,10 @@ class Config:
             raise
         except ValidationError as e:
             logger.error("Configuration validation failed.")
-            for err in e.errors():
-                loc = " -> ".join(str(i) for i in err["loc"])
-                msg = err["msg"]
-                typ = err["type"]
+            for error in e.errors():
+                loc = " -> ".join(str(i) for i in error["loc"])
+                msg = error["msg"]
+                typ = error["type"]
                 logger.error(f"Missing or invalid config field: {loc} | {msg} [{typ}]")
             raise
 

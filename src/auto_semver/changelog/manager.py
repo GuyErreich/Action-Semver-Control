@@ -8,7 +8,9 @@ automation in GitHub Actions workflows.
 Typical usage::
 
     manager = ChangelogManager()
-    manager.write("1.0.1", ["Fix bug", "Improve logging"])
+    manager.write(
+        "1.0.1", ["Fix bug", "Improve logging"]
+    )
 """
 
 import datetime
