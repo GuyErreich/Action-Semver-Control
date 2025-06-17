@@ -26,7 +26,6 @@ from .constants import DEFAULT_CHANGELOG
 
 
 class PullRequestConfig(BaseModel):
-
     """
     Defines settings for the pull request created during version bumps.
 
@@ -88,7 +87,6 @@ class PullRequestConfig(BaseModel):
 
 
 class ChangelogConfig(BaseModel):
-
     """
     Defines how the changelog should be generated and formatted.
 
@@ -107,16 +105,17 @@ class ChangelogConfig(BaseModel):
 
     file: str = Field(default=DEFAULT_CHANGELOG, description="Path to the changelog file.")
     truncate: bool = Field(
-        default=False,
-        description="If true, overwrite the changelog instead of prepending."
+        default=False, description="If true, overwrite the changelog instead of prepending."
     )
     template: str = Field(
-        default=dedent("""
+        default=dedent(
+            """
         ## [{{version}}] - {{date}}
         {% for msg in messages -%}
         - {{ msg }}
         {%- endfor %}
-        """),
+        """
+        ),
         description="Jinja template for changelog entries.",
     )
     header: str | None = Field(default="", description="Optional header text for the changelog.")
@@ -129,7 +128,6 @@ class PromotionRule(BaseModel):
 
 
 class ConfigData(BaseModel):
-
     """
     Holds all validated configuration values loaded from auto_semver_config.yml.
 

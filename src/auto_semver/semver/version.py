@@ -17,14 +17,62 @@ import re
 
 logger = logging.getLogger(__package__)
 
+# --- Title matching (before version number) ---
+TITLE_PART = r"""
+(?P<title>
+    [ \t]*                             # indentation support
+    (?:-[ ]|\#[ ])?                            # YAML support
+    ["']?                              # optional opening quote
+    (?:_|__)?                          # Python dunder support
+    (?:[Pp]ackage-|[Rr]elease-)?      # optional version title prefixes
+    (?:version|Version|VERSION)        # version title
+    _{0,2}                              # closing dunder support
+    ["']?                              # optional closing quote
+    [ \t]*                              # YAML formatting alignment
+    [=:]                                # assignment or mapping
+    [ ]?                                # optional space
+)?
+"""
+
+# --- Version (quoted) ---
+QUOTED_VERSION_PART = r"""
+(?:
+    (?P<quote>["'])                    # opening quote
+    (?P<prefix>v)?                     # optional 'v'
+    (?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)
+    (?!\.[\d])                         # forbid 4th segment
+    (?P<suffix>-[\w]+(?:\.[\w]+)*)?    # optional suffix
+    (?P=quote)                         # matching closing quote
+)
+"""
+
+# --- Version (unquoted) ---
+UNQUOTED_VERSION_PART = r"""
+(?:
+    (?P<prefix2>v)?
+    (?P<major2>\d+)\.(?P<minor2>\d+)\.(?P<patch2>\d+)
+    (?!\.[\d])
+    (?P<suffix2>-[\w]+(?:\.[\w]+)*)?
+)
+"""
+
+# --- Trailer (comment or semicolon) ---
+TRAILER_PART = r"""
+(?P<trailer>
+    ;(?:[ \t]*(?:\#|//).*)?                 # semicolon + optional comment
+  | [ \t]*(?:\#|//).*              # comment-only (max 3 indent)
+)?
+"""
+
+# --- Final Regex ---
 _VERSION_PATTERN = re.compile(
-    r"^(?P<title>[\s\"']*[\w\-\_]*(version|Version|VERSION)[\_]*[\s\"']*[=:]\s*)?"
-    r"(?P<quote>[\"'])?"  # Optional opening quote
-    r"(?P<prefix>v)?"
-    r"(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
-    r"(?P<suffix>-[\w\d]+)?"
-    r"(?P=quote)?$",
-    re.MULTILINE,
+    rf"""^
+        {TITLE_PART}
+        (?:{QUOTED_VERSION_PART}|{UNQUOTED_VERSION_PART})
+        {TRAILER_PART}
+        $
+    """,
+    re.VERBOSE | re.MULTILINE,
 )
 
 _MAJOR_PREFIXES = ("breaking/", "major/")
@@ -44,6 +92,7 @@ class Version:
         patch (int): Patch version component.
         suffix (str | None): Optional suffix like '-dev' or '-rc.1'.
         quote (str | None): Optional surrounding quote (" or ').
+        trailer (str | None): Optional trailing text after the version (redundant text like comments).
 
     """
 
@@ -57,6 +106,7 @@ class Version:
         prefix: str | None = None,
         suffix: str | None = None,
         quote: str | None = None,
+        trailer: str | None = None,
     ) -> None:
         """
         Initialize a Version object.
@@ -69,6 +119,7 @@ class Version:
             prefix (str | None): Optional 'v' prefix.
             suffix (str | None): Optional suffix like '-dev' or '-rc.1'.
             quote (str | None): Optional surrounding quote (" or ').
+            trailer (str | None): Optional trailing text after the version (redundant text like comments).
 
         """
 
@@ -79,6 +130,7 @@ class Version:
         self.prefix = prefix
         self.suffix = suffix
         self.quote = quote
+        self.trailer = trailer
 
     @staticmethod
     def parse(version_line: str) -> "Version":
@@ -103,20 +155,22 @@ class Version:
             raise ValueError("Invalid version format")
 
         groups = match.groupdict()
+
         version = Version(
-            title=groups.get("title", ""),
-            prefix=groups.get("prefix", ""),
-            major=int(groups["major"]),
-            minor=int(groups["minor"]),
-            patch=int(groups["patch"]),
-            suffix=groups.get("suffix", ""),
-            quote=groups.get("quote", ""),
+            title=groups["title"] if "title" in groups else None,
+            prefix=groups["prefix"] or groups["prefix2"] or None,
+            major=int(groups["major"] or groups["major2"]),
+            minor=int(groups["minor"] or groups["minor2"]),
+            patch=int(groups["patch"] or groups["patch2"]),
+            suffix=groups["suffix"] or groups["suffix2"] or None,
+            quote=groups["quote"] or None,
+            trailer=groups["trailer"] or None,
         )
 
         logger.debug(
             f"Parsed version components - "
-            f"Title: {version.title}, Prefix: {version.prefix}, Major: {version.major}, "
-            f"Minor: {version.minor}, Patch: {version.patch}, Suffix: {version.suffix}, Quote: {version.quote}"
+            f"Title: {version.title}, Prefix: {version.prefix}, Major: {version.major}, Minor: {version.minor}, "
+            f"Patch: {version.patch}, Suffix: {version.suffix}, Quote: {version.quote}, Trailer: {version.trailer}"
         )
 
         return version
@@ -246,13 +300,15 @@ class Version:
     def format_full_line(self) -> str:
         """Return the full version string, including title, prefix, and quotes if present."""
 
-        version = f"{self.prefix or ''}{self}"
-        version = f"{self.quote or ''}{version}{self.quote or ''}"
+        title = self.title or ""
+        prefix = self.prefix or ""
+        suffix = self.suffix or ""
+        quote = self.quote or ""
+        trailer = self.trailer or ""
 
-        if self.title is None:
-            return version
-
-        return f"{self.title}{version}"
+        return (
+            f"{title}{quote}{prefix}{self.major}.{self.minor}.{self.patch}{suffix}{quote}{trailer}"
+        )
 
     def merge_from(self, other: "Version") -> None:
         """
@@ -284,8 +340,8 @@ class Version:
     def __eq__(self, other: object) -> bool:
         """Check if the two given versions are equal."""
         if not isinstance(other, Version):
-            return False
-        
+            return NotImplemented
+
         return (
             self.major == other.major
             and self.minor == other.minor
@@ -293,30 +349,30 @@ class Version:
             and self.suffix == other.suffix
         )
 
-    def __lt__(self, other: "Version") -> bool:
+    def __lt__(self, other: object) -> bool:
         """Check if the current instance of the version is smaller than the given version."""
         if not isinstance(other, Version):
-            return False
-        
+            return NotImplemented
+
         return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
 
-    def __gt__(self, other: "Version") -> bool:
+    def __gt__(self, other: object) -> bool:
         """Check if the current instance of the version is greater than the given version."""
         if not isinstance(other, Version):
-            return False
-        
+            return NotImplemented
+
         return (self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)
 
-    def __le__(self, other: "Version") -> bool:
+    def __le__(self, other: object) -> bool:
         """Check if the current instance of the version is less than or equal to the given version."""
         if not isinstance(other, Version):
-            return False
-        
+            return NotImplemented
+
         return (self.major, self.minor, self.patch) <= (other.major, other.minor, other.patch)
 
-    def __ge__(self, other: "Version") -> bool:
+    def __ge__(self, other: object) -> bool:
         """Check if the current instance of the version is greater than or equal to the given version."""
         if not isinstance(other, Version):
-            return False
-        
+            return NotImplemented
+
         return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)

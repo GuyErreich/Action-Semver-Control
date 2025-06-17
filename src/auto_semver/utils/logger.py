@@ -14,11 +14,28 @@ Typical use case::
 import logging
 import sys
 from logging import LogRecord
+from typing import Any
 
 old_factory = logging.getLogRecordFactory()
 
 
-def record_factory(*args, **kwargs) -> LogRecord:
+def record_factory(*args: Any, **kwargs: dict[str, Any]) -> LogRecord:
+    """
+    Create a custom log record with additional formatting.
+
+    This factory function enhances the default log record by adding a 'full_name'
+    attribute that combines the logger name, module, and function name for more
+    detailed logging output.
+
+    Args:
+        *args: Variable length argument list passed to the original log record factory.
+        **kwargs: Arbitrary keyword arguments passed to the original log record factory.
+
+    Returns:
+        LogRecord: A log record with the additional 'full_name' attribute.
+
+    """
+
     record = old_factory(*args, **kwargs)
     record.full_name = f"[{record.name}.{record.module}][{record.funcName}]"
     return record

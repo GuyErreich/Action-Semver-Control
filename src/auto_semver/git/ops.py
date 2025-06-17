@@ -8,7 +8,9 @@ Python APIs provided by `GitPython` and `PyGithub`.
 Typical usage example::
 
     gitops = GitOps()
-    gitops.create_branch(branch_name="release/v1.0.0", overwrite=True)
+    gitops.create_branch(
+        branch_name="release/v1.0.0", overwrite=True
+    )
     gitops.add(files=["version.txt"])
     gitops.commit(message="Bump version")
     gitops.push(branch_name="release/v1.0.0")
@@ -17,7 +19,7 @@ Typical usage example::
         repo_full_name="owner/repo",
         title="Release v1.0.0",
         head="release/v1.0.0",
-        base="main"
+        base="main",
     )
 """
 
