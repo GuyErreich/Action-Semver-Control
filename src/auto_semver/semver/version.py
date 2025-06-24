@@ -169,8 +169,10 @@ class Version:
 
         logger.debug(
             f"Parsed version components - "
-            f"Title: {version.title}, Prefix: {version.prefix}, Major: {version.major}, Minor: {version.minor}, "
-            f"Patch: {version.patch}, Suffix: {version.suffix}, Quote: {version.quote}, Trailer: {version.trailer}"
+            f"Title: {version.title}, Prefix: {version.prefix}, "
+            f"Major: {version.major}, Minor: {version.minor}, "
+            f"Patch: {version.patch}, Suffix: {version.suffix}, "
+            f"Quote: {version.quote}, Trailer: {version.trailer}"
         )
 
         return version
@@ -348,6 +350,10 @@ class Version:
             and self.patch == other.patch
             and self.suffix == other.suffix
         )
+
+    def __hash__(self) -> int:
+        """Return hash value for the version object."""
+        return hash((self.major, self.minor, self.patch, self.suffix))
 
     def __lt__(self, other: object) -> bool:
         """Check if the current instance of the version is smaller than the given version."""

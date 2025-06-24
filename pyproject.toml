@@ -32,12 +32,24 @@ markers = [
     "edge_case: mark a test as an edge case test",
 ]
 
+[tool.coverage.run]
+omit = [
+    "*/__init__.py",
+    "*/__main__.py"
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 src = ["src", "tests"]
+preview = false
 
 [tool.ruff.lint]
+preview = false
 select = [
   "E",    # pycodestyle (PEP8)
   "F",    # pyflakes
@@ -74,11 +86,28 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+preview = false
 
 [tool.mypy]
 python_version = "3.12"
-check_untyped_defs = true
-ignore_missing_imports = true
 strict = true
-install_types = true
-plugins = []
+ignore_missing_imports = false
+follow_imports = "normal"
+show_error_codes = true
+pretty = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+check_untyped_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_any_generics = true
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+no_implicit_optional = true
+allow_redefinition = false
+install_types = false
+non_interactive = false

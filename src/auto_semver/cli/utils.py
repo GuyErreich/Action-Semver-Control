@@ -1,3 +1,5 @@
+"""CLI utility functions for auto_semver."""
+
 import logging
 
 from auto_semver.config import Config

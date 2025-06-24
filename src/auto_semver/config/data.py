@@ -16,7 +16,7 @@ Classes:
 """
 
 from textwrap import dedent
-from typing import Any
+from typing import Any, Literal
 
 from jinja2 import Template, TemplateSyntaxError
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -121,8 +121,32 @@ class ChangelogConfig(BaseModel):
     header: str | None = Field(default="", description="Optional header text for the changelog.")
     footer: str | None = Field(default="", description="Optional footer text for the changelog.")
 
+    @field_validator("template")
+    @classmethod
+    def validate_template(cls, value: str) -> str:
+        """
+        Validate that the provided string is a valid Jinja2 template.
+
+        Args:
+            value (str): The template string to validate.
+
+        Returns:
+            str: The original value if it's a valid Jinja2 template.
+
+        Raises:
+            ValueError: If the template contains syntax errors.
+
+        """
+        try:
+            Template(value)  # Check if it compiles
+            return value
+        except TemplateSyntaxError as err:
+            raise ValueError(f"Invalid template syntax: {err}") from err
+
 
 class PromotionRule(BaseModel):
+    """Represents a rule for promoting versions between branches."""
+
     from_branch: str
     to_branch: str
 
@@ -156,7 +180,9 @@ class ConfigData(BaseModel):
     version_files: list[str] = Field(
         default=["version.txt"], description="Optional files that hold version format to update."
     )
-    branch_strategy: str = "single"
+    branch_strategy: Literal["single", "multi"] = Field(
+        default="single", description="Strategy for branch management ('single' or 'multi')"
+    )
     pull_request: PullRequestConfig
     changelog: ChangelogConfig
 
@@ -165,6 +191,7 @@ class ConfigData(BaseModel):
     @field_validator("start_version", mode="before")
     @classmethod
     def validate_version(cls, value: str) -> Version:
+        """Validate and parse the start_version field."""
         try:
             return Version.parse(value)
         except ValueError:
@@ -172,6 +199,7 @@ class ConfigData(BaseModel):
 
     @model_validator(mode="after")
     def validate_promotions_have_suffixes(self) -> "ConfigData":
+        """Validate that all branches in promotion rules have suffix definitions."""
         # Validate that all promotion targets have suffixes
         missing_suffixes = {
             rule.to_branch for rule in self.promotions if rule.to_branch not in self.suffixes
@@ -188,7 +216,8 @@ class ConfigData(BaseModel):
             reverse = (rule.to_branch, rule.from_branch)
             if reverse in seen_pairs:
                 raise ValueError(
-                    f"Invalid promotion configuration: reverse rule found for '{rule.from_branch} → {rule.to_branch}'"
+                    f"Invalid promotion configuration: reverse rule found for "
+                    f"'{rule.from_branch} → {rule.to_branch}'"
                 )
             seen_pairs.add((rule.from_branch, rule.to_branch))
 

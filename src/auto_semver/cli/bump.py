@@ -1,3 +1,5 @@
+"""Version bump CLI operations for auto_semver."""
+
 import datetime
 import logging
 

@@ -39,7 +39,7 @@ class GitHubPullRequestEventData:
     source_sha: str = "abcd1234abcd1234abcd1234abcd1234abcd1234"
     target_sha: str = "efgh5678efgh5678efgh5678efgh5678efgh5678"
     merge_commit_sha: str = "ijkl9012ijkl9012ijkl9012ijkl9012ijkl9012"
-    merged: bool = False
+    merged: bool = True
     labels: Sequence[str] = field(default_factory=lambda: ["semver-bump"])
     repository: str = "owner/repo"
 

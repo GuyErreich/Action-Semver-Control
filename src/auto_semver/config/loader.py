@@ -13,12 +13,8 @@ Typical usage::
     branch_strategy = config.get_branch_strategy()
     label = config.get_pr_labels()
     changelog_file = config.get_changelog_file()
-    should_truncate_changelog = (
-        config.should_truncate_changelog()
-    )
-    changelog_template = (
-        config.get_changelog_template()
-    )
+    should_truncate_changelog = config.should_truncate_changelog()
+    changelog_template = config.get_changelog_template()
     changelog_header = config.get_changelog_header()
     changelog_footer = config.get_changelog_footer()
 """

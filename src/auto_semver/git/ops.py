@@ -8,9 +8,7 @@ Python APIs provided by `GitPython` and `PyGithub`.
 Typical usage example::
 
     gitops = GitOps()
-    gitops.create_branch(
-        branch_name="release/v1.0.0", overwrite=True
-    )
+    gitops.create_branch(branch_name="release/v1.0.0", overwrite=True)
     gitops.add(files=["version.txt"])
     gitops.commit(message="Bump version")
     gitops.push(branch_name="release/v1.0.0")
@@ -384,6 +382,7 @@ class GitOps:
 
         Args:
             target_branch (str): The target branch to check against.
+            remote_name (str): The name of the remote to check.
 
         Returns:
             The highest Version object found, or None if none found.

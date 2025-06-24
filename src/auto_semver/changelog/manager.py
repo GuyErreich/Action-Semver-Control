@@ -8,13 +8,11 @@ automation in GitHub Actions workflows.
 Typical usage::
 
     manager = ChangelogManager()
-    manager.write(
-        "1.0.1", ["Fix bug", "Improve logging"]
-    )
+    manager.write("1.0.1", ["Fix bug", "Improve logging"])
 """
 
-import datetime
 import logging
+from datetime import date
 from pathlib import Path
 
 from jinja2 import Template
@@ -102,7 +100,7 @@ class ChangelogManager:
 
         template: Template = Template(self.template, autoescape=True)
         rendered: str = template.render(
-            version=version, date=datetime.date.today().strftime("%d-%m-%Y"), messages=messages
+            version=version, date=date.today().strftime("%d-%m-%Y"), messages=messages
         )
 
         logger.debug(f"Rendered template: {rendered}")

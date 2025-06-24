@@ -6,19 +6,52 @@ on:
       - staging
       - dev
 
+
+
 jobs:
   ci:
+    name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.13']
+      fail-fast: false
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Restore virtual environment cache
+      id: cache-venv-restore
+      uses: actions/cache/restore@v4
+      with:
+        path: .venv
+        key: ${{ runner.os }}-venv-${{ matrix.python-version }}
+        restore-keys: |
+          ${{ runner.os }}-venv-${{ matrix.python-version }}
+
+    - name: Cache Task binary
+      uses: actions/cache@v4
+      with:
+        path: /usr/local/bin/task
+        key: ${{ runner.os }}-task-${{ hashFiles('install-task.sh') }}
 
     - name: Install go tasks
       run: ./install-task.sh
 
     - name: Install dependencies
       run: task install
+
+    - name: Save virtual environment cache
+      uses: actions/cache/save@v4
+      with:
+        path: .venv
+        key: ${{ steps.cache-venv-restore.outputs.cache-primary-key }}
 
     - name: Lint code
       run: task lint

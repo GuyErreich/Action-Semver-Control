@@ -1,0 +1,1 @@
+"""Auto-semver test package."""
