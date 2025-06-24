@@ -5,3 +5,6 @@ pytest~=8.3
 pytest-mock~=3.14
 pytest-cov~=6.1
 pyfakefs~=5.1
+
+#type stubs
+types-PyYAML~=6.0

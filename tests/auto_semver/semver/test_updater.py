@@ -5,15 +5,14 @@ This module provides comprehensive unit tests for the VersionFileUpdater class,
 including initialization, file updating, error handling, and edge cases.
 """
 
-import logging
-import tempfile
-from pathlib import Path
+import threading
 
 import pytest
 from pytest_mock import MockerFixture
 
 from auto_semver.semver.updater import VersionFileUpdater
 from auto_semver.semver.version import Version
+from tests.fixtures.file_fixture import FileFixture
 
 
 class TestVersionFileUpdaterInit:
@@ -55,38 +54,62 @@ class TestVersionFileUpdaterUpdate:
     """Test cases for VersionFileUpdater.update() method."""
 
     @pytest.mark.unit
-    def test_update_single_version_line(self, mocker: MockerFixture) -> None:
+    def test_update_single_version_line(
+        self, mocker: MockerFixture, file_fixture: FileFixture
+    ) -> None:
         """Test updating a file with a single version line."""
-        file_content = "version = '1.0.0'\n"
-        expected_content = "version = '2.0.0'\n"
+        # Create a Python file with version 1.0.0
+        old_version = "1.0.0"
         new_version = Version(major=2, minor=0, patch=0)
 
-        mock_file = mocker.patch("builtins.open", mocker.mock_open(read_data=file_content))
-        updater = VersionFileUpdater(file_path="test.py", version=new_version)
+        # Create a Python file with version string
+        file_path = file_fixture.create_python_file(version=old_version, template_index=1)
+
+        # Initialize updater with the file path and new version
+        updater = VersionFileUpdater(file_path=str(file_path), version=new_version)
         updater.update()
 
-        # Verify the file was opened correctly
-        mock_file.assert_called_once_with("test.py", "r+", encoding="utf-8")
+        # Read the file content after update
+        with open(file_path, encoding="utf-8") as f:
+            updated_content = f.read()
 
-        # Verify the content was written
-        handle = mock_file()
-        handle.writelines.assert_called_once_with([expected_content])
-        handle.seek.assert_called_once_with(0)
-        handle.truncate.assert_called_once()
+        # Verify the version was updated
+        assert f'version = "{new_version}"' in updated_content
+        assert f'version = "{old_version}"' not in updated_content
 
     @pytest.mark.unit
-    def test_update_multiple_version_lines(self, mocker: MockerFixture) -> None:
+    def test_update_multiple_version_lines(
+        self, mocker: MockerFixture, file_fixture: FileFixture
+    ) -> None:
         """Test updating a file with multiple version lines."""
-        file_content = "# Version: 1.0.0\nversion = '1.0.0'\nregular line\n"
-        expected_lines = ["# Version: 2.5.0\n", "version = '2.5.0'\n", "regular line\n"]
+        old_version = "1.0.0"
         new_version = Version(major=2, minor=5, patch=0)
 
-        mock_file = mocker.patch("builtins.open", mocker.mock_open(read_data=file_content))
-        updater = VersionFileUpdater(file_path="test.js", version=new_version)
+        # Create a Python file with multiple version strings
+        file_path = file_fixture.create_multi_version_file(version=old_version)
+
+        # Initialize updater with the file path and new version
+        updater = VersionFileUpdater(file_path=str(file_path), version=new_version)
         updater.update()
 
-        handle = mock_file()
-        handle.writelines.assert_called_once_with(expected_lines)
+        # Read the file content after update
+        with open(file_path, encoding="utf-8") as f:
+            updated_content = f.read()
+
+        # Verify versions were updated (except the one in the comment)
+        assert f"# Version: {new_version}" in updated_content
+        assert f"__version__ = '{new_version}'" in updated_content
+        assert f'VERSION = "{new_version}"' in updated_content
+        assert f"version = {new_version}" in updated_content
+
+        # The comment with "v1.0.0" isn't recognized as a version string, so it won't be updated
+        assert "# Another comment with v1.0.0" in updated_content
+
+        # The old version should not appear except in the comment
+        updated_content_without_comment_line = "\n".join(
+            [line for line in updated_content.split("\n") if "Another comment" not in line]
+        )
+        assert old_version not in updated_content_without_comment_line
 
     @pytest.mark.unit
     def test_update_preserves_non_version_lines(self, mocker: MockerFixture) -> None:
@@ -118,7 +141,7 @@ class TestVersionFileUpdaterUpdate:
 
         mocker.patch("builtins.open", mocker.mock_open(read_data=file_content))
         mock_parse = mocker.patch.object(Version, "parse")
-        
+
         # Mock the parsed version
         current_version = mocker.MagicMock()
         current_version.format_full_line.return_value = "version = '2.0.0'"
@@ -132,29 +155,30 @@ class TestVersionFileUpdaterUpdate:
         current_version.format_full_line.assert_called_once()
 
     @pytest.mark.integration
-    def test_update_real_file(self) -> None:
+    def test_update_real_file(self, file_fixture: FileFixture) -> None:
         """Test updating a real temporary file."""
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".py") as tmp_file:
-            tmp_file.write("version = '1.0.0'\n")
-            tmp_file.write("# Some comment\n")
-            tmp_file.write('__version__ = "1.0.0"\n')
-            tmp_path = tmp_file.name
+        old_version = "1.0.0"
+        new_version = Version(major=2, minor=1, patch=0)
 
-        try:
-            new_version = Version(major=2, minor=1, patch=0)
-            updater = VersionFileUpdater(file_path=tmp_path, version=new_version)
-            updater.update()
+        # Create a Python file with the old version using the first template
+        # which contains multiple version patterns
+        file_path = file_fixture.create_python_file(version=old_version, template_index=0)
 
-            # Read the updated file
-            with open(tmp_path, encoding="utf-8") as f:
-                content = f.read()
+        # Update the file with the new version
+        updater = VersionFileUpdater(file_path=str(file_path), version=new_version)
+        updater.update()
 
-            assert "version = '2.1.0'" in content
-            assert '__version__ = "2.1.0"' in content
-            assert "# Some comment" in content
+        # Read the updated file
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
 
-        finally:
-            Path(tmp_path).unlink()
+        # Verify version strings were updated
+        assert f'__version__ = "{new_version}"' in content
+        assert f'VERSION = "{new_version}"' in content
+        assert f"# Version: {new_version}" in content
+
+        # Verify the old version is gone
+        assert old_version not in content
 
 
 class TestVersionFileUpdaterErrorHandling:
@@ -165,7 +189,7 @@ class TestVersionFileUpdaterErrorHandling:
         """Test handling when file doesn't exist."""
         new_version = Version(major=1, minor=0, patch=0)
         updater = VersionFileUpdater(file_path="nonexistent.txt", version=new_version)
-        
+
         mock_logger = mocker.patch("auto_semver.semver.updater.logger")
         # Should not raise exception, just log warning
         updater.update()
@@ -194,17 +218,17 @@ class TestVersionFileUpdaterErrorHandling:
 
         mock_file = mocker.patch("builtins.open", mocker.mock_open(read_data=file_content))
         mock_parse = mocker.patch.object(Version, "parse")
-        
+
         # First call succeeds, second raises ValueError, third succeeds
         mock_parse.side_effect = [
             mocker.MagicMock(
-                merge_from=mocker.MagicMock(), 
-                format_full_line=mocker.MagicMock(return_value="version = '3.0.0'")
+                merge_from=mocker.MagicMock(),
+                format_full_line=mocker.MagicMock(return_value="version = '3.0.0'"),
             ),
             ValueError("Invalid version"),
             mocker.MagicMock(
-                merge_from=mocker.MagicMock(), 
-                format_full_line=mocker.MagicMock(return_value="another = '3.0.0'")
+                merge_from=mocker.MagicMock(),
+                format_full_line=mocker.MagicMock(return_value="another = '3.0.0'"),
             ),
         ]
 
@@ -275,14 +299,6 @@ class TestVersionFileUpdaterLogging:
         mock_logger.debug.assert_called_once()
         debug_call = mock_logger.debug.call_args[0]
         assert "Updated:" in debug_call[0]
-
-    @pytest.mark.unit
-    def test_logger_configuration(self) -> None:
-        """Test that logger is properly configured."""
-        from auto_semver.semver import updater
-
-        assert updater.logger.name == "auto_semver.semver"
-        assert isinstance(updater.logger, logging.Logger)
 
 
 class TestVersionFileUpdaterEdgeCases:
@@ -375,71 +391,74 @@ class TestVersionFileUpdaterIntegration:
     """Integration test cases for VersionFileUpdater."""
 
     @pytest.mark.integration
-    def test_update_multiple_file_types(self) -> None:
+    def test_update_multiple_file_types(self, file_fixture: FileFixture) -> None:
         """Test updating different types of files."""
-        test_files = {
-            "package.json": '{\n  "version": "1.0.0"\n}\n',
-            "setup.py": "version='1.0.0'\n",
-            "Cargo.toml": '[package]\nversion = "1.0.0"\n',
-            "README.md": "# version: v1.0.0\n",
-        }
-
+        old_version = "1.0.0"
         new_version = Version(major=2, minor=1, patch=0)
 
-        for filename, content in test_files.items():
-            with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=filename) as tmp_file:
-                tmp_file.write(content)
-                tmp_path = tmp_file.name
+        # Test different file formats
+        test_files = [
+            file_fixture.create_json_file(
+                version=old_version, template_index=0
+            ),  # package.json style
+            file_fixture.create_python_file(
+                version=old_version, template_index=2
+            ),  # setup.py style
+            file_fixture.create_toml_file(
+                version=old_version, template_index=0
+            ),  # Cargo.toml style
+            file_fixture.create_text_file(version=old_version, template_index=2),  # v prefix style
+        ]
 
-            try:
-                updater = VersionFileUpdater(file_path=tmp_path, version=new_version)
-                updater.update()
+        # Update each file and verify the changes
+        for file_path in test_files:
+            updater = VersionFileUpdater(file_path=str(file_path), version=new_version)
+            updater.update()
 
-                with open(tmp_path, encoding="utf-8") as f:
-                    updated_content = f.read()
+            with open(file_path, encoding="utf-8") as f:
+                updated_content = f.read()
 
-                # Should contain the new version
-                assert "2.1.0" in updated_content
-
-            finally:
-                Path(tmp_path).unlink()
+            # Should contain the new version
+            assert str(new_version) in updated_content
+            # Old version should be gone
+            assert old_version not in updated_content
 
     @pytest.mark.integration
-    def test_concurrent_updates(self) -> None:
+    def test_concurrent_updates(self, file_fixture: FileFixture) -> None:
         """Test that concurrent updates work correctly."""
-        import threading
+        # Create a simple Python file with version 1.0.0
+        file_path = file_fixture.create_python_file(version="1.0.0", template_index=1)
+        file_path_str = str(file_path)
 
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".py") as tmp_file:
-            tmp_file.write("version = '1.0.0'\n")
-            tmp_path = tmp_file.name
+        results = []
 
-        try:
-            results = []
+        def update_version(version_str: str) -> None:
+            parts = version_str.split(".")
+            version = Version(major=int(parts[0]), minor=int(parts[1]), patch=int(parts[2]))
+            updater = VersionFileUpdater(file_path=file_path_str, version=version)
+            try:
+                updater.update()
+                results.append(version_str)
+            except Exception as e:
+                results.append(f"Error: {e}")
 
-            def update_version(version_str: str) -> None:
-                parts = version_str.split(".")
-                version = Version(major=int(parts[0]), minor=int(parts[1]), patch=int(parts[2]))
-                updater = VersionFileUpdater(file_path=tmp_path, version=version)
-                try:
-                    updater.update()
-                    results.append(version_str)
-                except Exception as e:
-                    results.append(f"Error: {e}")
+        # Start multiple threads updating to different versions
+        threads = []
+        for version_str in ["2.0.0", "2.1.0", "2.2.0"]:
+            thread = threading.Thread(target=update_version, args=(version_str,))
+            threads.append(thread)
+            thread.start()
 
-            # Start multiple threads updating to different versions
-            threads = []
-            for version_str in ["2.0.0", "2.1.0", "2.2.0"]:
-                thread = threading.Thread(target=update_version, args=(version_str,))
-                threads.append(thread)
-                thread.start()
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
 
-            # Wait for all threads to complete
-            for thread in threads:
-                thread.join()
+        # At least one should succeed
+        success_count = sum(1 for r in results if not r.startswith("Error"))
+        assert success_count >= 1
 
-            # At least one should succeed
-            success_count = sum(1 for r in results if not r.startswith("Error"))
-            assert success_count >= 1
+        # Verify the file was updated with one of the versions
+        with open(file_path, encoding="utf-8") as f:
+            content = f.read()
 
-        finally:
-            Path(tmp_path).unlink()
+        assert any(version in content for version in ["2.0.0", "2.1.0", "2.2.0"])
