@@ -83,7 +83,7 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     # TODO: maybe find away to catch correct base sha of the PR rather then using current one
     latest_commit_sha = lockfile.target_base_sha or event.get_merged_commit_sha()
 
-    commit_messages = gitops.get_recent_commits(latest_commit_sha)
+    commit_messages = gitops.get_recent_commits(latest_commit_sha, config=config)
     changelog.update(version=new_version, messages=commit_messages)
 
     lockfile.target_base_sha = event.get_merged_commit_sha()

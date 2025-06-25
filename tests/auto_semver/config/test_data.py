@@ -8,6 +8,7 @@ including PullRequestConfig, ChangelogConfig, and ConfigData validator functions
 import pytest
 from pydantic import ValidationError
 
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.config.data import ChangelogConfig, ConfigData, PromotionRule, PullRequestConfig
 from auto_semver.semver import Version
 
@@ -50,7 +51,9 @@ class TestPullRequestConfig:
         )
 
         # Account for the hidden marker comment added by render_body
-        expected = "<!-- auto-semver:pr -->\n- Version: 1.2.3\n- Date: 01-01-2025\n- Fix bug\n- Add feature\n"
+        expected = (
+            f"{PR_HIDDEN_MARKER}\n- Version: 1.2.3\n- Date: 01-01-2025\n- Fix bug\n- Add feature\n"
+        )
         assert rendered == expected
 
     @pytest.mark.unit

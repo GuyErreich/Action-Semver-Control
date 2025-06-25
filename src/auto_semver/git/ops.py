@@ -32,6 +32,7 @@ from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 from github.Repository import Repository
 
+from auto_semver.config import Config
 from auto_semver.semver import SemverLock, Version
 
 logger = logging.getLogger(__package__)
@@ -328,14 +329,22 @@ class GitOps:
 
             raise
 
-    def get_recent_commits(self, commit_sha: str) -> list[str]:
+    def get_recent_commits(
+        self,
+        commit_sha: str,
+        *,
+        filter_release_commits: bool = True,
+        config: Config | None = None,
+    ) -> list[str]:
         """
-        Get commit messages between the specified between a given commit SHA and HEAD.
+        Get commit messages between the specified commit SHA and HEAD.
 
         This method attempts to fetch the commit SHA from the remote if it doesn't exist locally.
 
         Args:
             commit_sha (str): The base commit SHA to compare against HEAD.
+            filter_release_commits (bool): If True, filters out release-related commits.
+            config (Config): Configuration object to determine release commit patterns.
 
         Returns:
             list[str]: A list of commit messages.
@@ -361,6 +370,21 @@ class GitOps:
         try:
             commits: list[Commit] = list(self.repo.iter_commits(f"{commit_sha}..HEAD"))
             messages: list[str] = [str(commit.message).strip() for commit in reversed(commits)]
+
+            if filter_release_commits and config:
+                original_count = len(messages)
+                messages = self._filter_release_commits(messages, config)
+                filtered_count = original_count - len(messages)
+
+                if filtered_count > 0:
+                    logger.debug(f"Filtered out {filtered_count} release-related commits")
+                else:
+                    logger.debug("No release-related commits found to filter out.")
+            else:
+                if not filter_release_commits:
+                    logger.debug("Filtering of release commits is disabled.")
+                if not config:
+                    logger.debug("No config provided, skipping release commit filtering.")
 
             for message in messages:
                 logger.debug(f"Commit message: {message}")
@@ -434,3 +458,34 @@ class GitOps:
         except Exception as err:
             logger.error(f"Failed to scan remote release branches: {err}")
             return None
+
+    def _filter_release_commits(self, messages: list[str], config: Config) -> list[str]:
+        """
+        Filter out release-related commit messages.
+
+        Args:
+            messages (list[str]): List of commit messages to filter.
+            config (Config): Configuration object to get release title template.
+
+        Returns:
+            list[str]: Filtered list of commit messages with release commits removed.
+
+        """
+
+        # Get the release commit prefix from config
+        release_prefix = config.data.pull_request.get_release_commit_prefix()
+        if not release_prefix:
+            logger.debug("No release prefix found in config title template")
+            return messages
+
+        logger.debug(f"Using config-based release prefix: '{release_prefix}'")
+
+        filtered_messages = []
+
+        for message in messages:
+            if message.startswith(release_prefix):
+                logger.debug(f"Filtering out release commit: {message}")
+            else:
+                filtered_messages.append(message)
+
+        return filtered_messages
