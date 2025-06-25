@@ -3,7 +3,7 @@ start_version: "0.1.0"
 suffixes:
   dev: "-dev"
   staging: "-rc"
-  main: ""  # Production releases
+  master: ""  # Production releases
 
 promotions:
   - from_branch: dev
