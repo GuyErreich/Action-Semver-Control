@@ -221,3 +221,20 @@ class TestConfigData:
                     ),  # "main" not in suffixes
                 ],
             )
+
+    @pytest.mark.unit
+    def test_circular_promotion_loop_prevention(self) -> None:
+        """Test validation prevents circular promotion loops."""
+        with pytest.raises(ValueError, match="reverse rule found"):
+            ConfigData(
+                start_version=str(Version(major=0, minor=1, patch=0)),  # type: ignore[arg-type]
+                suffixes={"dev": "-dev", "staging": "-rc"},
+                version_files=["version.txt"],
+                branch_strategy="multi",
+                pull_request=PullRequestConfig(title="", body="", labels=["test-label"]),
+                changelog=ChangelogConfig(file="CHANGELOG.md", truncate=False, template=""),
+                promotions=[
+                    PromotionRule(from_branch="dev", to_branch="staging"),
+                    PromotionRule(from_branch="staging", to_branch="dev"),  # Creates a loop!
+                ],
+            )
