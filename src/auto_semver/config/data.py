@@ -15,6 +15,7 @@ Classes:
     ConfigData: Root configuration object holding all top-level config sections.
 """
 
+import re
 from textwrap import dedent
 from typing import Any, Literal
 
@@ -22,7 +23,7 @@ from jinja2 import Template, TemplateSyntaxError
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ..semver import Version
-from .constants import DEFAULT_CHANGELOG
+from .constants import DEFAULT_CHANGELOG, PR_HIDDEN_MARKER
 
 
 class PullRequestConfig(BaseModel):
@@ -83,7 +84,35 @@ class PullRequestConfig(BaseModel):
     def render_body(self, **kwargs: Any) -> str:
         """Render the body template and silently append a hidden marker comment."""
         rendered = Template(self.body).render(**kwargs)
-        return f"<!-- auto-semver:pr -->\n{rendered}"
+        return f"{PR_HIDDEN_MARKER}\n{rendered}"
+
+    def get_release_commit_prefix(self) -> str | None:
+        """
+        Extract the prefix from the title template that can be used to identify release commits.
+
+        This method finds all static text before template variables in the title,
+        which can be used to filter out release commits from commit messages.
+
+        Returns:
+            str | None: The prefix string if found, None if the template starts with a variable.
+
+        Examples:
+            - "Release {{version}}" -> "Release "
+            - "{{version}}" -> None
+            - "Bump to {{version}} for {{branch}}" -> "Bump to "
+        """
+
+        # Find the first template variable (anything in {{ }})
+        template_var_pattern = r"\{\{[^}]+\}\}"
+        match = re.search(template_var_pattern, self.title)
+
+        if match:
+            # Get everything before the first template variable
+            prefix = self.title[: match.start()].strip()
+            return prefix if prefix else None
+        else:
+            # No template variables found, return the whole title
+            return self.title.strip() if self.title.strip() else None
 
 
 class ChangelogConfig(BaseModel):
