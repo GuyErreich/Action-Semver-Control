@@ -26,14 +26,24 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Restore virtual environment cache
-      id: cache-venv-restore
-      uses: actions/cache/restore@v4
+    - name: Cache virtual environment
+      uses: actions/cache@v4
       with:
         path: .venv
-        key: ${{ runner.os }}-venv-${{ matrix.python-version }}
+        key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-venv-${{ matrix.python-version }}
+          ${{ runner.os }}-venv-${{ matrix.python-version }}-
+
+    - name: Cache tool caches (mypy, ruff, pytest)
+      uses: actions/cache@v4
+      with:
+        path: |
+          .mypy_cache
+          .ruff_cache
+          .pytest_cache
+        key: ${{ runner.os }}-tool-caches-${{ matrix.python-version }}-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-tool-caches-${{ matrix.python-version }}-
 
     - name: Cache Task binary
       uses: actions/cache@v4
@@ -46,12 +56,6 @@ jobs:
 
     - name: Install dependencies
       run: task install
-
-    - name: Save virtual environment cache
-      uses: actions/cache/save@v4
-      with:
-        path: .venv
-        key: ${{ steps.cache-venv-restore.outputs.cache-primary-key }}
 
     - name: Lint code
       run: task lint
