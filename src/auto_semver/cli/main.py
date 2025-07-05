@@ -6,6 +6,8 @@ based on CI/CD context and branch strategy (e.g., single-branch release workflow
 """
 
 import argparse
+import logging
+import sys
 
 from auto_semver.cli import bump, finalize
 from auto_semver.cli.utils import is_finalized
@@ -13,6 +15,8 @@ from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.utils import setup_logger
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -46,21 +50,29 @@ def main() -> None:
       encapsulated in a dedicated class in the future.
 
     """
+    try:
+        parser = argparse.ArgumentParser()
+        # parser.add_argument("--branch-name", required=True, type=str)
+        # parser.add_argument("--target-branch", required=True, type=str)
+        parser.add_argument("--github-token", required=True, type=str)
+        # parser.add_argument("--repo-full-name", required=True, type=str)
+        parser.add_argument("--debug", action="store_true")
+        args = parser.parse_args()
 
-    parser = argparse.ArgumentParser()
-    # parser.add_argument("--branch-name", required=True, type=str)
-    # parser.add_argument("--target-branch", required=True, type=str)
-    parser.add_argument("--github-token", required=True, type=str)
-    # parser.add_argument("--repo-full-name", required=True, type=str)
-    parser.add_argument("--debug", action="store_true")
-    args = parser.parse_args()
+        setup_logger(args.debug)
+        config = Config()
+        gitops = GitOps(ensure_safe=True)
+        event = GitHubEvent()
 
-    setup_logger(args.debug)
-    config = Config()
-    gitops = GitOps(ensure_safe=True)
-    event = GitHubEvent()
-
-    if is_finalized(config=config, event=event):
-        finalize.run(gitops=gitops, event=event, config=config)
-    else:
-        bump.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
+        if is_finalized(config=config, event=event):
+            finalize.run(gitops=gitops, event=event, config=config)
+        else:
+            bump.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
+    except KeyboardInterrupt:
+        logger.info("Operation cancelled by user")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        if args.debug:
+            logger.exception("Full traceback:")
+        sys.exit(1)

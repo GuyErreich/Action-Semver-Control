@@ -13,7 +13,7 @@ promotions:
 
 branch_strategy: "single"  # "single" or "multi"
 
-files_to_update:
+version_files:
   - "version.txt"
   - "pyproject.toml"
 

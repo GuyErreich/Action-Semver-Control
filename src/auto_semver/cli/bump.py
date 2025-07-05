@@ -14,6 +14,75 @@ from auto_semver.semver.updater import VersionFileUpdater
 logger = logging.getLogger(__package__)
 
 
+def _detect_tag_source_branch(*, version: Version, config: Config) -> str | None:
+    """
+    Detect which branch a version tag belongs to based on its suffix.
+
+    This function maps the version's suffix back to the source branch using
+    the suffixes configuration.
+
+    Args:
+        version: The version object with a suffix
+        config: The configuration containing suffix mappings
+
+    Returns:
+        The branch name that corresponds to the version's suffix, or None if not found
+    """
+    # Normalize suffix - treat None as empty string for comparison
+    target_suffix = version.suffix or ""
+
+    # Find branch that matches the version's suffix
+    for branch, suffix in config.data.suffixes.items():
+        if suffix == target_suffix:
+            return branch
+
+    return None
+
+
+def _is_tag_promotion_scenario(*, version: Version, target_branch: str, config: Config) -> bool:
+    """
+    Check if the current scenario represents a tag promotion.
+
+    A tag promotion scenario occurs when:
+    1. We have an existing version with a suffix that maps to a source branch
+    2. There's a promotion rule from that source branch to the target branch
+    3. This should result in suffix change only, no version bump
+
+    Args:
+        version: The current version object
+        target_branch: The target branch of the PR
+        config: The configuration containing promotion rules and suffixes
+
+    Returns:
+        True if this is a tag promotion scenario, False otherwise
+
+    Raises:
+        ValueError: If the version has a suffix that doesn't match any configured branch
+    """
+    # Detect which branch this version tag currently belongs to
+    source_branch = _detect_tag_source_branch(version=version, config=config)
+
+    if source_branch is None:
+        # If we can't find the source branch, the version's suffix doesn't match
+        # any configured branch suffix - this is always a configuration error
+        suffix_display = f"'{version.suffix}'" if version.suffix else "None (empty)"
+        error_msg = (
+            f"Version {version} has suffix {suffix_display} that doesn't match any "
+            f"configured branch suffix in: {list(config.data.suffixes.values())}"
+        )
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+
+    # Check if there's a promotion rule from source to target
+    for rule in config.data.promotions:
+        if rule.from_branch == source_branch and rule.to_branch == target_branch:
+            logger.info(f"Tag promotion detected: {version} from {source_branch} → {target_branch}")
+            return True
+
+    logger.debug(f"No promotion rule found from {source_branch} → {target_branch}")
+    return False
+
+
 def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str) -> None:
     """
     Run the bump workflow.
@@ -44,6 +113,7 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
 
     logger.info(f"Branch name: {current_branch}")
 
+    # Get current version first to check for tag promotion
     version = gitops.get_highest_release_lock_version_for_target(target_branch)
 
     if not version:
@@ -54,9 +124,24 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
         except FileNotFoundError:
             version = config.data.start_version
 
+    # Check if this is a tag promotion scenario
+    is_tag_promotion = _is_tag_promotion_scenario(
+        version=version, target_branch=target_branch, config=config
+    )
+
+    if is_tag_promotion:
+        logger.info(f"Detected tag promotion: {version} → {target_branch}")
+    else:
+        logger.info(f"Standard bump workflow: {current_branch} → {target_branch}")
+
     logger.info(f"Current version: {version}")
 
-    version.bump(branch_name=current_branch)
+    # Only bump version if this is NOT a tag promotion
+    if not is_tag_promotion:
+        version.bump(branch_name=current_branch)
+    else:
+        logger.info("Skipping version bump for tag promotion - preserving version numbers")
+
     suffix: str = config.data.suffixes[target_branch]
     version.set_suffix(suffix=suffix)
     new_version: str = str(version)

@@ -5,6 +5,13 @@ description = ""
 authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "gitpython~=3.1.32",
+    "jinja2~=3.1",
+    "pydantic~=2.11",
+    "pygithub~=2.6",
+    "pyyaml~=6.0",
+]
 
 [build-system]
 requires = ["setuptools>=80.4"]
@@ -24,7 +31,7 @@ testpaths   = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=80 --tb=short"
 log_level = "DEBUG"
 markers = [
     "unit: mark a test as a unit test",
@@ -72,6 +79,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assertions, and fixtures
 "tests/*" = ["PLR2004", "S101", "ARG", "FBT"]
+# CLI orchestration functions can have more statements for workflow clarity
+"src/auto_semver/cli/bump.py" = ["PLR0915"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -111,3 +120,15 @@ no_implicit_optional = true
 allow_redefinition = false
 install_types = false
 non_interactive = false
+
+[dependency-groups]
+dev = [
+    "mypy~=1.8",
+    "pre-commit~=4.2",
+    "pyfakefs~=5.9",
+    "pytest~=8.3",
+    "pytest-cov~=6.1",
+    "pytest-mock~=3.14",
+    "ruff~=0.11",
+    "types-pyyaml~=6.0",
+]
