@@ -50,6 +50,8 @@ class TestBump:
         mock.data.start_version = Version.parse("0.1.0")
         mock.data.version_files = ["version.txt"]
         mock.data.branch_strategy = "single"
+        # Add empty promotions list for tag promotion logic
+        mock.data.promotions = []
 
         # Set up PR config
         mock_pr_config = mocker.Mock(spec=PullRequestConfig)

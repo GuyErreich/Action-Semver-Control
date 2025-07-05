@@ -2,39 +2,42 @@ version: '3'
 
 
 tasks:
-  install:
-    desc: Install dev dependencies 
+  init:
+    desc: Initialize project with Python version
     cmds:
-      - python3 -m venv .venv
-      - .venv/bin/pip install -U pip
-      - .venv/bin/pip install --upgrade -r requirements.txt -r requirements-dev.txt
-  sources:
-    - requirements.txt
-    - requirements-dev.txt
-  generates:
-    - .venv
+      - uv python pin 3.12
+    generates:
+      - .python-version
+
+  install:
+    desc: Install dependencies with uv
+    cmds:
+      - uv sync --dev
+    sources:
+      - pyproject.toml
+      - uv.lock
 
   format:
     desc: Format code with ruff
     cmds:
-      - .venv/bin/ruff format .
+      - uv run ruff format .
 
   lint:
     desc: Lint code with ruff
     cmds:
-      - .venv/bin/ruff check .
+      - uv run ruff check .
     
 
   type-check:
     desc: Run mypy type checks
     cmds:
-      - .venv/bin/mypy src tests
+      - uv run mypy src tests
 
   test:
     desc: Run pytest
     cmds:
       - echo "Running tests..."
-      - .venv/bin/pytest -s
+      - uv run pytest -s -v
 
   all:
     desc: Run all checks
