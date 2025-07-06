@@ -1,4 +1,4 @@
-> 🧭 This project is an **auto-semver GitHub Action** that automates semantic versioning, changelog management, and pull request creation. It follows strict conventions for Python 3.12+, modern typing, full test coverage, CI-enforced validation, and clean architecture. These guidelines apply to **all contributors and tools**, including GitHub Copilot.
+> 🧭 This project is an **auto-semver GitHub Action** that automates semantic versioning, changelog management, and pull request creation. It follows strict conventions for Python 3.13+, modern tooling (uv for dependency management), full test coverage, CI-enforced validation, and clean architecture. These guidelines apply to **all contributors and tools**, including GitHub Copilot.
 
 ---
 
@@ -23,7 +23,8 @@ This is a **GitHub Action** written in Python that:
 ---
 
 ### ✅ General Development
-- Use **Python 3.12+**.
+- Use **Python 3.13+** with modern language features.
+- Use **uv** for dependency management instead of pip for faster, more reliable builds.
 - Prefer built-in `types` (`list`, `dict`, `tuple`, etc.) over legacy `typing.List`, etc.
 - Write clean, maintainable, and modular code.
 - Apply **Google-style docstrings** for all functions, classes, and modules.
@@ -83,6 +84,29 @@ Validation must be automated:
 - CI must enforce test and formatting rules.
 - Keep utility scripts in `scripts/` and document them clearly.
 
+### 🔀 Git Workflow and Branch Management
+- **Always follow proper Git workflow**: stash → checkout dev → pull → create branch → pop stash → commit → push
+- **Never switch branches with uncommitted changes** - use `git stash` to preserve work
+- **Use conventional branch naming** that aligns with auto-semver detection:
+  - `breaking/` or `major/` for breaking changes (major bump)
+  - `feature/` for new features (minor bump)
+  - `fix/`, `bug/`, `hotfix/`, `chore/`, `devops/` for fixes and maintenance (patch bump)
+  - Other prefixes (`docs/`, `refactor/`, `style/`, `test/`, `ci/`) default to patch bump
+- **Use descriptive branch names** in kebab-case: `feature/tag-promotion-workflow`
+- **Create feature branches from latest dev/main** to avoid conflicts
+- **Push with upstream tracking** using `-u` flag on first push
+
+### 📝 Commit Standards and Messaging
+- **Follow conventional commits** format: `<description>`
+- **Write structured commit messages** for complex changes:
+  - Clear, imperative title under 50 characters
+  - Organized body with categories and bullet points
+  - Explain what, why, and impact
+  - Include breaking changes and migration notes when applicable
+- **Use reusable commit and branch prompts** from `.github/copilot/prompts/`
+- **Keep commits atomic** - one logical change per commit
+- **Include context for future maintainers** in commit bodies
+
 ---
 
 ### 📋 Project-Specific Guidelines
@@ -91,10 +115,11 @@ Validation must be automated:
 - Use `Version.parse()` to handle complex version formats with prefixes, suffixes, and quotes
 - Version bumping follows branch naming conventions:
   - `major/*`, `breaking/*` → major bump
-  - `minor/*`, `feature/*`, `feat/*` → minor bump  
-  - `patch/*`, `fix/*`, `hotfix/*`, `bugfix/*` → patch bump
+  - `feature/*` → minor bump  
+  - `fix/*`, `bug/*`, `hotfix/*`, `chore/*`, `devops/*` → patch bump
 - Preserve original formatting when updating version files (titles, quotes, prefixes)
 - Support tag promotion scenarios where versions are promoted between branches without bumping
+- Tag promotion logic detects source branch from version suffixes and preserves version numbers
 
 #### 🌿 Git Operations
 - Use `GitOps` class for all Git operations - never call git commands directly
@@ -126,6 +151,24 @@ Validation must be automated:
 - Support multiple file types (Python, YAML, JSON, text files)
 - Handle edge cases like missing files and invalid version formats
 
+### 🏗️ Modern Development Infrastructure
+- **Dependency Management**: Use `uv` instead of pip for faster dependency resolution and caching
+- **Python Version**: Target Python 3.13+ for latest performance and language features
+- **Configuration**: Use `pyproject.toml` for all project configuration instead of separate requirements files
+- **Build Tools**: Leverage `uv.lock` for reproducible builds and dependency pinning
+- **Development Environment**: Use `.python-version` file for consistent Python version across team
+- **CI/CD**: Optimize workflows with `uv` caching for faster build times
+- **Docker**: Use multi-stage builds with `uv` for efficient container images
+
+### 📋 Reusable Development Prompts
+The project includes standardized prompts in `.github/copilot/prompts/` for consistent development practices:
+- **`commit.prompt.md`**: Generate structured, conventional commit messages
+- **`new-branch.prompt.md`**: Create feature branches following proper Git workflow
+- **`create-pr.prompt.md`**: Create comprehensive GitHub pull requests with auto-semver integration
+- **Use these prompts** to maintain consistency across team contributions
+- **Update prompts** when project conventions evolve
+- **Reference prompts** in documentation and onboarding materials
+
 ---
 
 ### 🚀 Code Style and Behavior
@@ -149,6 +192,9 @@ Validation must be automated:
 
 ### 🤖 AI Usage Guidelines
 - Think proactively — propose improvements beyond the current task.
+- **Follow proper Git workflows** - always stash before switching branches, create feature branches from latest dev
+- **Use standardized prompts** from `.github/copilot/prompts/` for consistent commit messages and branch creation
+- **Suggest infrastructure improvements** when modernizing dependencies or tooling
 - Suggest refactoring when encountering:
   - Duplicate code
   - Boilerplate mocks
@@ -158,6 +204,7 @@ Validation must be automated:
   - Existing file structure and naming
   - Testing conventions
   - Type/style/lint constraints
+  - Branch naming conventions for auto-semver detection
 - Ask for clarification if context is incomplete — don't assume logic.
 - **Project-specific AI guidelines:**
   - Understand the dual workflow: `bump` (create release PR) vs `finalize` (create Git tag)
@@ -166,6 +213,8 @@ Validation must be automated:
   - Test changes with both branch strategies (`single` and `multi`)
   - Validate Jinja2 templates when modifying configuration schemas
   - Consider Docker build context when adding new dependencies
+  - Implement comprehensive test coverage for tag promotion scenarios
+  - Use proper mocking for Git operations in tests
 
 ---
 
