@@ -111,6 +111,10 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     target_branch: str = event.get_target_branch_name()
     repo_full_name: str = event.get_repository()
 
+    if target_branch not in config.data.suffixes:
+        logger.error(f"Target branch '{target_branch}' not found in suffixes configuration.")
+        raise ValueError(f"Target branch '{target_branch}' is not configured in suffixes.")
+
     logger.info(f"Branch name: {current_branch}")
 
     # Get current version first to check for tag promotion
