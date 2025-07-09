@@ -130,5 +130,5 @@ dev = [
     "pytest-cov~=6.1",
     "pytest-mock~=3.14",
     "ruff~=0.11",
-    "types-pyyaml~=6.0",
+    "types-PyYAML~=6.0",
 ]
