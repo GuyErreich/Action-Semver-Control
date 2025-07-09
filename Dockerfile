@@ -1,28 +1,29 @@
 FROM python:3.13-slim
 
-# Install system dependencies
+# Install system dependencies including uv
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git curl \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# Add uv to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Set working directory
 WORKDIR /github/workspace
 
-# TODO: test and remove python already handles it
-# Mark /github/workspace as safe for git
-# RUN git config --global --add safe.directory /github/workspace 
+# Copy Python project configuration
+COPY pyproject.toml uv.lock ./
 
-# Install Python dependencies (only your tool's!)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies using uv
+RUN uv sync --frozen --no-dev
 
-# Copy only your source code
+# Copy source code
 COPY src/ /app
 
 # Set PYTHONPATH to include your source
 ENV PYTHONPATH=/app
 
-# Set default command
-ENTRYPOINT ["python", "-m", "auto_semver.cli"]
+# Set default command using uv run for proper environment
+ENTRYPOINT ["uv", "run", "python", "-m", "auto_semver.cli"]
