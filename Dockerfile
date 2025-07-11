@@ -3,7 +3,8 @@ FROM ghcr.io/astral-sh/uv:0.7.20-python3.13-alpine@sha256:66fc613d6880444f8593aa
 ENV WORKDIR=/github/workspace \
     PYTHONUNBUFFERED=1
 
-RUN addgroup -S appgroup \
+RUN apk add --no-cache git \
+ && addgroup -S appgroup \
  && adduser -S appuser -G appgroup \
  && mkdir -p ${WORKDIR} \
  && chown -R appuser:appgroup ${WORKDIR}
@@ -15,6 +16,9 @@ COPY src/ ./src/
 
 RUN uv sync --frozen --no-dev --compile-bytecode \
  && chown -R appuser:appgroup ${WORKDIR}
+
+# Add the virtual environment to PATH so we can use python directly
+ENV PATH="/github/workspace/.venv/bin:$PATH"
 
 USER appuser
 

@@ -32,11 +32,12 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=80 --tb=short"
-log_level = "DEBUG"
+log_level = "INFO"
 markers = [
     "unit: mark a test as a unit test",
     "integration: mark a test as an integration test",
     "edge_case: mark a test as an edge case test",
+    "slow: mark a test as slow (deselect with '-m \"not slow\"')",
 ]
 
 [tool.coverage.run]
@@ -123,6 +124,7 @@ non_interactive = false
 
 [dependency-groups]
 dev = [
+    "docker~=7.1",
     "mypy~=1.8",
     "pre-commit~=4.2",
     "pyfakefs~=5.9",
@@ -130,5 +132,6 @@ dev = [
     "pytest-cov~=6.1",
     "pytest-mock~=3.14",
     "ruff~=0.11",
+    "types-docker~=7.1",
     "types-PyYAML~=6.0",
 ]

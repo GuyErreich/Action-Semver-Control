@@ -7,7 +7,6 @@ ensuring that log formatting is applied correctly with different debug levels.
 
 import logging
 from collections.abc import Generator
-from io import StringIO
 
 import pytest
 
@@ -16,28 +15,6 @@ from auto_semver.utils.logger import record_factory, setup_logger
 
 class TestLogger:
     """Test cases for the logger module."""
-
-    @pytest.fixture
-    def mock_stdout(self, monkeypatch: pytest.MonkeyPatch) -> Generator[StringIO, None, None]:
-        """Capture stdout for testing logger output."""
-        buffer = StringIO()
-
-        # Create a custom handler that writes to our buffer
-        handler = logging.StreamHandler(buffer)
-
-        # Store the original handlers so we can restore them later
-        original_handlers = logging.root.handlers.copy()
-
-        # Remove existing handlers and add our custom one
-        logging.root.handlers.clear()
-        logging.root.addHandler(handler)
-
-        yield buffer
-
-        # Clean up after the test
-        logging.root.handlers.clear()
-        for h in original_handlers:
-            logging.root.addHandler(h)
 
     @pytest.fixture
     def reset_logging_factory(self) -> Generator[None, None, None]:
@@ -93,31 +70,37 @@ class TestLogger:
         assert logger.handlers[0].formatter is not None
 
     @pytest.mark.unit
-    def test_logger_output_debug_mode(
-        self, mock_stdout: StringIO, reset_logging_factory: None
-    ) -> None:
+    def test_logger_output_debug_mode(self, reset_logging_factory: None) -> None:
         """Test that logger outputs messages correctly in debug mode."""
+        # Create a logger with a null handler to prevent console output during testing
         logger = setup_logger(debug=True)
+        
+        # Replace the handler with a null handler to prevent output
+        null_handler = logging.NullHandler()
+        logger.handlers.clear()
+        logger.addHandler(null_handler)
 
-        # Log a test message
+        # Log a test message - this should work without errors
         test_message = "This is a debug test message"
         logger.debug(test_message)
-
-        # We're using a custom handler in our fixture; the output is captured in stdout
-        # but not in our StringIO buffer, so we just verify the test runs without errors
-        assert True  # Logger is working if test gets here without exception
+        
+        # Verify the logger is configured correctly
+        assert logger.level == logging.DEBUG
 
     @pytest.mark.unit
-    def test_logger_output_info_mode(
-        self, mock_stdout: StringIO, reset_logging_factory: None
-    ) -> None:
+    def test_logger_output_info_mode(self, reset_logging_factory: None) -> None:
         """Test that logger outputs messages correctly in info mode."""
+        # Create a logger with a null handler to prevent console output during testing
         logger = setup_logger(debug=False)
+        
+        # Replace the handler with a null handler to prevent output
+        null_handler = logging.NullHandler()
+        logger.handlers.clear()
+        logger.addHandler(null_handler)
 
-        # Log a test message
+        # Log a test message - this should work without errors
         test_message = "This is an info test message"
         logger.info(test_message)
-
-        # We're using a custom handler in our fixture; the output is captured in stdout
-        # but not in our StringIO buffer, so we just verify the test runs without errors
-        assert True  # Logger is working if test gets here without exception
+        
+        # Verify the logger is configured correctly
+        assert logger.level == logging.INFO

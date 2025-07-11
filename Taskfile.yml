@@ -37,7 +37,7 @@ tasks:
     desc: Run pytest
     cmds:
       - echo "Running tests..."
-      - uv run pytest -s -v
+      - uv run pytest -s
 
   all:
     desc: Run all checks

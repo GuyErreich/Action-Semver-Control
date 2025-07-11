@@ -1,5 +1,5 @@
 ---
-tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand', 'configurePythonEnvironment', 'getPythonEnvironmentInfo', 'getPythonExecutableCommand', 'installPythonPackage']
+tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand']
 ---
 
 # Create New Branch
