@@ -1,22 +1,45 @@
 ---
-tools: ['changes', 'runInTerminal', 'openSimpleBrowser']
+tools: ['codebase', 'runCommands', 'terminalLastCommand', 'openSimpleBrowser']
 ---
 
 # Create GitHub Pull Request
+
+⚠️ **CRITICAL WARNING: READ-ONLY MODE FOR PR CREATION** ⚠️
+
+**This prompt is ONLY for creating Pull Requests from existing, already-pushed changes.**
+
+**STRICTLY FORBIDDEN:**
+- Making new commits or code changes
+- Modifying, creating, or deleting any files
+- Pushing new changes to the branch
+- "Improving" or "fixing" existing code
+- Adding features or functionality
+
+**YOUR ONLY TASK:** Create a PR that accurately describes the changes already present in the pushed branch.
+
+---
 
 Generate a comprehensive, well-structured pull request following auto-semver conventions and best practices.
 
 ## Workflow Steps:
 
-1. **Ensure branch is pushed and up-to-date**
-   - `git push -u origin [branch-name]` (if not already pushed)
-   - Verify all commits are included
+1. **IMPORTANT: Work ONLY with existing pushed changes**
+   - **DO NOT** make any new code changes or commits
+   - **DO NOT** modify, add, or delete any files
+   - **DO NOT** push new changes to the branch
+   - Only create a PR for the changes that are already committed and pushed
 
-2. **Create PR using GitHub CLI or web interface**
+2. **Verify branch status (READ-ONLY)**
+   - Confirm branch is already pushed: `git log --oneline origin/[branch-name]` to see pushed commits
+   - Check if local and remote are in sync: `git status` (ignore any uncommitted local changes)
+   - If branch needs updates or is not pushed, exit and ask user to handle them separately
+
+3. **Create PR using GitHub CLI or web interface (EXISTING CHANGES ONLY)**
    - **GitHub CLI**: `gh pr create --title "[title]" --body "[description]"`
    - **Web**: Navigate to repository and click "Compare & pull request"
+   - Base PR content on changes already present in the pushed branch
 
-3. **Fill PR details using guidelines below**
+4. **Fill PR details using guidelines below (DESCRIBE EXISTING CHANGES)**
 
 ## PR Title Format:
 
@@ -40,18 +63,20 @@ Brief description of what this PR accomplishes and why it's needed.
 
 ## 📋 Changes Made
 
+**IMPORTANT: Describe only the changes that are already committed and pushed to the branch. Do NOT add new changes.**
+
 ### [Category 1] (e.g., Core Features, Infrastructure, Bug Fixes):
-- Specific change 1
-- Specific change 2
-- Impact or benefit
+- Specific change 1 (already implemented)
+- Specific change 2 (already implemented)
+- Impact or benefit (of existing changes)
 
 ### [Category 2]:
-- Another change
-- Technical details or reasoning
+- Another change (already implemented)
+- Technical details or reasoning (for existing changes)
 
 ### [Category 3]:
-- Additional changes
-- Context or dependencies
+- Additional changes (already implemented)
+- Context or dependencies (of existing changes)
 
 ## 🔄 Auto-Semver Impact
 - **Version Bump**: [Major/Minor/Patch] - based on `[branch-prefix]/` naming
@@ -264,9 +289,19 @@ gh pr create --fill
 ```
 
 ## Notes:
+- **CRITICAL**: This tool is for creating PRs from EXISTING pushed changes only
+- **DO NOT** make any new commits or file modifications during PR creation
+- **DO NOT** attempt to fix, improve, or add to the existing code
 - Use draft PRs for early feedback on large changes
 - Request specific reviewers familiar with the changed components
 - Link related issues and discussions
-- Update PR description as changes evolve
+- Update PR description as changes evolve (but NOT the code)
 - Ensure auto-semver branch naming is correct for proper version bumping
 - Consider the impact on existing workflows and users
+- **NEVER** use uncommitted changes in the branch for the PR
+- **ONLY** create PRs from the latest pushed branch state
+- **NEVER** try to push uncommitted changes to the remote branch
+- **NEVER** use git status to check local changes before creating a PR
+- **ALWAYS** ensure the branch is pushed before creating the PR
+- Use the `gh` CLI for streamlined PR creation and management
+- **ROLE LIMITATION**: Your role is ONLY to create the PR, not to modify the codebase
