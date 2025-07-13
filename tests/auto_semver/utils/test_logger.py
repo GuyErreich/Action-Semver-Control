@@ -74,7 +74,7 @@ class TestLogger:
         """Test that logger outputs messages correctly in debug mode."""
         # Create a logger with a null handler to prevent console output during testing
         logger = setup_logger(debug=True)
-        
+
         # Replace the handler with a null handler to prevent output
         null_handler = logging.NullHandler()
         logger.handlers.clear()
@@ -83,7 +83,7 @@ class TestLogger:
         # Log a test message - this should work without errors
         test_message = "This is a debug test message"
         logger.debug(test_message)
-        
+
         # Verify the logger is configured correctly
         assert logger.level == logging.DEBUG
 
@@ -92,7 +92,7 @@ class TestLogger:
         """Test that logger outputs messages correctly in info mode."""
         # Create a logger with a null handler to prevent console output during testing
         logger = setup_logger(debug=False)
-        
+
         # Replace the handler with a null handler to prevent output
         null_handler = logging.NullHandler()
         logger.handlers.clear()
@@ -101,6 +101,6 @@ class TestLogger:
         # Log a test message - this should work without errors
         test_message = "This is an info test message"
         logger.info(test_message)
-        
+
         # Verify the logger is configured correctly
         assert logger.level == logging.INFO
