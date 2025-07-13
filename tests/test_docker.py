@@ -5,24 +5,28 @@ These tests ensure that the Docker container builds correctly and runs as expect
 They validate that the module can be imported and executed within the container environment.
 """
 
+# mypy: disable-error-code=call-overload
+
 import tempfile
 import time
 from collections.abc import Generator
 from pathlib import Path
-from typing import Any
 
-import docker
 import pytest
+from docker import DockerClient
+from docker import errors as docker_errors
+from docker import from_env as docker_from_env
+from docker.models.images import Image as DockerImage
 
 
 class TestDockerBuild:
     """Test Docker container building and basic functionality."""
 
     @pytest.fixture(scope="class")
-    def docker_client(self) -> Generator[Any, None, None]:
+    def docker_client(self) -> Generator[DockerClient, None, None]:
         """Create a Docker client for testing."""
         try:
-            client = docker.from_env()
+            client = docker_from_env()
             client.ping()  # type: ignore[no-untyped-call]
             yield client
         except Exception as e:
@@ -32,7 +36,7 @@ class TestDockerBuild:
                 client.close()  # type: ignore[no-untyped-call]
 
     @pytest.fixture(scope="class")
-    def docker_image(self, docker_client: Any) -> Generator[Any, None, None]:
+    def docker_image(self, docker_client: DockerClient) -> Generator[DockerImage, None, None]:
         """
         Build the Docker image for testing.
 
@@ -48,7 +52,7 @@ class TestDockerBuild:
                 path=str(project_root), tag=image_tag, rm=True, forcerm=True
             )
             yield image
-        except docker.errors.BuildError as e:
+        except docker_errors.BuildError as e:
             build_logs = []
             for log in e.build_log:
                 if "stream" in log:
@@ -61,13 +65,15 @@ class TestDockerBuild:
             except Exception:
                 pass  # Ignore cleanup errors
 
-    def test_docker_build_succeeds(self, docker_image: Any) -> None:
+    def test_docker_build_succeeds(self, docker_image: DockerImage) -> None:
         """Test that the Docker image builds successfully."""
         assert docker_image.id is not None
         assert len(docker_image.tags) > 0
         assert any("auto-semver-test" in tag for tag in docker_image.tags)
 
-    def test_docker_module_import(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_module_import(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that the auto_semver module can be imported in the container."""
         python_code = (
             "import sys; print(sys.path); "
@@ -76,8 +82,8 @@ class TestDockerBuild:
             "print('Module found:', spec is not None)"
         )
         container = docker_client.containers.run(
-            docker_image.id,
-            ["python", "-c", python_code],
+            image=docker_image.id,
+            command=["python", "-c", python_code],
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain python
@@ -86,17 +92,19 @@ class TestDockerBuild:
         output = container.decode("utf-8")
         assert "Module found: True" in output
 
-    def test_docker_cli_module_executable(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_cli_module_executable(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that the CLI module can be executed with python -m."""
         try:
             docker_client.containers.run(
-                docker_image.id,
-                ["python", "-m", "auto_semver.cli", "--help"],
+                image=docker_image.id,
+                command=["python", "-m", "auto_semver.cli", "--help"],
                 remove=True,
                 detach=False,
             )
             # Should not raise ModuleNotFoundError
-        except docker.errors.ContainerError as e:
+        except docker_errors.ContainerError as e:
             # Check that it's not a module import error
             error_output = str(e.stderr) if e.stderr else ""
             assert "ModuleNotFoundError" not in error_output, (
@@ -106,12 +114,16 @@ class TestDockerBuild:
                 f"Module path error: {error_output}"
             )
 
-    def test_docker_entrypoint_help(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_entrypoint_help(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that the Docker entrypoint works with --help flag."""
         try:
-            docker_client.containers.run(docker_image.id, ["--help"], remove=True, detach=False)
+            docker_client.containers.run(
+                image=docker_image.id, command=["--help"], remove=True, detach=False
+            )
             # Should not raise ModuleNotFoundError
-        except docker.errors.ContainerError as e:
+        except docker_errors.ContainerError as e:
             # Check that it's not a module import error
             error_output = str(e.stderr) if e.stderr else ""
             assert "ModuleNotFoundError" not in error_output, (
@@ -121,7 +133,9 @@ class TestDockerBuild:
                 f"Module path error in entrypoint: {error_output}"
             )
 
-    def test_docker_python_path(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_python_path(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that Python can find the auto_semver package in the container."""
         python_code = (
             "import sys; print('Python paths:'); print('\\n'.join(sys.path)); "
@@ -129,8 +143,8 @@ class TestDockerBuild:
             "print(f'auto_semver location: {auto_semver.__file__}')"
         )
         container = docker_client.containers.run(
-            docker_image.id,
-            ["python", "-c", python_code],
+            image=docker_image.id,
+            command=["python", "-c", python_code],
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain python
@@ -139,11 +153,13 @@ class TestDockerBuild:
         output = container.decode("utf-8")
         assert "auto_semver location:" in output, f"auto_semver module not found. Output: {output}"
 
-    def test_docker_user_permissions(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_user_permissions(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that the container runs as the correct non-root user."""
         container = docker_client.containers.run(
-            docker_image.id,
-            ["whoami"],
+            image=docker_image.id,
+            command=["whoami"],
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain whoami
@@ -152,11 +168,13 @@ class TestDockerBuild:
         output = container.decode("utf-8").strip()
         assert output == "appuser", f"Expected 'appuser', got '{output}'"
 
-    def test_docker_working_directory(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_working_directory(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that the working directory is set correctly."""
         container = docker_client.containers.run(
-            docker_image.id,
-            ["pwd"],
+            image=docker_image.id,
+            command=["pwd"],
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain pwd
@@ -165,7 +183,9 @@ class TestDockerBuild:
         output = container.decode("utf-8").strip()
         assert output == "/github/workspace", f"Expected '/github/workspace', got '{output}'"
 
-    def test_docker_uv_installation(self, docker_client: Any, docker_image: Any) -> None:
+    def test_docker_uv_installation(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
         """Test that uv and dependencies are properly installed."""
         python_code = (
             "import importlib.metadata; "
@@ -173,8 +193,8 @@ class TestDockerBuild:
             "print('Installed packages:', sorted(installed))"
         )
         container = docker_client.containers.run(
-            docker_image.id,
-            ["python", "-c", python_code],
+            image=docker_image.id,
+            command=["python", "-c", python_code],
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain python
@@ -194,10 +214,10 @@ class TestDockerWithMountedVolume:
     """Test Docker container with mounted volumes for realistic GitHub Actions usage."""
 
     @pytest.fixture(scope="class")
-    def docker_client(self) -> Generator[Any, None, None]:
+    def docker_client(self) -> Generator[DockerClient, None, None]:
         """Create a Docker client for testing."""
         try:
-            client = docker.from_env()
+            client = docker_from_env()
             client.ping()  # type: ignore[no-untyped-call]
             yield client
         except Exception as e:
@@ -232,7 +252,9 @@ class TestDockerWithMountedVolume:
             yield workspace
 
     @pytest.fixture(scope="class")
-    def docker_image_for_volume_tests(self, docker_client: Any) -> Generator[Any, None, None]:
+    def docker_image_for_volume_tests(
+        self, docker_client: DockerClient
+    ) -> Generator[DockerImage, None, None]:
         """Build Docker image for volume mount tests."""
         image_tag = "auto-semver-volume-test:latest"
         project_root = Path(__file__).parent.parent
@@ -242,7 +264,7 @@ class TestDockerWithMountedVolume:
                 path=str(project_root), tag=image_tag, rm=True, forcerm=True
             )
             yield image
-        except docker.errors.BuildError as e:
+        except docker_errors.BuildError as e:
             build_logs = []
             for log in e.build_log:
                 if "stream" in log:
@@ -255,12 +277,15 @@ class TestDockerWithMountedVolume:
                 pass
 
     def test_docker_with_mounted_volume(
-        self, docker_client: Any, docker_image_for_volume_tests: Any, temp_workspace: Path
+        self,
+        docker_client: DockerClient,
+        docker_image_for_volume_tests: DockerImage,
+        temp_workspace: Path,
     ) -> None:
         """Test Docker container with mounted workspace volume."""
         container = docker_client.containers.run(
-            docker_image_for_volume_tests.id,
-            ["python", "-c", "import os; print('Files:', os.listdir('/github/workspace'))"],
+            image=docker_image_for_volume_tests.id,
+            command=["python", "-c", "import os; print('Files:', os.listdir('/github/workspace'))"],
             volumes={str(temp_workspace): {"bind": "/github/workspace", "mode": "rw"}},
             remove=True,
             detach=False,
@@ -272,7 +297,10 @@ class TestDockerWithMountedVolume:
         assert "version.txt" in output, f"Mounted files not accessible. Output: {output}"
 
     def test_docker_file_permissions_with_volume(
-        self, docker_client: Any, docker_image_for_volume_tests: Any, temp_workspace: Path
+        self,
+        docker_client: DockerClient,
+        docker_image_for_volume_tests: DockerImage,
+        temp_workspace: Path,
     ) -> None:
         """Test that the appuser can read files in mounted volume."""
         python_code = (
@@ -281,8 +309,8 @@ class TestDockerWithMountedVolume:
             "os.access('/github/workspace/version.txt', os.R_OK))"
         )
         container = docker_client.containers.run(
-            docker_image_for_volume_tests.id,
-            ["python", "-c", python_code],
+            image=docker_image_for_volume_tests.id,
+            command=["python", "-c", python_code],
             volumes={str(temp_workspace): {"bind": "/github/workspace", "mode": "rw"}},
             remove=True,
             detach=False,
@@ -301,10 +329,10 @@ class TestDockerPerformance:
     """Performance and resource usage tests for the Docker container."""
 
     @pytest.fixture(scope="class")
-    def docker_client(self) -> Generator[Any, None, None]:
+    def docker_client(self) -> Generator[DockerClient, None, None]:
         """Create a Docker client for testing."""
         try:
-            client = docker.from_env()
+            client = docker_from_env()
             client.ping()  # type: ignore[no-untyped-call]
             yield client
         except Exception as e:
@@ -314,7 +342,7 @@ class TestDockerPerformance:
                 client.close()  # type: ignore[no-untyped-call]
 
     @pytest.fixture(scope="class")
-    def docker_image_perf(self, docker_client: Any) -> Generator[Any, None, None]:
+    def docker_image_perf(self, docker_client: DockerClient) -> Generator[DockerImage, None, None]:
         """Build Docker image for performance tests."""
         image_tag = "auto-semver-perf-test:latest"
         project_root = Path(__file__).parent.parent
@@ -324,7 +352,7 @@ class TestDockerPerformance:
                 path=str(project_root), tag=image_tag, rm=True, forcerm=True
             )
             yield image
-        except docker.errors.BuildError as e:
+        except docker_errors.BuildError as e:
             build_logs = []
             for log in e.build_log:
                 if "stream" in log:
@@ -336,13 +364,15 @@ class TestDockerPerformance:
             except Exception:
                 pass
 
-    def test_docker_startup_time(self, docker_client: Any, docker_image_perf: Any) -> None:
+    def test_docker_startup_time(
+        self, docker_client: DockerClient, docker_image_perf: DockerImage
+    ) -> None:
         """Test that the Docker container starts up within reasonable time."""
         start_time = time.time()
 
         container = docker_client.containers.run(
-            docker_image_perf.id,
-            ["python", "-c", "print('Container started successfully')"],
+            image=docker_image_perf.id,
+            command=["python", "-c", "print('Container started successfully')"],
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain python
@@ -355,11 +385,13 @@ class TestDockerPerformance:
         assert "Container started successfully" in output
         assert startup_time < 30, f"Container startup took too long: {startup_time:.2f} seconds"
 
-    def test_docker_memory_usage(self, docker_client: Any, docker_image_perf: Any) -> None:
+    def test_docker_memory_usage(
+        self, docker_client: DockerClient, docker_image_perf: DockerImage
+    ) -> None:
         """Test that the container uses reasonable amount of memory."""
         container = docker_client.containers.run(
-            docker_image_perf.id,
-            ["python", "-c", "import auto_semver.cli; print('Memory test passed')"],
+            image=docker_image_perf.id,
+            command=["python", "-c", "import auto_semver.cli; print('Memory test passed')"],
             mem_limit="128m",
             remove=True,
             detach=False,
@@ -370,22 +402,14 @@ class TestDockerPerformance:
         assert "Memory test passed" in output
 
 
-# Configure pytest to register the slow marker
-def pytest_configure(config: pytest.Config) -> None:
-    """Configure pytest markers."""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-    )
-
-
 # Skip Docker tests if Docker is not available
-def pytest_collection_modifyitems(config: pytest.Config, items: list[Any]) -> None:
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Skip Docker tests if Docker is not available."""
     try:
-        client = docker.from_env()
+        client = docker_from_env()
         client.ping()  # type: ignore[no-untyped-call]
         client.close()  # type: ignore[no-untyped-call]
-    except Exception:
+    except docker_errors.APIError:
         skip_docker = pytest.mark.skip(reason="Docker not available")
         for item in items:
             if "test_docker" in item.nodeid:
