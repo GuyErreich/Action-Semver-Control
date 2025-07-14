@@ -15,6 +15,7 @@ COPY pyproject.toml uv.lock ./
 COPY src/ ./src/
 
 RUN uv sync --frozen --no-dev --compile-bytecode \
+ && uv pip install --no-deps -e . \
  && chown -R appuser:appgroup ${WORKDIR}
 
 # Add the virtual environment to PATH so we can use python directly
