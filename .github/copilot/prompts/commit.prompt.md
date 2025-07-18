@@ -1,10 +1,10 @@
 ---
-tools: ['changes', 'runInTerminal']
+tools: ['changes', 'runCommands', 'terminalLastCommand']
 ---
 
 # Create Proper Commit Message
 
-Generate a comprehensive, well-structured commit message following conventional commit standards and auto-semver best practices.
+Generate a comprehensive, well-structured commit message following auto-semver best practices with descriptive titles (no conventional commit prefixes).
 
 ## Requirements:
 
@@ -20,10 +20,13 @@ Generate a comprehensive, well-structured commit message following conventional 
 <description>
 
 **Description:** 
-- Use imperative mood ("add", not "added")
+- Use imperative mood ("Add", not "added")
 - Keep under 50 characters
 - Don't end with period
 - Be specific and meaningful
+- **Start with capital letter** for proper imperative mood
+- **NO conventional commit prefixes** (no `fix:`, `feat:`, `chore:`, etc.)
+- Branch name already indicates the type and version bump
 
 #### Body Format:
 
@@ -48,7 +51,7 @@ Additional Notes:
 
 **Simple patch fix:**
 
-fix(auth): resolve token expiration handling
+Resolve token expiration handling
 
 - Fix JWT token validation logic
 - Add proper error handling for expired tokens
@@ -56,7 +59,7 @@ fix(auth): resolve token expiration handling
 
 **New feature (minor bump):**
 
-feat(semver): add tag promotion workflow support
+Add tag promotion workflow support
 
 Core Features:
 - Implement _detect_tag_source_branch() for version detection
@@ -73,7 +76,7 @@ Documentation:
 
 **Breaking change (major bump):**
 
-BREAKING CHANGE: refactor(api)!: restructure endpoint naming
+Restructure API endpoint naming
 
 Breaking Changes:
 - Change all API endpoints from /v1/ to /api/v2/
@@ -92,7 +95,7 @@ Benefits:
 
 **Infrastructure/DevOps:**
 
-chore(deps): upgrade Python runtime to 3.13
+Upgrade Python runtime to 3.13
 
 Infrastructure:
 - Update Dockerfile to use Python 3.13
@@ -111,7 +114,7 @@ Benefits:
 
 **Documentation:**
 
-docs: update branch naming conventions in README
+Update branch naming conventions in README
 
 Documentation Updates:
 - Add auto-semver branch naming conventions
@@ -125,12 +128,14 @@ Additional Notes:
 
 ## Auto-Semver Integration:
 
-Your commit type should align with your branch type for consistency:
-- **Branch: `feature/`** → **Commit: `feat:`** (minor bump)
-- **Branch: `fix/`, `bug/`, `hotfix/`** → **Commit: `fix:`** (patch bump)
-- **Branch: `breaking/`, `major/`** → **Commit: `BREAKING CHANGE:`** (major bump)
-- **Branch: `chore/`, `devops/`** → **Commit: `chore:`** (patch bump)
-- **Branch: `docs/`** → **Commit: `docs:`** (no version bump)
+Your branch name determines the version bump type, NOT your commit title:
+- **Branch: `feature/`** → Minor bump (commit title: descriptive only, no prefixes)
+- **Branch: `fix/`, `bug/`, `hotfix/`** → Patch bump (commit title: descriptive only, no prefixes)
+- **Branch: `breaking/`, `major/`** → Major bump (commit title: descriptive only, no prefixes)
+- **Branch: `chore/`, `devops/`** → Patch bump (commit title: descriptive only, no prefixes)
+- **Branch: `docs/`** → No version bump (commit title: descriptive only, no prefixes)
+
+**Important**: Do NOT use conventional commit prefixes like `fix:`, `feat:`, `chore:`, etc. in commit titles. The branch name already indicates the type and determines the version bump.
 
 ## Guidelines:
 - Be specific about what changed and why
@@ -141,12 +146,14 @@ Your commit type should align with your branch type for consistency:
 - Include context for future developers
 - Reference issues/PRs when applicable
 - Consider the audience (team members, future maintainers)
+- **Never use conventional commit prefixes in titles** - the branch name determines version bump type
+- Use descriptive, imperative titles without type prefixes
 
 ## Commit Message Quality Checklist:
-- [ ] Title follows conventional commit format
+- [ ] Title uses descriptive language without conventional commit prefixes
 - [ ] Description is clear and under 50 characters
 - [ ] Body explains what, why, and impact (for non-trivial changes)
 - [ ] Breaking changes are clearly documented
-- [ ] Type aligns with branch naming convention
-- [ ] Scope is appropriate and helpful
+- [ ] Branch name (not commit title) determines version bump type
 - [ ] Grammar and spelling are correct
+- [ ] No `fix:`, `feat:`, `chore:`, or other conventional prefixes used
