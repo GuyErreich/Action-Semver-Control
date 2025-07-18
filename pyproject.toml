@@ -13,6 +13,9 @@ dependencies = [
     "pyyaml~=6.0",
 ]
 
+[project.scripts]
+auto-semver = "auto_semver.cli:main"
+
 [build-system]
 requires = ["setuptools>=80.4"]
 build-backend = "setuptools.build_meta"
