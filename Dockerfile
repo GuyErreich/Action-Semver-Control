@@ -11,15 +11,12 @@ RUN apk add --no-cache git \
 
 WORKDIR ${WORKDIR}
 
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 COPY src/ ./src/
 
-RUN uv sync --frozen --no-dev --compile-bytecode \
- && uv pip install --no-deps -e . \
+RUN uv build \
+ && uv pip install --system dist/*.whl \
  && chown -R appuser:appgroup ${WORKDIR}
-
-# Add the virtual environment to PATH so we can use the console script directly
-ENV PATH="/github/workspace/.venv/bin:$PATH"
 
 USER appuser
 
