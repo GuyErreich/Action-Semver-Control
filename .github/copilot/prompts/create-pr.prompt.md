@@ -1,5 +1,5 @@
 ---
-tools: ['codebase', 'runCommands', 'terminalLastCommand', 'openSimpleBrowser']
+tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand']
 ---
 
 # Create GitHub Pull Request
@@ -45,7 +45,7 @@ Generate a comprehensive, well-structured pull request following auto-semver con
 
 Follow conventional commit format aligned with branch type:
 ```
-<type>(<scope>): <description>
+<description>
 ```
 
 **Examples by branch type:**
