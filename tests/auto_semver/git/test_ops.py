@@ -75,7 +75,7 @@ class TestGitOps:
     def test_init_with_ensure_safe_permission_error(
         self, mocker: MockerFixture, mock_repo: Any
     ) -> None:
-        """Test that permission errors raise a RuntimeError."""
+        """Test that permission errors raise a RuntimeError immediately (no fallbacks)."""
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
 
         # Setup the repo working directory path
@@ -84,7 +84,7 @@ class TestGitOps:
         # Make config_writer raise a permission error
         mock_repo.config_writer.side_effect = PermissionError("Permission denied")
 
-        # This should raise a RuntimeError
+        # This should raise a RuntimeError immediately (simplified approach - no fallbacks)
         with pytest.raises(RuntimeError, match="Unable to configure git safe directory"):
             GitOps(ensure_safe=True)
 
