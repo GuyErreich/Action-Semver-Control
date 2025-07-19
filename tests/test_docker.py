@@ -156,7 +156,7 @@ class TestDockerBuild:
     def test_docker_user_permissions(
         self, docker_client: DockerClient, docker_image: DockerImage
     ) -> None:
-        """Test that the container runs as the correct non-root user."""
+        """Test that the container runs as root user (required for GitHub Actions)."""
         container = docker_client.containers.run(
             image=docker_image.id,
             command=["whoami"],
@@ -166,7 +166,7 @@ class TestDockerBuild:
         )
 
         output = container.decode("utf-8").strip()
-        assert output == "appuser", f"Expected 'appuser', got '{output}'"
+        assert output == "root", f"Expected 'root', got '{output}'"
 
     def test_docker_working_directory(
         self, docker_client: DockerClient, docker_image: DockerImage
@@ -282,7 +282,7 @@ class TestDockerWithMountedVolume:
         docker_image_for_volume_tests: DockerImage,
         temp_workspace: Path,
     ) -> None:
-        """Test Docker container with mounted workspace volume."""
+        """Test Docker container with mounted workspace volume as root user."""
         container = docker_client.containers.run(
             image=docker_image_for_volume_tests.id,
             command=["python", "-c", "import os; print('Files:', os.listdir('/github/workspace'))"],
@@ -290,7 +290,7 @@ class TestDockerWithMountedVolume:
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain python
-            user="root",  # Run as root to avoid permission issues
+            user="root",  # Run as root - this test verifies root user functionality
         )
 
         output = container.decode("utf-8")
@@ -302,7 +302,7 @@ class TestDockerWithMountedVolume:
         docker_image_for_volume_tests: DockerImage,
         temp_workspace: Path,
     ) -> None:
-        """Test that the appuser can read files in mounted volume."""
+        """Test that root user can read files in mounted volume (required for GitHub Actions)."""
         python_code = (
             "import os; "
             "print('Can read version.txt:', "
@@ -315,12 +315,51 @@ class TestDockerWithMountedVolume:
             remove=True,
             detach=False,
             entrypoint="",  # Override the entrypoint to use plain python
-            user="root",  # Run as root to avoid permission issues
+            user="root",  # Test as root - this is what GitHub Actions needs
         )
 
         output = container.decode("utf-8")
         assert "Can read version.txt: True" in output, (
-            f"appuser cannot read mounted files. Output: {output}"
+            f"root user cannot read mounted files. Output: {output}"
+        )
+
+    def test_docker_git_safe_directory_with_root(
+        self,
+        docker_client: DockerClient,
+        docker_image_for_volume_tests: DockerImage,
+        temp_workspace: Path,
+    ) -> None:
+        """Test that root user can successfully configure git safe directory."""
+        # Create a proper git repository in the temp workspace
+        git_dir = temp_workspace / ".git"
+        git_dir.mkdir(exist_ok=True)
+        (git_dir / "config").write_text("[core]\n    repositoryformatversion = 0\n")
+        (git_dir / "HEAD").write_text("ref: refs/heads/main\n")
+
+        refs_dir = git_dir / "refs" / "heads"
+        refs_dir.mkdir(parents=True, exist_ok=True)
+        (refs_dir / "main").write_text("0000000000000000000000000000000000000000\n")
+
+        # Test that auto-semver can initialize GitOps with ensure_safe=True
+        python_code = (
+            "from auto_semver.git.ops import GitOps; "
+            "gitops = GitOps(ensure_safe=True); "
+            "print('GitOps initialized successfully with git safe directory')"
+        )
+
+        container = docker_client.containers.run(
+            image=docker_image_for_volume_tests.id,
+            command=["python", "-c", python_code],
+            volumes={str(temp_workspace): {"bind": "/github/workspace", "mode": "rw"}},
+            remove=True,
+            detach=False,
+            entrypoint="",  # Override the entrypoint to use plain python
+            user="root",  # Test as root - this should work now
+        )
+
+        output = container.decode("utf-8")
+        assert "GitOps initialized successfully" in output, (
+            f"GitOps with git safe directory failed. Output: {output}"
         )
 
 
