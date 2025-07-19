@@ -62,14 +62,34 @@ class TestGitOps:
         # Create GitOps instance with ensure_safe=True
         GitOps(ensure_safe=True)
 
-        # Check that config_writer was called
-        mock_repo.config_writer.assert_called_once_with(config_level="global")
+        # Check that config_writer was called with repository config
+        mock_repo.config_writer.assert_called_once_with(config_level="repository")
 
         # Check that the safe directory was added
         config_writer = mock_repo.config_writer.return_value
         config_writer.set_value.assert_called_once_with(
             section="safe", option="directory", value="/mock/path"
         )
+
+    @pytest.mark.unit
+    def test_init_with_ensure_safe_permission_error(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Test that permission errors raise a RuntimeError."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+
+        # Setup the repo working directory path
+        mock_repo.working_tree_dir = "/mock/path"
+
+        # Make config_writer raise a permission error
+        mock_repo.config_writer.side_effect = PermissionError("Permission denied")
+
+        # This should raise a RuntimeError
+        with pytest.raises(RuntimeError, match="Unable to configure git safe directory"):
+            GitOps(ensure_safe=True)
+
+        # Verify that config_writer was attempted
+        mock_repo.config_writer.assert_called_once_with(config_level="repository")
 
     @pytest.mark.unit
     def test_create_branch(self, mocker: MockerFixture) -> None:
