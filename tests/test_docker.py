@@ -17,6 +17,7 @@ from docker import DockerClient
 from docker import errors as docker_errors
 from docker import from_env as docker_from_env
 from docker.models.images import Image as DockerImage
+from git import Repo
 
 
 class TestDockerBuild:
@@ -330,15 +331,15 @@ class TestDockerWithMountedVolume:
         temp_workspace: Path,
     ) -> None:
         """Test that root user can successfully configure git safe directory."""
-        # Create a proper git repository in the temp workspace
-        git_dir = temp_workspace / ".git"
-        git_dir.mkdir(exist_ok=True)
-        (git_dir / "config").write_text("[core]\n    repositoryformatversion = 0\n")
-        (git_dir / "HEAD").write_text("ref: refs/heads/main\n")
+        # Create a proper git repository in the temp workspace using git init
+        # Initialize a proper Git repository
+        repo = Repo.init(temp_workspace)
 
-        refs_dir = git_dir / "refs" / "heads"
-        refs_dir.mkdir(parents=True, exist_ok=True)
-        (refs_dir / "main").write_text("0000000000000000000000000000000000000000\n")
+        # Create a dummy file and make an initial commit to have a valid repository
+        dummy_file = temp_workspace / "dummy.txt"
+        dummy_file.write_text("dummy content")
+        repo.index.add([str(dummy_file)])
+        repo.index.commit("Initial commit")
 
         # Test that auto-semver can initialize GitOps with ensure_safe=True
         python_code = (
