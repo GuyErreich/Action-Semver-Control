@@ -63,9 +63,10 @@ class GitOps:
 
     def __ensure_git_safe_directory(self) -> None:
         """
-        Ensure the repository path is listed as a safe Git directory in the global config.
+        Ensure the repository path is listed as a safe Git directory in the repository config.
 
         This is important for CI environments that may require explicitly trusting the repo.
+        Uses repository-level config which doesn't require elevated privileges and is scoped to this repo.
         """
 
         logger.info("Ensuring the repository is marked as a safe directory.")
@@ -77,20 +78,28 @@ class GitOps:
 
         logger.debug(f"Working tree directory: {path}")
 
-        git_config = self.repo.config_writer(config_level="global")
+        try:
+            git_config = self.repo.config_writer(config_level="repository")
 
-        logger.debug(f"Checking if {path} is in safe directories.")
+            logger.debug(f"Checking if {path} is in safe directories.")
 
-        raw_values = git_config.get_values(section=safe_key, option=directory_key, default="")
-        safe_dirs: list[str] = [v for v in raw_values if isinstance(v, str)]
+            raw_values = git_config.get_values(section=safe_key, option=directory_key, default="")
+            safe_dirs: list[str] = [v for v in raw_values if isinstance(v, str)]
 
-        if path not in safe_dirs:
-            logger.debug(f"{path} is not in safe directories.")
-            logger.info(f"Adding {path} to safe directories.")
+            if path not in safe_dirs:
+                logger.debug(f"{path} is not in safe directories.")
+                logger.info(f"Adding {path} to safe directories.")
 
-            git_config.set_value(section=safe_key, option=directory_key, value=path)
+                git_config.set_value(section=safe_key, option=directory_key, value=path)
 
             git_config.release()
+
+        except (OSError, PermissionError) as e:
+            logger.error(f"Failed to configure git safe directory due to permission error: {e}")
+            logger.error(
+                "Git safe directory configuration is required for proper operation in CI environments."
+            )
+            raise RuntimeError(f"Unable to configure git safe directory: {e}") from e
 
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:
         return Github(github_token).get_repo(repo_full_name)
