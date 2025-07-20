@@ -1,4 +1,4 @@
-> 🧭 This project is an **auto-semver GitHub Action** that automates semantic versioning, changelog management, and pull request creation. It follows strict conventions for Python 3.13+, modern tooling (uv for dependency management), full test coverage, CI-enforced validation, and clean architecture. These guidelines apply to **all contributors and tools**, including GitHub Copilot.
+> 🧭 This project is an **auto-semver GitHub Action** that automates semantic versioning, changelog management, and pull request creation. It follows strict conventions for Python 3.12+, modern tooling (uv for dependency management), full test coverage, CI-enforced validation, and clean architecture. These guidelines apply to **all contributors and tools**, including GitHub Copilot.
 
 ---
 
@@ -13,12 +13,18 @@ This is a **GitHub Action** written in Python that:
 - Uses semver lockfiles (`.semver.lock`) to track release state
 
 ### 🏗️ Core Architecture
+
+The tool operates in two primary modes:
+- **Bump mode**: Creates version bumps on PR merge, applies suffixes based on target branch
+- **Finalize mode**: Promotes versions between branches (removes/changes suffixes)
+
+Core modules follow strict domain separation:
 - **`auto_semver.cli`**: Command-line interface with `bump` and `finalize` workflows
-- **`auto_semver.git.ops`**: Git operations (branch, commit, push, PR creation)
+- **`auto_semver.git.ops`**: GitPython wrapper for branch operations, commits, and pushes
 - **`auto_semver.gh.event`**: GitHub Actions event parsing and context extraction
-- **`auto_semver.semver`**: Version parsing, bumping, and file updating
+- **`auto_semver.semver`**: Version parsing, bumping, and file updating logic
 - **`auto_semver.changelog`**: Changelog generation with Jinja2 templates
-- **`auto_semver.config`**: Pydantic-based configuration management
+- **`auto_semver.config`**: Pydantic-based YAML configuration with Jinja2 template validation
 
 ---
 
@@ -121,23 +127,38 @@ Validation must be automated:
 - Support tag promotion scenarios where versions are promoted between branches without bumping
 - Tag promotion logic detects source branch from version suffixes and preserves version numbers
 
-#### 🌿 Git Operations
+#### 🌿 Git Operations Safety & Patterns
 - Use `GitOps` class for all Git operations - never call git commands directly
+- Always use `GitOps(ensure_safe=True)` in CI environments - marks repo as safe in Git config to avoid permission issues
 - Always use lockfiles (`.semver.lock`) to track release state and prevent version regressions
 - Support both `single` and `multi` branch strategies for different workflow types
 - Handle GitHub API operations through `GitOps._get_github_repo()` method
+- `SemverLock` class prevents race conditions by checking for existing release branches
 
 #### 📝 Configuration Management
+- All behavior is controlled by `auto_semver_config.yml` with configuration-driven patterns:
+  ```yaml
+  suffixes:
+    dev: "-dev"      # Development releases
+    staging: "-rc"   # Release candidates  
+    master: ""       # Production releases
+  
+  branch_strategy: "single"  # Controls PR closure behavior
+  ```
 - All configuration uses Pydantic v2+ with strict validation
 - Jinja2 templates in config must be validated at load time
 - Use `Config.load()` for configuration loading with proper error handling
 - Configuration supports customizable PR templates, changelog templates, and branch suffixes
 
 #### 🎭 GitHub Actions Integration
+- The tool auto-detects context from `GITHUB_EVENT_PATH` and `GITHUB_EVENT_NAME` environment variables - no manual branch/repo parameters needed in CI
 - Parse GitHub event context using `GitHubEvent` class
 - Extract branch names, commit SHAs, and PR metadata from `GITHUB_EVENT_PATH`
 - Handle both `pull_request` events (for bump) and `push` events (for finalize)
 - Support Docker-based execution within GitHub Actions runners
+- Requires `contents: write` and `pull-requests: write` permissions
+- Triggered on `pull_request.closed` events to target branches
+- Uses `fetch-depth: 0` for full git history access
 
 #### 📊 Changelog Management
 - Use `ChangelogManager` with Jinja2 templates for flexible formatting
@@ -146,10 +167,11 @@ Validation must be automated:
 - Include date formatting and custom message templates
 
 #### 🔒 File Operations
-- Use `VersionFileUpdater` for intelligent version file updates
+- Use `VersionFileUpdater` class for intelligent version file updates
 - Preserve original file formatting, quotes, and structure
 - Support multiple file types (Python, YAML, JSON, text files)
 - Handle edge cases like missing files and invalid version formats
+- Supports simple version files (`version.txt`), TOML files with version fields (`pyproject.toml`), and pattern-based replacements in any text file
 
 ### 🏗️ Modern Development Infrastructure
 - **Dependency Management**: Use `uv` instead of pip for faster dependency resolution and caching
@@ -159,6 +181,12 @@ Validation must be automated:
 - **Development Environment**: Use `.python-version` file for consistent Python version across team
 - **CI/CD**: Optimize workflows with `uv` caching for faster build times
 - **Docker**: Use multi-stage builds with `uv` for efficient container images
+- **Action runs in Alpine container** with `uv` for fast dependency resolution:
+  ```dockerfile
+  FROM ghcr.io/astral-sh/uv:0.7.20-python3.12-alpine
+  # Builds wheel and installs system-wide
+  # Entry point: auto-semver CLI
+  ```
 
 ### 📋 Reusable Development Prompts
 The project includes standardized prompts in `.github/copilot/prompts/` for consistent development practices:
