@@ -82,6 +82,7 @@ Follow conventional commit format aligned with branch type:
 
 **Create this content in a markdown file first (e.g., `/tmp/pr-body.md`):**
 
+### Core Required Sections:
 ```markdown
 ## 🎯 Summary
 Brief description of what this PR accomplishes and why it's needed.
@@ -99,25 +100,11 @@ Brief description of what this PR accomplishes and why it's needed.
 - Another change (already implemented)
 - Technical details or reasoning (for existing changes)
 
-### [Category 3]:
-- Additional changes (already implemented)
-- Context or dependencies (of existing changes)
-
-## 🔄 Auto-Semver Impact
-- **Version Bump**: [Major/Minor/Patch] - based on `[branch-prefix]/` naming
-- **Branch Type**: `[branch-prefix]/[description]`
-- **Expected Version**: [current] → [expected new version]
-
 ## 🧪 Testing
 - [ ] Unit tests added/updated
 - [ ] Integration tests pass
 - [ ] Manual testing completed
 - [ ] Edge cases covered
-
-### Test Coverage:
-- Describe new test scenarios
-- Mention any test fixtures used
-- Note any mocking strategies
 
 ## 🔧 Technical Details
 
@@ -126,38 +113,21 @@ Brief description of what this PR accomplishes and why it's needed.
 - Design patterns or principles applied
 - Dependencies added or removed
 
-### Configuration Changes:
-- New configuration options
-- Breaking configuration changes
-- Migration steps if applicable
-
 ### Code Diffs (for significant changes):
 ```diff
 - old code
 + new code
 ```
 
-## 💥 Breaking Changes (if applicable)
-- **What breaks**: Detailed description of breaking changes
-- **Migration**: Steps to update existing usage
-- **Alternatives**: Suggested alternatives for deprecated features
-
 ## 📚 Documentation
 - [ ] Code comments and docstrings updated
 - [ ] README updated if needed
 - [ ] API documentation updated
-- [ ] Configuration examples provided
 
 ## 🔗 Related Issues
 - Closes #[issue-number]
 - Related to #[issue-number]
 - References #[issue-number]
-
-## 🚀 Deployment Notes
-- Any special deployment considerations
-- Database migrations needed
-- Environment variable changes
-- Docker/CI changes
 
 ## ✅ Checklist
 - [ ] Code follows project style guidelines
@@ -166,6 +136,33 @@ Brief description of what this PR accomplishes and why it's needed.
 - [ ] Documentation updated
 - [ ] No merge conflicts
 - [ ] Branch is up-to-date with base branch
+```
+
+### Optional Sections (Include Only When Relevant):
+
+**Test Strategy** (only for complex testing scenarios):
+```markdown
+### Test Strategy:
+- Describe testing approach and methodology
+- Mention test fixtures and mocking strategies
+- Document edge cases and scenarios covered
+```
+
+**Breaking Changes** (only when there ARE breaking changes):
+```markdown
+## 💥 Breaking Changes
+- **What breaks**: Detailed description of breaking changes
+- **Migration**: Steps to update existing usage
+- **Alternatives**: Suggested alternatives for deprecated features
+```
+
+**Deployment Notes** (only when special deployment considerations exist):
+```markdown
+## 🚀 Deployment Notes
+- Any special deployment considerations
+- Database migrations needed
+- Environment variable changes
+- Docker/CI changes
 ```
 
 ## Markdown File Workflow:
@@ -245,11 +242,12 @@ Fix [bug description] that was causing [impact].
 - Verify fix doesn't break existing functionality
 - Test with various [input types/configurations]
 
-## 🔄 Auto-Semver Impact
-- **Version Bump**: Patch - bug fix without breaking changes
-- **Branch Type**: `fix/[description]`
-- **Expected Version**: 1.2.3 → 1.2.4
-```
+## 🧪 Testing
+- [x] Regression tests added for the specific bug
+- [x] Existing functionality verified unaffected
+- [x] Edge cases covered
+
+## 🔧 Technical Details
 
 ### Breaking Change PR Template (`breaking/`, `major/` branches):
 **Save as `/tmp/breaking-pr-body.md`:**
@@ -274,12 +272,6 @@ Fix [bug description] that was causing [impact].
 - **Configuration**: [what needs to be updated]
 - **Migration**: See [migration guide/steps]
 
-## 🔄 Auto-Semver Impact
-- **Version Bump**: Major - contains breaking changes
-- **Branch Type**: `breaking/[description]`
-- **Expected Version**: 1.2.3 → 2.0.0
-```
-
 ### Infrastructure PR Template (`chore/`, `devops/`, `ci/` branches):
 **Save as `/tmp/chore-pr-body.md`:**
 ```markdown
@@ -298,10 +290,10 @@ Modernize [infrastructure component] for better [performance/maintainability].
 - Better [reliability/security/maintainability]
 - Access to [new features/improvements]
 
-## 🔄 Auto-Semver Impact
-- **Version Bump**: Patch - infrastructure improvement
-- **Branch Type**: `chore/[description]`
-- **Expected Version**: 1.2.3 → 1.2.4
+## 🧪 Testing
+- [x] Infrastructure changes tested
+- [x] Compatibility verified
+- [x] Performance improvements validated
 ```
 
 ## GitHub CLI Commands with Markdown Files:
@@ -347,11 +339,18 @@ cp /tmp/pr-body.md docs/templates/feature-pr-template.md
 - Ensure code blocks have proper syntax highlighting
 - Test emoji rendering and formatting
 
+### Section Relevance Guidelines:
+- **Always include**: Summary, Changes Made, Testing, Technical Details, Documentation, Checklist
+- **Include when relevant**: Test Strategy, Breaking Changes, Deployment Notes
+- **Remove if not applicable**: Don't include empty sections just to follow a template
+- **User feedback**: Listen to user requests to remove irrelevant sections during iteration
+
 ## Notes:
 - **CRITICAL**: This tool is for creating PRs from EXISTING pushed changes only
 - **ALWAYS** create PR content in markdown files first for better iteration
 - **DO NOT** make any new commits or file modifications during PR creation
 - **USE** markdown files for easy editing, formatting, and content refinement
+- **ITERATE BASED ON FEEDBACK**: Remove sections that users identify as irrelevant
 - Use draft PRs for early feedback on large changes
 - Request specific reviewers familiar with the changed components
 - Link related issues and discussions
