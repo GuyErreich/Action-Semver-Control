@@ -79,7 +79,7 @@ class GitOps:
         logger.debug(f"Working tree directory: {path}")
 
         try:
-            git_config = self.repo.config_writer(config_level="repository")
+            git_config = self.repo.config_writer(config_level="global")
 
             logger.debug(f"Checking if {path} is in safe directories.")
 

@@ -1,4 +1,6 @@
 ---
+description: Create a GitHub Pull Request for existing changes without modifying code or files.
+mode: agent
 tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand']
 ---
 
@@ -21,6 +23,23 @@ tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand']
 
 Generate a comprehensive, well-structured pull request following auto-semver conventions and best practices.
 
+## Key Requirements:
+
+### 📝 Use Markdown Files for Examples and Iteration
+**ALWAYS use markdown files for PR content creation and examples:**
+- Create PR body content in separate markdown files first
+- Use files like `/tmp/pr-body.md` or `docs/examples/pr-example.md`
+- Test and iterate on the markdown content before applying
+- This allows for easy editing, formatting verification, and content refinement
+- Apply final content using GitHub CLI: `gh pr create --body-file /path/to/file.md`
+
+**Benefits of markdown file approach:**
+- Easy iteration and refinement before publishing
+- Better formatting control and verification
+- Reusable templates and examples
+- Version control of PR templates
+- Collaborative editing capabilities
+
 ## Workflow Steps:
 
 1. **IMPORTANT: Work ONLY with existing pushed changes**
@@ -34,12 +53,16 @@ Generate a comprehensive, well-structured pull request following auto-semver con
    - Check if local and remote are in sync: `git status` (ignore any uncommitted local changes)
    - If branch needs updates or is not pushed, exit and ask user to handle them separately
 
-3. **Create PR using GitHub CLI or web interface (EXISTING CHANGES ONLY)**
-   - **GitHub CLI**: `gh pr create --title "[title]" --body "[description]"`
-   - **Web**: Navigate to repository and click "Compare & pull request"
-   - Base PR content on changes already present in the pushed branch
+3. **Create PR content in markdown file FIRST**
+   - Create markdown file with PR content: `/tmp/pr-body.md`
+   - Include all sections from the template below
+   - Test formatting and content accuracy
+   - Iterate and refine as needed
 
-4. **Fill PR details using guidelines below (DESCRIBE EXISTING CHANGES)**
+4. **Create PR using GitHub CLI with markdown file**
+   - **GitHub CLI**: `gh pr create --title "[title]" --body-file /tmp/pr-body.md`
+   - **Alternative**: Copy content from markdown file to web interface
+   - Base PR content on changes already present in the pushed branch
 
 ## PR Title Format:
 
@@ -56,6 +79,8 @@ Follow conventional commit format aligned with branch type:
 - **Branch: `docs/readme-update`** → **Title: `docs: update README with new features`**
 
 ## PR Description Template:
+
+**Create this content in a markdown file first (e.g., `/tmp/pr-body.md`):**
 
 ```markdown
 ## 🎯 Summary
@@ -106,6 +131,12 @@ Brief description of what this PR accomplishes and why it's needed.
 - Breaking configuration changes
 - Migration steps if applicable
 
+### Code Diffs (for significant changes):
+```diff
+- old code
++ new code
+```
+
 ## 💥 Breaking Changes (if applicable)
 - **What breaks**: Detailed description of breaking changes
 - **Migration**: Steps to update existing usage
@@ -137,9 +168,43 @@ Brief description of what this PR accomplishes and why it's needed.
 - [ ] Branch is up-to-date with base branch
 ```
 
-## Auto-Semver Specific Guidelines:
+## Markdown File Workflow:
 
-### For Feature PRs (`feature/` branches):
+### Step 1: Create PR Body Content
+```bash
+# Create markdown file with PR content
+cat > /tmp/pr-body.md << 'CONTENT'
+## 🎯 Summary
+[Your PR summary here]
+
+## 📋 Changes Made
+[Your changes here]
+...
+CONTENT
+```
+
+### Step 2: Review and Iterate
+```bash
+# Review the content
+cat /tmp/pr-body.md
+
+# Edit if needed
+nano /tmp/pr-body.md  # or your preferred editor
+```
+
+### Step 3: Create PR with File
+```bash
+# Create PR using the markdown file
+gh pr create --title "feat: your feature title" --body-file /tmp/pr-body.md
+
+# Or for draft PR
+gh pr create --draft --title "WIP: feature" --body-file /tmp/pr-body.md
+```
+
+## Auto-Semver Specific Templates:
+
+### Feature PR Template (`feature/` branches):
+**Save as `/tmp/feature-pr-body.md`:**
 ```markdown
 ## 🎯 Summary
 Add [feature name] to enhance [functionality area].
@@ -162,7 +227,8 @@ Add [feature name] to enhance [functionality area].
 - **Expected Version**: 1.2.3 → 1.3.0
 ```
 
-### For Bug Fix PRs (`fix/`, `bug/`, `hotfix/` branches):
+### Bug Fix PR Template (`fix/`, `bug/`, `hotfix/` branches):
+**Save as `/tmp/fix-pr-body.md`:**
 ```markdown
 ## 🎯 Summary
 Fix [bug description] that was causing [impact].
@@ -185,7 +251,8 @@ Fix [bug description] that was causing [impact].
 - **Expected Version**: 1.2.3 → 1.2.4
 ```
 
-### For Breaking Change PRs (`breaking/`, `major/` branches):
+### Breaking Change PR Template (`breaking/`, `major/` branches):
+**Save as `/tmp/breaking-pr-body.md`:**
 ```markdown
 ## 🎯 Summary
 [BREAKING CHANGE] Restructure [component] for better [reason].
@@ -213,7 +280,8 @@ Fix [bug description] that was causing [impact].
 - **Expected Version**: 1.2.3 → 2.0.0
 ```
 
-### For Infrastructure PRs (`chore/`, `devops/`, `ci/` branches):
+### Infrastructure PR Template (`chore/`, `devops/`, `ci/` branches):
+**Save as `/tmp/chore-pr-body.md`:**
 ```markdown
 ## 🎯 Summary
 Modernize [infrastructure component] for better [performance/maintainability].
@@ -236,72 +304,58 @@ Modernize [infrastructure component] for better [performance/maintainability].
 - **Expected Version**: 1.2.3 → 1.2.4
 ```
 
-## PR Best Practices:
+## GitHub CLI Commands with Markdown Files:
 
-### Title Guidelines:
-- Use imperative mood ("add", not "added")
-- Keep under 50 characters
-- Be specific and descriptive
-- Align with conventional commit format
-
-### Description Guidelines:
-- Explain the "what" and "why"
-- Include auto-semver impact information
-- Categorize changes logically
-- Reference related issues
-- Include testing information
-- Mention breaking changes prominently
-
-### Review Readiness:
-- Self-review code changes
-- Ensure CI passes
-- Update documentation
-- Add comprehensive tests
-- Resolve merge conflicts
-
-### Auto-Semver Integration:
-- Verify branch name follows conventions
-- Confirm expected version bump is correct
-- Test promotion scenarios if applicable
-- Validate configuration changes
-- Check lockfile updates
-
-## GitHub CLI Commands:
-
-**Create PR with template:**
+**Create PR with markdown file:**
 ```bash
-gh pr create --title "feat: add new feature" --body-file pr-template.md
+gh pr create --title "feat: add new feature" --body-file /tmp/pr-body.md
 ```
 
-**Create PR interactively:**
+**Create draft PR with file:**
 ```bash
-gh pr create --web
+gh pr create --draft --title "WIP: feature implementation" --body-file /tmp/pr-body.md
 ```
 
-**Draft PR for early feedback:**
+**Update existing PR with new markdown content:**
 ```bash
-gh pr create --draft --title "WIP: feature implementation"
+gh pr edit 123 --body-file /tmp/updated-pr-body.md
 ```
 
-**Auto-fill from commits:**
+**Create reusable template:**
 ```bash
-gh pr create --fill
+# Save template for future use
+cp /tmp/pr-body.md docs/templates/feature-pr-template.md
 ```
+
+## Best Practices with Markdown Files:
+
+### Template Management:
+- Create reusable templates for different PR types
+- Store templates in `docs/templates/` directory
+- Version control your templates for consistency
+- Share templates across team members
+
+### Content Iteration:
+- Start with basic template, then customize
+- Review markdown formatting before applying
+- Test with different markdown renderers
+- Get feedback on template before creating PR
+
+### Quality Assurance:
+- Spell check markdown content
+- Verify all links work properly
+- Ensure code blocks have proper syntax highlighting
+- Test emoji rendering and formatting
 
 ## Notes:
 - **CRITICAL**: This tool is for creating PRs from EXISTING pushed changes only
+- **ALWAYS** create PR content in markdown files first for better iteration
 - **DO NOT** make any new commits or file modifications during PR creation
-- **DO NOT** attempt to fix, improve, or add to the existing code
+- **USE** markdown files for easy editing, formatting, and content refinement
 - Use draft PRs for early feedback on large changes
 - Request specific reviewers familiar with the changed components
 - Link related issues and discussions
-- Update PR description as changes evolve (but NOT the code)
+- Update PR description using markdown files as changes evolve
 - Ensure auto-semver branch naming is correct for proper version bumping
 - Consider the impact on existing workflows and users
-- **NEVER** use uncommitted changes in the branch for the PR
-- **ONLY** create PRs from the latest pushed branch state
-- **NEVER** try to push uncommitted changes to the remote branch
-- **NEVER** use git status to check local changes before creating a PR
-- **ALWAYS** ensure the branch is pushed before creating the PR
-- Use the `gh` CLI for streamlined PR creation and management
-- **ROLE LIMITATION**: Your role is ONLY to create the PR, not to modify the codebase
+- **MARKDOWN FILE WORKFLOW**: Always create → review → iterate → apply

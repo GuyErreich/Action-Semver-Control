@@ -62,8 +62,8 @@ class TestGitOps:
         # Create GitOps instance with ensure_safe=True
         GitOps(ensure_safe=True)
 
-        # Check that config_writer was called with repository config
-        mock_repo.config_writer.assert_called_once_with(config_level="repository")
+        # Check that config_writer was called with global config
+        mock_repo.config_writer.assert_called_once_with(config_level="global")
 
         # Check that the safe directory was added
         config_writer = mock_repo.config_writer.return_value
@@ -89,7 +89,7 @@ class TestGitOps:
             GitOps(ensure_safe=True)
 
         # Verify that config_writer was attempted
-        mock_repo.config_writer.assert_called_once_with(config_level="repository")
+        mock_repo.config_writer.assert_called_once_with(config_level="global")
 
     @pytest.mark.unit
     def test_create_branch(self, mocker: MockerFixture) -> None:
