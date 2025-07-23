@@ -25,10 +25,17 @@ pull_request:
     ## Release Notes
     - Version: {{version}}
     - Date: {{date}}
-    - Changes:
-      {% for msg in messages %}
-      - {{ msg }}
-      {% endfor %}
+    
+    ## Changes
+    
+    {% for msg in messages -%}
+    ### {{ msg.split(':')[0].strip() if ':' in msg else msg.split('\n')[0].strip() }}
+    
+    {{ msg }}
+    
+    ---
+    
+    {% endfor %}
 
 changelog:
   file: "CHANGELOG.md"
