@@ -35,8 +35,14 @@ changelog:
   truncate: true
   template: |
     ## [{{version}}] - {{date}}
-    {% for msg in messages %}
-    - {{ msg }}
+    
+    {% for msg in messages -%}
+    ### {{ msg.split(':')[0].strip() if ':' in msg else msg.split('\n')[0].strip() }}
+    
+    {{ msg }}
+    
+    ---
+    
     {% endfor %}
 
   # Optional: Specify a custom changelog header
