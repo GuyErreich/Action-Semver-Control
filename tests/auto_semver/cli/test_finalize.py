@@ -11,8 +11,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from auto_semver.cli.finalize import run
-from auto_semver.config import Config
-from auto_semver.config.data import ConfigData
+from auto_semver.config import Config, ConfigData
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version

@@ -1,5 +1,5 @@
 ---
-tools: ['changes', 'runCommands', 'terminalLastCommand']
+tools: ['codebase', 'runCommands', 'think', 'changes', 'todos', 'GitKraken (bundled with GitLens)', 'github', 'memory']
 ---
 
 # Create Proper Commit Message

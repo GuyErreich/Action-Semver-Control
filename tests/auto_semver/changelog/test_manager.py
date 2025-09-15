@@ -14,6 +14,7 @@ from pytest_mock import MockerFixture
 
 from auto_semver.changelog.manager import _DEFAULT_COMMIT_PLACEHOLDER, ChangelogManager
 from auto_semver.config import Config
+from tests.fixtures.changelog_fixture import ChangelogFixture
 
 
 class TestChangelogManagerInit:
@@ -23,7 +24,7 @@ class TestChangelogManagerInit:
     def test_basic_initialization(self) -> None:
         """Test basic changelog manager initialization with required parameters."""
         manager = ChangelogManager(
-            path="CHANGELOG.md",
+            path=Path("CHANGELOG.md"),
             truncate=False,
             template="## [{{version}}]",
             header="# Changelog",
@@ -115,14 +116,14 @@ class TestChangelogManagerUpdate:
         mocker.patch("auto_semver.changelog.manager.date", FakeDate)
 
     @pytest.mark.unit
-    def test_update_new_file(self, tmp_path: Path, mock_today: None, mocker: MockerFixture) -> None:
+    def test_update_new_file(
+        self, empty_changelog_path: Path, mock_today: None, mocker: MockerFixture
+    ) -> None:
         """Test updating a changelog that doesn't exist yet."""
-        # Create changelog path
-        changelog_path = tmp_path / "CHANGELOG.md"
 
         # Create manager
         manager = ChangelogManager(
-            path=str(changelog_path),
+            path=empty_changelog_path,
             truncate=False,
             template="## [{{version}}] - {{date}}\n{% for msg in messages %}\n- {{ msg }}\n{% endfor %}",
             header="# Changelog",
@@ -133,10 +134,10 @@ class TestChangelogManagerUpdate:
         manager.update(version="1.0.0", messages=["Feature A", "Bugfix B"])
 
         # Verify file was created
-        assert changelog_path.exists()
+        assert empty_changelog_path.exists()
         # We're only checking that it exists with some basic content, not the exact format
         # since the date formatting is mocked differently
-        content = changelog_path.read_text()
+        content = empty_changelog_path.read_text()
         assert "# Changelog" in content
         assert "## [1.0.0]" in content
         assert "Feature A" in content
@@ -144,16 +145,17 @@ class TestChangelogManagerUpdate:
         assert "## License" in content
 
     @pytest.mark.unit
-    def test_update_existing_file_append(self, tmp_path: Path, mock_today: None) -> None:
+    def test_update_existing_file_append(
+        self, changelog_fixture: ChangelogFixture, mock_today: None
+    ) -> None:
         """Test appending to an existing changelog."""
-        # Create changelog path and existing content
-        changelog_path = tmp_path / "CHANGELOG.md"
+        # Create changelog with existing content
         existing_content = "# Changelog\n\n## [0.9.0] - 15-06-2025\n\n- Old feature\n"
-        changelog_path.write_text(existing_content)
+        changelog_path = changelog_fixture.write(existing_content)
 
         # Create manager that appends (truncate=False)
         manager = ChangelogManager(
-            path=str(changelog_path),
+            path=changelog_path,
             truncate=False,
             template="## [{{version}}] - {{date}}\n{% for msg in messages %}\n- {{ msg }}\n{% endfor %}",
             header="# Changelog",
@@ -173,16 +175,17 @@ class TestChangelogManagerUpdate:
         assert "Old feature" in content
 
     @pytest.mark.unit
-    def test_update_existing_file_truncate(self, tmp_path: Path, mock_today: None) -> None:
+    def test_update_existing_file_truncate(
+        self, changelog_fixture: ChangelogFixture, mock_today: None
+    ) -> None:
         """Test truncating an existing changelog."""
-        # Create changelog path and existing content
-        changelog_path = tmp_path / "CHANGELOG.md"
+        # Create changelog with existing content
         existing_content = "# Changelog\n\n## [0.9.0] - 15-06-2025\n\n- Old feature\n"
-        changelog_path.write_text(existing_content)
+        changelog_path = changelog_fixture.write(existing_content)
 
         # Create manager that truncates (truncate=True)
         manager = ChangelogManager(
-            path=str(changelog_path),
+            path=changelog_path,
             truncate=True,
             template="## [{{version}}] - {{date}}\n{% for msg in messages %}\n- {{ msg }}\n{% endfor %}",
             header="# Changelog",
@@ -202,18 +205,16 @@ class TestChangelogManagerUpdate:
 
     @pytest.mark.unit
     def test_update_empty_messages(
-        self, tmp_path: Path, mock_today: None, mocker: MockerFixture
+        self, empty_changelog_path: Path, mock_today: None, mocker: MockerFixture
     ) -> None:
         """Test updating with empty messages list uses default placeholder."""
-        # Create changelog path
-        changelog_path = tmp_path / "CHANGELOG.md"
 
         # Mock logger
         mock_logger = mocker.patch("auto_semver.changelog.manager.logger")
 
         # Create manager
         manager = ChangelogManager(
-            path=str(changelog_path),
+            path=empty_changelog_path,
             truncate=False,
             template="## [{{version}}] - {{date}}\n{% for msg in messages %}\n- {{ msg }}\n{% endfor %}",
             header="# Changelog",
@@ -227,18 +228,18 @@ class TestChangelogManagerUpdate:
         mock_logger.warning.assert_any_call("No commit messages provided. Adding default message.")
 
         # Verify default message was used
-        content = changelog_path.read_text()
+        content = empty_changelog_path.read_text()
         assert _DEFAULT_COMMIT_PLACEHOLDER in content
 
     @pytest.mark.unit
-    def test_update_io_error(self, tmp_path: Path, mock_today: None, mocker: MockerFixture) -> None:
+    def test_update_io_error(
+        self, empty_changelog_path: Path, mock_today: None, mocker: MockerFixture
+    ) -> None:
         """Test handling of IO errors when updating the changelog."""
-        # Create changelog path
-        changelog_path = tmp_path / "CHANGELOG.md"
 
         # Create manager
         manager = ChangelogManager(
-            path=str(changelog_path),
+            path=empty_changelog_path,
             truncate=False,
             template="## [{{version}}] - {{date}}\n{% for msg in messages %}\n- {{ msg }}\n{% endfor %}",
             header="# Changelog",
@@ -257,10 +258,10 @@ class TestChangelogManagerComposeNewChangelog:
     """Test cases for ChangelogManager._compose_new_changelog() method."""
 
     @pytest.mark.unit
-    def test_compose_new_changelog_with_all_parts(self) -> None:
+    def test_compose_new_changelog_with_all_parts(self, empty_changelog_path: Path) -> None:
         """Test composition of a new changelog with header, content, and footer."""
         manager = ChangelogManager(
-            path="CHANGELOG.md",
+            path=empty_changelog_path,
             truncate=False,
             template="",
             header="# Changelog",
@@ -272,10 +273,10 @@ class TestChangelogManagerComposeNewChangelog:
         assert result == expected
 
     @pytest.mark.unit
-    def test_compose_new_changelog_without_footer(self) -> None:
+    def test_compose_new_changelog_without_footer(self, empty_changelog_path: Path) -> None:
         """Test composition of a new changelog without footer."""
         manager = ChangelogManager(
-            path="CHANGELOG.md",
+            path=empty_changelog_path,
             truncate=False,
             template="",
             header="# Changelog",
@@ -287,10 +288,10 @@ class TestChangelogManagerComposeNewChangelog:
         assert result == expected
 
     @pytest.mark.unit
-    def test_compose_new_changelog_without_header(self) -> None:
+    def test_compose_new_changelog_without_header(self, empty_changelog_path: Path) -> None:
         """Test composition of a new changelog without header."""
         manager = ChangelogManager(
-            path="CHANGELOG.md",
+            path=empty_changelog_path,
             truncate=False,
             template="",
             header="",
@@ -306,10 +307,10 @@ class TestChangelogManagerComposeUpdatedChangelog:
     """Test cases for ChangelogManager._compose_updated_changelog() method."""
 
     @pytest.mark.unit
-    def test_compose_updated_changelog_truncate(self) -> None:
+    def test_compose_updated_changelog_truncate(self, empty_changelog_path: Path) -> None:
         """Test composition when truncate is True."""
         manager = ChangelogManager(
-            path="CHANGELOG.md",
+            path=empty_changelog_path,
             truncate=True,
             template="",
             header="# Changelog",
@@ -322,10 +323,10 @@ class TestChangelogManagerComposeUpdatedChangelog:
         assert result == expected
 
     @pytest.mark.unit
-    def test_compose_updated_changelog_append(self) -> None:
+    def test_compose_updated_changelog_append(self, empty_changelog_path: Path) -> None:
         """Test composition when truncate is False (append mode)."""
         manager = ChangelogManager(
-            path="CHANGELOG.md",
+            path=empty_changelog_path,
             truncate=False,
             template="",
             header="# Changelog",

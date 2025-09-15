@@ -21,16 +21,33 @@ Typical usage::
 
 import logging
 import os
-from typing import Any
+from pathlib import Path
+from typing import Literal, cast
 
 import yaml
 from pydantic import ValidationError
 
-from .data import ConfigData
+from ..semver import Version
+from ._models._changelog import ChangelogConfig
+from ._models._commit_group import CommitGroupConfig
+from ._models._config import ConfigData
+from ._models._promotion import PromotionRule
+from ._models._pull_request import PullRequestConfig
+from .constants import CONFIG_FILE
+
+# Union type for all possible ConfigData attribute return types
+type ConfigValue = (
+    Version
+    | dict[str, str]
+    | list[PromotionRule]
+    | list[str]
+    | Literal["single", "multi"]
+    | list[CommitGroupConfig]
+    | PullRequestConfig
+    | ChangelogConfig
+)
 
 logger = logging.getLogger(__package__)
-
-CONFIG_FILE: str = "auto_semver_config.yml"
 
 
 class Config:
@@ -43,19 +60,18 @@ class Config:
     settings.
     """
 
-    def __init__(self, path: str = CONFIG_FILE) -> None:
+    def __init__(self, path: Path = Path(CONFIG_FILE)) -> None:
         """
         Initialize the configuration manager.
 
         Args:
-            path (str): Path to the configuration file. Defaults to 'auto_semver_config.yml'.
+            path (Path): Path to the configuration file. Defaults to 'auto_semver_config.yml'.
 
         Raises:
             RuntimeError: If the configuration file is invalid or missing required keys.
             KeyError: If a required key is missing in the configuration file.
 
         """
-        self.path = path
         self.path = path
         self.data = self._load_and_parse()
 
@@ -79,18 +95,18 @@ class Config:
                 logger.error(f"Missing or invalid config field: {loc} | {msg} [{typ}]")
             raise
 
-    def __getattr__(self, item: str) -> Any:
+    def __getattr__(self, item: str) -> ConfigValue:
         """Use for returning the named property in data."""
-        return getattr(self.data, item)
+        return cast(ConfigValue, getattr(self.data, item))
 
     @staticmethod
-    def generate_config_file(config_data: ConfigData, path: str = CONFIG_FILE) -> None:
+    def generate_config_file(*, config_data: ConfigData, path: Path = Path(CONFIG_FILE)) -> None:
         """
         Generate a YAML configuration file from a ConfigData object.
 
         Args:
             config_data (ConfigData): The configuration data to write to file.
-            path (str): Path where the configuration file should be written.
+            path (Path): Path where the configuration file should be written.
                 Defaults to 'auto_semver_config.yml'.
 
         Raises:
@@ -99,11 +115,8 @@ class Config:
 
         """
         # Convert ConfigData to dict, excluding None values
+        # The field serializers will handle complex object conversion
         config_dict = config_data.model_dump(exclude_none=True)
-
-        # Convert Version object to string for YAML serialization
-        if "start_version" in config_dict:
-            config_dict["start_version"] = str(config_dict["start_version"])
 
         try:
             with open(path, "w", encoding="utf-8") as f:

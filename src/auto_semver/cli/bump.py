@@ -5,6 +5,8 @@ import logging
 
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
+from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -173,7 +175,9 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     latest_commit_sha = lockfile.target_base_sha or event.get_merged_commit_sha()
 
     commit_messages = gitops.get_recent_commits(latest_commit_sha, config=config)
-    changelog.update(version=new_version, messages=commit_messages)
+    changelog.update(
+        version=new_version, messages=commit_messages, commit_groups=config.data.commit_groups
+    )
 
     lockfile.target_base_sha = event.get_merged_commit_sha()
     lockfile.save_to_file()
@@ -196,13 +200,24 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
             labels=config.data.pull_request.labels,
         )
 
-    pr_body: str = config.data.pull_request.render_body(
+    release_date = datetime.date.today().strftime("%d-%m-%Y")
+
+    # Build template variables using the dataclass
+    template_vars = PullRequestTemplateVars(
         version=new_version,
-        date=datetime.date.today().strftime("%d-%m-%Y"),
+        date=release_date,
         messages=commit_messages,
     )
 
-    pr_title: str = config.data.pull_request.render_title(version=new_version)
+    # If commit groups are configured, process them and add to template vars
+    if config.data.commit_groups:
+        commit_groups_data = CommitGroupConfig.group_messages(
+            commit_messages, config.data.commit_groups
+        )
+        template_vars.commit_groups = commit_groups_data
+
+    pr_body: str = config.data.pull_request.render_body(template_vars)
+    pr_title: str = config.data.pull_request.render_title(template_vars)
 
     gitops.create_pr(
         repo_full_name=repo_full_name,

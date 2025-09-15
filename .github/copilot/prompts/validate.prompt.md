@@ -1,18 +1,5 @@
 ---
-tools: [
-    'runTasks',
-    'runCommands',
-    'problems',
-    'testFailure',
-    'configurePythonEnvironment',
-    'getPythonEnvironmentInfo',
-    'getPythonExecutableCommand',
-    'search',
-    'usages',
-    'codebase',
-    'editFiles',
-    'installPythonPackage'
-]
+tools: ['runCommands', 'runTasks', 'editFiles', 'runNotebooks', 'search', 'new', 'extensions', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'runTests', 'pylance mcp server', 'sequentialthinking', 'memory', 'getPythonEnvironmentInfo', 'getPythonExecutableCommand', 'installPythonPackage', 'configurePythonEnvironment']
 ---
 
 Validate that the entire project CI pipeline works correctly.
