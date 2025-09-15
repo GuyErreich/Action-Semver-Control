@@ -17,25 +17,120 @@ version_files:
   - "version.txt"
   - "pyproject.toml"
 
+# Commit grouping configuration for PR and changelog templates
+commit_groups:
+  # Major infrastructure and breaking changes
+  - title: "🔥 Breaking Changes"
+    patterns:
+      - "^(BREAKING CHANGE|breaking):"
+      - "^(major):"
+      - "^feat.*!:"
+      - "^fix.*!:"
+    priority: 1
+    
+  # New features and enhancements
+  - title: "✨ Features & Enhancements"
+    patterns:
+      - "^feat(\\([^)]*\\))?:"
+      - "^feature(\\([^)]*\\))?:"
+      - "^Add "      # Matches "Add console script entry point"
+      - "^Enhance "  # Matches "Enhance changelog template"
+      - "^add(\\([^)]*\\))?:"
+      - "^enhance(\\([^)]*\\))?:"
+    priority: 2
+    
+  # Code refactoring and quality improvements
+  - title: "♻️ Refactoring & Code Quality"
+    patterns:
+      - "^refactor(\\([^)]*\\))?:"
+      - "^Refactor " # Matches "Refactor pull request template"
+      - "^Refine "   # Matches "Refine GitHub Copilot PR prompt"
+      - "^style(\\([^)]*\\))?:"
+      - "^format(\\([^)]*\\))?:"
+      - "^lint(\\([^)]*\\))?:"
+      - "^Clean "    # Matches "Clean test output"
+    priority: 3
+    
+  # Infrastructure, tooling, and maintenance
+  - title: "🔧 Infrastructure & Tooling"
+    patterns:
+      - "^chore(\\([^)]*\\))?:"
+      - "^ci(\\([^)]*\\))?:"
+      - "^build(\\([^)]*\\))?:"
+      - "^Update "   # Matches "Update commit and PR prompts"
+      - "^Use "      # Matches "Use repository-level git"
+      - "^Switch "   # Matches "Switch Docker installation"
+      - "^Install "  # Matches "Install dependencies in Dockerfile"
+      - "^devops(\\([^)]*\\))?:"
+      - "^deps?(\\([^)]*\\))?:"
+      - "^docker(\\([^)]*\\))?:"
+    priority: 4
+    
+  # Bug fixes and resolutions
+  - title: "🐛 Bug Fixes & Resolutions"
+    patterns:
+      - "^fix(\\([^)]*\\))?:"
+      - "^Resolve "  # Matches "Resolve Git safe directory"
+      - "^fixing "   # Matches "fixing suffix to match"
+      - "^bug(\\([^)]*\\))?:"
+      - "^hotfix(\\([^)]*\\))?:"
+      - "^patch(\\([^)]*\\))?:"
+    priority: 5
+    
+  # Testing improvements
+  - title: "🧪 Testing"
+    patterns:
+      - "^test(\\([^)]*\\))?:"
+      - "^tests?(\\([^)]*\\))?:"
+      - "^testing(\\([^)]*\\))?:"
+    priority: 6
+    
+  # Documentation updates
+  - title: "📚 Documentation"
+    patterns:
+      - "^docs?(\\([^)]*\\))?:"
+      - "^documentation(\\([^)]*\\))?:"
+      - "^readme(\\([^)]*\\))?:"
+    priority: 7
+    
+  # Performance improvements
+  - title: "⚡ Performance"
+    patterns:
+      - "^perf(\\([^)]*\\))?:"
+      - "^performance(\\([^)]*\\))?:"
+      - "^optimize(\\([^)]*\\))?:"
+    priority: 8
+    
+  # Catch-all for unmatched commits
+  - title: "📝 Other Changes"
+    patterns:
+      - ".*"  # Matches everything else
+    priority: 99
+
 pull_request:
   title: "Release {{version}}"
   labels:
     - "semver-bump"
   body: |
-    ## Release Notes
-    - Version: {{version}}
-    - Date: {{date}}
+    ## 🚀 Release Notes
+    **Version:** {{version}}  
+    **Date:** {{date}}
     
-    ## Changes
+    {% for group in grouped_messages -%}
+    {% if group.commits -%}
+    ## {{ group.title }}
     
-    {% for msg in messages -%}
-    ### {{ msg.split(':')[0].strip() if ':' in msg else msg.split('\n')[0].strip() }}
+    {% for commit in group.commits -%}
+    {% if commit.body -%}
+    ### {{ commit.title }}
+    {{ commit.body }}
+    {% else -%}
+    - {{ commit.message }}
+    {% endif -%}
     
-    {{ msg }}
-    
-    ---
-    
-    {% endfor %}
+    {% endfor -%}
+    {% endif -%}
+    {% endfor -%}
 
 changelog:
   file: "CHANGELOG.md"
@@ -43,14 +138,21 @@ changelog:
   template: |
     ## [{{version}}] - {{date}}
     
-    {% for msg in messages -%}
-    ### {{ msg.split(':')[0].strip() if ':' in msg else msg.split('\n')[0].strip() }}
+    {% for group in grouped_messages -%}
+    {% if group.commits -%}
+    ### {{ group.title }}
     
-    {{ msg }}
+    {% for commit in group.commits -%}
+    {% if commit.body -%}
+    **{{ commit.title }}**  
+    {{ commit.body }}
+    {% else -%}
+    - {{ commit.message }}
+    {% endif -%}
     
-    ---
-    
-    {% endfor %}
+    {% endfor -%}
+    {% endif -%}
+    {% endfor -%}
 
   # Optional: Specify a custom changelog header
   header: |

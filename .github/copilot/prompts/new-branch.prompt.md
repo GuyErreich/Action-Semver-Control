@@ -1,5 +1,5 @@
 ---
-tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand']
+tools: ['codebase', 'runCommands', 'changes', 'GitKraken (bundled with GitLens)', 'github', 'sequentialthinking', 'memory']
 ---
 
 # Create New Branch

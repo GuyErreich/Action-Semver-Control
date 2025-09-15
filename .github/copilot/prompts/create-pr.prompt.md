@@ -1,7 +1,7 @@
 ---
 description: Create a GitHub Pull Request for existing changes without modifying code or files.
 mode: agent
-tools: ['changes', 'codebase', 'runCommands', 'terminalLastCommand']
+tools: ['codebase', 'runCommands', 'think', 'changes', 'fetch', 'githubRepo', 'todos', 'GitKraken (bundled with GitLens)', 'github', 'memory', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
 ---
 
 # Create GitHub Pull Request

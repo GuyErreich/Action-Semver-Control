@@ -18,6 +18,7 @@ from pathlib import Path
 from jinja2 import Template
 
 from auto_semver.config import Config
+from auto_semver.config._models._commit_group import CommitGroupConfig
 
 logger = logging.getLogger(__package__)
 
@@ -37,7 +38,7 @@ class ChangelogManager:
     def __init__(
         self,
         *,
-        path: str,
+        path: Path,
         truncate: bool,
         template: str,
         header: str,
@@ -47,14 +48,14 @@ class ChangelogManager:
         Initialize the changelog manager with user-provided parameters.
 
         Args:
-            path (str): Path to the changelog file.
+            path (Path): Path to the changelog file.
             truncate (bool): Whether to overwrite existing changelog content.
             template (str): The Jinja-style template for the changelog entry.
             header (str): Header content of the changelog file.
             footer (str): Footer content of the changelog file.
 
         """
-        self.path = Path(path)
+        self.path = path
         self.truncate = truncate
         self.template = template
         self.header = header
@@ -73,20 +74,27 @@ class ChangelogManager:
 
         """
         return cls(
-            path=config.data.changelog.file,
+            path=Path(config.data.changelog.file),
             truncate=config.data.changelog.truncate,
             template=config.data.changelog.template,
             header=config.data.changelog.header or "",
             footer=config.data.changelog.footer or "",
         )
 
-    def update(self, *, version: str, messages: list[str]) -> None:
+    def update(
+        self,
+        *,
+        version: str,
+        messages: list[str],
+        commit_groups: list[CommitGroupConfig] | None = None,
+    ) -> None:
         """
         Update the changelog file with the provided version and commit messages.
 
         Args:
             version: The version string to record (e.g., 1.2.3).
             messages: A list of commit messages to include under the version.
+            commit_groups: Optional commit groups for grouping messages.
 
         Raises:
             IOError: If writing to the changelog file fails.
@@ -98,10 +106,19 @@ class ChangelogManager:
             logger.warning("No commit messages provided. Adding default message.")
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
+        template_vars: dict[str, object] = {
+            "version": version,
+            "date": date.today().strftime("%d-%m-%Y"),
+            "messages": messages,
+        }
+
+        # Add grouped messages if commit groups are provided
+        if commit_groups:
+            grouped_data = CommitGroupConfig.group_messages(messages, commit_groups)
+            template_vars["commit_groups"] = grouped_data
+
         template: Template = Template(self.template, autoescape=True)
-        rendered: str = template.render(
-            version=version, date=date.today().strftime("%d-%m-%Y"), messages=messages
-        )
+        rendered: str = template.render(**template_vars)
 
         logger.debug(f"Rendered template: {rendered}")
 
