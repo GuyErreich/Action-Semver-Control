@@ -10,8 +10,27 @@ import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock import MockerFixture
 
+from tests.fixtures.changelog_fixture import ChangelogFixture
+from tests.fixtures.config_fixture import ConfigFixture
 from tests.fixtures.file_fixture import FileFixture
 from tests.fixtures.github_event_fixture import GitHubEventFixture
+
+
+@pytest.fixture
+def config_fixture(fs: FakeFilesystem) -> ConfigFixture:
+    """
+    Create a ConfigFixture instance.
+
+    This fixture provides methods to create different types of configuration files
+    for testing configuration loading, parsing, and validation.
+
+    Args:
+        fs: Fake filesystem for testing
+
+    Returns:
+        A ConfigFixture instance for creating test configuration files
+    """
+    return ConfigFixture(fs)
 
 
 @pytest.fixture
@@ -49,3 +68,29 @@ def file_fixture(tmp_path: Path, fs: FakeFilesystem) -> FileFixture:
         A FileFixture instance for creating test files
     """
     return FileFixture(tmp_path, fs)
+
+
+@pytest.fixture
+def changelog_fixture(tmp_path: Path, fs: FakeFilesystem) -> ChangelogFixture:
+    """
+    Create a ChangelogFixture instance using the fake filesystem.
+
+    Args:
+        tmp_path: Pytest fixture that provides a temporary directory
+        fs: Fake filesystem for testing
+
+    Returns:
+        A ChangelogFixture instance for creating and managing a fake changelog file
+    """
+    return ChangelogFixture(tmp_path, fs)
+
+
+@pytest.fixture
+def empty_changelog_path(changelog_fixture: ChangelogFixture) -> Path:
+    """
+    Create and return an empty CHANGELOG.md path in the fake filesystem.
+
+    Useful for tests that need an existing, empty changelog file without
+    writing to the real filesystem.
+    """
+    return changelog_fixture.create()

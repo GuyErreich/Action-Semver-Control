@@ -7,7 +7,7 @@ which handles version bumping, changelog updating, and PR creation.
 
 import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -16,8 +16,11 @@ from pytest_mock import MockerFixture
 
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.cli.bump import run
-from auto_semver.config import Config
-from auto_semver.config.data import ConfigData, PullRequestConfig
+from auto_semver.config import Config, ConfigData
+
+if TYPE_CHECKING:
+    pass
+
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -52,9 +55,11 @@ class TestBump:
         mock.data.branch_strategy = "single"
         # Add empty promotions list for tag promotion logic
         mock.data.promotions = []
+        # Add empty commit_groups list for commit grouping
+        mock.data.commit_groups = []
 
         # Set up PR config
-        mock_pr_config = mocker.Mock(spec=PullRequestConfig)
+        mock_pr_config = mocker.Mock()
         mock_pr_config.render_title.return_value = "Release 1.0.0"
         mock_pr_config.render_body.return_value = "Release notes"
         mock_pr_config.labels = ["semver-bump"]

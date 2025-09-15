@@ -49,7 +49,7 @@ class TestDockerBuild:
 
         try:
             # Build the Docker image
-            image, logs = docker_client.images.build(
+            image, _logs = docker_client.images.build(
                 path=str(project_root), tag=image_tag, rm=True, forcerm=True
             )
             yield image
@@ -261,7 +261,7 @@ class TestDockerWithMountedVolume:
         project_root = Path(__file__).parent.parent
 
         try:
-            image, logs = docker_client.images.build(
+            image, _logs = docker_client.images.build(
                 path=str(project_root), tag=image_tag, rm=True, forcerm=True
             )
             yield image
@@ -388,7 +388,7 @@ class TestDockerPerformance:
         project_root = Path(__file__).parent.parent
 
         try:
-            image, logs = docker_client.images.build(
+            image, _logs = docker_client.images.build(
                 path=str(project_root), tag=image_tag, rm=True, forcerm=True
             )
             yield image

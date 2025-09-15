@@ -13,7 +13,6 @@ from pytest_mock import MockerFixture
 from auto_semver.cli.utils import is_finalized
 from auto_semver.config import Config
 from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.config.data import ConfigData, PullRequestConfig
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.semver import SemverLock, Version
 
@@ -35,14 +34,15 @@ class TestIsFinalized:
     def mock_config(self, mocker: MockerFixture) -> Any:
         """Create a mock Config instance."""
         mock = mocker.Mock(spec=Config)
-        mock_data = mocker.Mock(spec=ConfigData)
+        mock_data = mocker.Mock()
         mock.data = mock_data
 
-        # Set up PR config
-        mock_pr_config = mocker.Mock(spec=PullRequestConfig)
-        mock_pr_config.labels = ["semver-bump"]
-        mock_pr_config.render_title.return_value = "Release 1.0.0"
-        mock.data.pull_request = mock_pr_config
+        # Set up pull_request mock
+        mock_pull_request = mocker.Mock()
+        mock_pull_request.labels = ["semver-bump"]
+        mock_pull_request.render_title.return_value = "Release 1.0.0"
+        mock_pull_request.render_body.return_value = "Release notes"
+        mock.data.pull_request = mock_pull_request
 
         return mock
 

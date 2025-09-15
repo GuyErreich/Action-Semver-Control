@@ -7,7 +7,6 @@ one branch to another with suffix changes but no version bumps.
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
@@ -15,34 +14,37 @@ from pytest_mock import MockerFixture
 
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.cli.bump import _detect_tag_source_branch, _is_tag_promotion_scenario, run
-from auto_semver.config import Config
-from auto_semver.config.data import ConfigData, PromotionRule, PullRequestConfig
+from auto_semver.config import ChangelogConfig, Config, ConfigData, PromotionRule, PullRequestConfig
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
 from auto_semver.semver.lock import SemverLock
+from tests.fixtures.config_fixture import ConfigFixture
 from tests.fixtures.github_event_fixture import GitHubEventFixture
 
 
-def create_mock_config(suffixes: dict[str, str], promotions: list[tuple[str, str]]) -> Any:
-    """Helper to create a properly configured mock config."""
-    config = Mock(spec=Config)
-    config.data = Mock()
-    config.data.suffixes = suffixes
-    config.data.promotions = [
-        Mock(from_branch=from_branch, to_branch=to_branch) for from_branch, to_branch in promotions
+def create_test_config(
+    config_fixture: ConfigFixture, suffixes: dict[str, str], promotions: list[tuple[str, str]]
+) -> Config:
+    """Helper to create a properly configured test config using the fixture."""
+    promotion_dicts = [
+        {"from_branch": from_branch, "to_branch": to_branch}
+        for from_branch, to_branch in promotions
     ]
-    return config
+
+    config_fixture.create(suffixes=suffixes, promotions=promotion_dicts)
+
+    return Config(config_fixture.config_path)
 
 
 class TestDetectTagSourceBranch:
     """Test cases for _detect_tag_source_branch function."""
 
     @pytest.mark.unit
-    def test_detect_dev_branch_from_suffix(self) -> None:
+    def test_detect_dev_branch_from_suffix(self, config_fixture: ConfigFixture) -> None:
         """Test detecting dev branch from -dev suffix."""
-        config = create_mock_config(
-            suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
+        config = create_test_config(
+            config_fixture, suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
         )
 
         version = Version(major=1, minor=2, patch=3, suffix="-dev")
@@ -52,10 +54,10 @@ class TestDetectTagSourceBranch:
         assert result == "dev"
 
     @pytest.mark.unit
-    def test_detect_staging_branch_from_suffix(self) -> None:
+    def test_detect_staging_branch_from_suffix(self, config_fixture: ConfigFixture) -> None:
         """Test detecting staging branch from -rc suffix."""
-        config = create_mock_config(
-            suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
+        config = create_test_config(
+            config_fixture, suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
         )
 
         version = Version(major=1, minor=2, patch=3, suffix="-rc")
@@ -65,10 +67,10 @@ class TestDetectTagSourceBranch:
         assert result == "staging"
 
     @pytest.mark.unit
-    def test_detect_master_branch_from_empty_suffix(self) -> None:
+    def test_detect_master_branch_from_empty_suffix(self, config_fixture: ConfigFixture) -> None:
         """Test detecting master branch from empty suffix."""
-        config = create_mock_config(
-            suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
+        config = create_test_config(
+            config_fixture, suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
         )
 
         version = Version(major=1, minor=2, patch=3, suffix=None)
@@ -78,10 +80,10 @@ class TestDetectTagSourceBranch:
         assert result == "master"
 
     @pytest.mark.unit
-    def test_unknown_suffix_returns_none(self) -> None:
+    def test_unknown_suffix_returns_none(self, config_fixture: ConfigFixture) -> None:
         """Test that unknown suffix returns None."""
-        config = create_mock_config(
-            suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
+        config = create_test_config(
+            config_fixture, suffixes={"dev": "-dev", "staging": "-rc", "master": ""}, promotions=[]
         )
 
         version = Version(major=1, minor=2, patch=3, suffix="-unknown")
@@ -95,9 +97,10 @@ class TestIsTagPromotionScenario:
     """Test cases for _is_tag_promotion_scenario function."""
 
     @pytest.mark.unit
-    def test_valid_dev_to_staging_promotion(self) -> None:
+    def test_valid_dev_to_staging_promotion(self, config_fixture: ConfigFixture) -> None:
         """Test valid promotion from dev to staging."""
-        config = create_mock_config(
+        config = create_test_config(
+            config_fixture,
             suffixes={"dev": "-dev", "staging": "-rc", "master": ""},
             promotions=[("dev", "staging"), ("staging", "master")],
         )
@@ -109,9 +112,10 @@ class TestIsTagPromotionScenario:
         assert result is True
 
     @pytest.mark.unit
-    def test_valid_staging_to_master_promotion(self) -> None:
+    def test_valid_staging_to_master_promotion(self, config_fixture: ConfigFixture) -> None:
         """Test valid promotion from staging to master."""
-        config = create_mock_config(
+        config = create_test_config(
+            config_fixture,
             suffixes={"dev": "-dev", "staging": "-rc", "master": ""},
             promotions=[("dev", "staging"), ("staging", "master")],
         )
@@ -123,9 +127,10 @@ class TestIsTagPromotionScenario:
         assert result is True
 
     @pytest.mark.unit
-    def test_invalid_promotion_no_rule(self) -> None:
+    def test_invalid_promotion_no_rule(self, config_fixture: ConfigFixture) -> None:
         """Test invalid promotion when no rule exists."""
-        config = create_mock_config(
+        config = create_test_config(
+            config_fixture,
             suffixes={"dev": "-dev", "staging": "-rc", "master": ""},
             promotions=[("dev", "staging"), ("staging", "master")],
         )
@@ -138,9 +143,10 @@ class TestIsTagPromotionScenario:
         assert result is False
 
     @pytest.mark.unit
-    def test_unknown_source_branch_raises_error(self) -> None:
+    def test_unknown_source_branch_raises_error(self, config_fixture: ConfigFixture) -> None:
         """Test that unknown source branch raises ValueError."""
-        config = create_mock_config(
+        config = create_test_config(
+            config_fixture,
             suffixes={"dev": "-dev", "staging": "-rc", "master": ""},
             promotions=[("dev", "staging"), ("staging", "master")],
         )
@@ -157,9 +163,10 @@ class TestIsTagPromotionScenario:
         )
 
     @pytest.mark.unit
-    def test_no_promotions_configured_returns_false(self) -> None:
+    def test_no_promotions_configured_returns_false(self, config_fixture: ConfigFixture) -> None:
         """Test that no configured promotions returns False."""
-        config = create_mock_config(
+        config = create_test_config(
+            config_fixture,
             suffixes={"dev": "-dev", "staging": "-rc", "master": ""},
             promotions=[],  # No promotions configured
         )
@@ -183,32 +190,31 @@ class TestPromotionWorkflow:
         return mock
 
     @pytest.fixture
-    def mock_promotion_config(self, mocker: MockerFixture) -> Any:
-        """Create a mock Config for promotion testing."""
-        mock = mocker.Mock(spec=Config)
-        mock_data = mocker.Mock(spec=ConfigData)
-        mock.data = mock_data
+    def mock_promotion_config(self, fs: FakeFilesystem) -> Config:
+        """Create a real Config for promotion testing using ConfigData directly."""
+        # Create ConfigData directly with all required fields
+        config_data = ConfigData(
+            start_version=Version.parse("1.0.0"),
+            suffixes={"dev": "-dev", "staging": "-rc", "master": ""},
+            promotions=[
+                PromotionRule(from_branch="dev", to_branch="staging"),
+                PromotionRule(from_branch="staging", to_branch="master"),
+            ],
+            version_files=["version.txt"],
+            branch_strategy="single",
+            commit_groups=[],  # Empty list for minimal setup
+            pull_request=PullRequestConfig(
+                title="Release {{version}}", body="Promotion notes", labels=["semver-bump"]
+            ),
+            changelog=ChangelogConfig(
+                file=Path("CHANGELOG.md"), truncate=False, template="## [{{version}}] - {{date}}\n"
+            ),
+        )
 
-        # Set up promotion rules
-        mock.data.promotions = [
-            PromotionRule(from_branch="dev", to_branch="staging"),
-            PromotionRule(from_branch="staging", to_branch="master"),
-        ]
+        # Generate the config file using the clean API (uses default path)
+        Config.generate_config_file(config_data=config_data)
 
-        # Set up suffixes
-        mock.data.suffixes = {"dev": "-dev", "staging": "-rc", "master": ""}
-        mock.data.start_version = Version.parse("1.0.0")
-        mock.data.version_files = ["version.txt"]
-        mock.data.branch_strategy = "single"
-
-        # Set up PR config
-        mock_pr_config = mocker.Mock(spec=PullRequestConfig)
-        mock_pr_config.render_title.return_value = "Release 1.0.0-rc"
-        mock_pr_config.render_body.return_value = "Promotion notes"
-        mock_pr_config.labels = ["semver-bump"]
-        mock.data.pull_request = mock_pr_config
-
-        return mock
+        return Config()
 
     @pytest.fixture
     def mock_changelog_manager(self, mocker: MockerFixture) -> Any:

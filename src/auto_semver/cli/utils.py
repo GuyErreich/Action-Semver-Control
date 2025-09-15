@@ -3,6 +3,7 @@
 import logging
 
 from auto_semver.config import Config
+from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.gh import GitHubEvent
 from auto_semver.semver import SemverLock
@@ -32,7 +33,11 @@ def is_finalized(*, config: Config, event: GitHubEvent) -> bool:
     version: str = str(semver_lock.version)
 
     expected_labels: list[str] = config.data.pull_request.labels
-    expected_title: str = config.data.pull_request.render_title(version=version)
+    # Use the dataclass for template vars
+
+    expected_title: str = config.data.pull_request.render_title(
+        PullRequestTemplateVars(version=version, date="", messages=[])
+    )
 
     reasons = []
 

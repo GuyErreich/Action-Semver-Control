@@ -1,121 +1,88 @@
 """
-Unit tests for the loader module in auto_semver.config.loader.
+Unit tests for Config class from auto_semver.config.loader.
 
-This module contains comprehensive tests for the Config class, which handles loading
-and validating configuration from YAML files.
+This module tests the Config class interface without importing internal models,
+mimicking how users would interact with the system.
 """
 
-import os
 from pathlib import Path
 
 import pytest
-from pytest_mock import MockerFixture
 
 from auto_semver.config import Config
-from auto_semver.config.data import (
-    ChangelogConfig,
-    ConfigData,
-    PromotionRule,
-    PullRequestConfig,
-)
-from auto_semver.config.loader import CONFIG_FILE
-from auto_semver.semver import Version
+from auto_semver.config._models._pull_request import PullRequestTemplateVars
+from tests.fixtures.config_fixture import ConfigFixture
 
 
 class TestConfig:
-    """Tests for the Config class."""
-
-    @pytest.fixture
-    def mock_yaml_file(self, tmp_path: Path) -> Path:
-        """Create a mock YAML config file."""
-        yaml_content = """
-        start_version: "0.1.0"
-        suffixes:
-          dev: "-dev"
-          staging: "-rc"
-          main: ""
-        branch_strategy: "single"
-        version_files:
-          - "version.txt"
-        promotions:
-          - from_branch: dev
-            to_branch: staging
-          - from_branch: staging
-            to_branch: main
-        pull_request:
-          title: "Release {{version}}"
-          body: |
-            ## Release Notes
-            - Version: {{version}}
-            - Date: {{date}}
-          labels:
-            - "semver-bump"
-        changelog:
-          file: "CHANGELOG.md"
-          truncate: false
-          template: |
-            ## [{{version}}] - {{date}}
-            {% for msg in messages %}
-            - {{ msg }}
-            {% endfor %}
-        """
-        config_file = tmp_path / "auto_semver_config.yml"
-        config_file.write_text(yaml_content)
-        return config_file
+    """Tests for the Config class interface."""
 
     @pytest.mark.unit
-    def test_init_loads_config_from_default_path(
-        self, mocker: MockerFixture, mock_yaml_file: Path
-    ) -> None:
-        """Test Config initialization loads from the default path."""
-        # Mock os.path.exists to return True for the default path
-        mocker.patch("os.path.exists", return_value=True)
-
-        # Mock open to return our mock YAML file
-        mock_open = mocker.patch(
-            "builtins.open", mocker.mock_open(read_data=mock_yaml_file.read_text())
+    def test_config_loading_basic(self, config_fixture: ConfigFixture) -> None:
+        """Test basic config loading through Config class."""
+        config_fixture.create(
+            start_version="1.0.0", branch_strategy="single", suffixes={"main": "", "dev": "-dev"}
         )
 
-        config = Config()
+        config = Config(config_fixture.config_path)
 
-        # Verify open was called with the default path
-        # Note that the mock_open is called differently in newer Python versions
-        # and may not include the 'r' mode explicitly
-        assert mock_open.call_args.args[0] == CONFIG_FILE
-
-        # Check a few values to verify the config was loaded correctly
+        # Test that config loaded correctly
+        assert config.data.start_version.major == 1
+        assert config.data.start_version.minor == 0
+        assert config.data.start_version.patch == 0
         assert config.data.branch_strategy == "single"
-        assert isinstance(config.data, ConfigData)
+        assert config.data.suffixes == {"main": "", "dev": "-dev"}
 
     @pytest.mark.unit
-    def test_init_with_custom_path(self, mock_yaml_file: Path) -> None:
+    def test_config_loading_with_custom_path(self, tmp_path: Path) -> None:
         """Test Config initialization with a custom path."""
-        config = Config(path=str(mock_yaml_file))
+        # Create a custom config file
+        config_file = tmp_path / "custom_config.yml"
+        config_file.write_text("""
+start_version: "2.0.0"
+branch_strategy: "multi"
+suffixes:
+  main: ""
+  dev: "-dev"
+version_files:
+  - "version.txt"
+commit_groups: []
+promotions: []
+pull_request:
+  title: "Release {{version}}"
+  body: "Auto-created PR"
+  labels: ["release"]
+changelog:
+  file: "CHANGELOG.md"
+  truncate: false
+  template: "## {{version}}"
+        """)
+
+        config = Config(path=config_file)
 
         # Verify the config was loaded correctly from the custom path
-        assert config.data.branch_strategy == "single"
-        assert isinstance(config.data, ConfigData)
+        assert config.data.start_version.major == 2
+        assert config.data.branch_strategy == "multi"
 
     @pytest.mark.unit
-    def test_init_with_missing_file(self) -> None:
+    def test_config_missing_file_error(self) -> None:
         """Test initialization handles missing config file gracefully."""
         non_existent_path = "/path/to/non/existent/config.yml"
 
-        with pytest.raises(FileNotFoundError, match="Configuration file .* not found"):
-            Config(path=non_existent_path)
+        with pytest.raises(FileNotFoundError, match=r"Configuration file .* not found"):
+            Config(path=Path(non_existent_path))
 
     @pytest.mark.unit
-    def test_init_with_invalid_yaml(self, tmp_path: Path) -> None:
+    def test_config_invalid_yaml_error(self, tmp_path: Path) -> None:
         """Test initialization handles invalid YAML format."""
         invalid_yaml_file = tmp_path / "invalid_config.yml"
-        # Create valid YAML syntax but with invalid structure
         invalid_yaml_file.write_text("invalid_key: true\nno_required_fields: true")
 
         with pytest.raises(ValueError):
-            Config(path=str(invalid_yaml_file))
+            Config(path=invalid_yaml_file)
 
     @pytest.mark.unit
-    def test_init_with_incomplete_config(self, tmp_path: Path) -> None:
+    def test_config_incomplete_data_error(self, tmp_path: Path) -> None:
         """Test initialization handles incomplete config data."""
         incomplete_yaml_file = tmp_path / "incomplete_config.yml"
         incomplete_yaml_file.write_text("""
@@ -125,36 +92,68 @@ class TestConfig:
         """)
 
         with pytest.raises(ValueError, match="validation error"):
-            Config(path=str(incomplete_yaml_file))
+            Config(path=incomplete_yaml_file)
 
     @pytest.mark.unit
-    def test_generate_config_file(self, tmp_path: Path) -> None:
-        """Test generating a config file from ConfigData."""
-        output_path = str(tmp_path / "generated_config.yml")
-
-        # Create a minimal ConfigData object
-        config_data = ConfigData(
-            start_version=str(Version.parse("1.0.0")),  # type: ignore[arg-type]
-            suffixes={"main": "", "dev": "-dev"},
-            branch_strategy="single",
-            version_files=["version.txt"],
-            promotions=[PromotionRule(from_branch="dev", to_branch="main")],
-            pull_request=PullRequestConfig(
-                title="Release {{version}}", body="Release notes", labels=["release"]
-            ),
-            changelog=ChangelogConfig(
-                file="CHANGELOG.md", truncate=False, template="## {{version}}"
-            ),
+    def test_config_pull_request_interface(self, config_fixture: ConfigFixture) -> None:
+        """Test PR config interface through Config class."""
+        config_fixture.create(
+            pull_request={
+                "title": "Release {{version}}",
+                "body": "Auto-created PR by auto-semver",
+                "labels": ["release", "automated"],
+            }
         )
 
-        # Generate the config file
-        Config.generate_config_file(config_data, output_path)
+        config = Config(config_fixture.config_path)
+        pr_config = config.data.pull_request
 
-        # Verify file was created
-        assert os.path.exists(output_path)
+        # Test the interface without checking types
+        assert pr_config.title == "Release {{version}}"
+        assert pr_config.body == "Auto-created PR by auto-semver"
+        assert pr_config.labels == ["release", "automated"]
 
-        # Load the generated file and verify contents
-        generated_config = Config(path=output_path)
-        assert str(generated_config.data.start_version) == "1.0.0"
-        assert generated_config.data.branch_strategy == "single"
-        assert "version.txt" in generated_config.data.version_files
+        # Test render methods work
+        vars = PullRequestTemplateVars(version="1.2.3", date="2025-09-25", messages=[])
+        rendered_title = pr_config.render_title(vars)
+        assert rendered_title == "Release 1.2.3"
+
+    @pytest.mark.unit
+    def test_config_changelog_interface(self, config_fixture: ConfigFixture) -> None:
+        """Test changelog config interface through Config class."""
+        config_fixture.create(
+            changelog={
+                "file": "CHANGELOG.md",
+                "truncate": False,
+                "template": "## [{{version}}] - {{date}}\n",
+            }
+        )
+
+        config = Config(config_fixture.config_path)
+        changelog_config = config.data.changelog
+
+        # Test the interface
+        assert str(changelog_config.file) == "CHANGELOG.md"
+        assert changelog_config.truncate is False
+        assert changelog_config.template == "## [{{version}}] - {{date}}\n"
+
+    @pytest.mark.unit
+    def test_config_promotions_interface(self, config_fixture: ConfigFixture) -> None:
+        """Test promotions interface through Config class."""
+        config_fixture.create(
+            suffixes={"dev": "-dev", "staging": "-rc", "main": ""},
+            promotions=[
+                {"from_branch": "dev", "to_branch": "staging"},
+                {"from_branch": "staging", "to_branch": "main"},
+            ],
+        )
+
+        config = Config(config_fixture.config_path)
+        promotions = config.data.promotions
+
+        # Test the interface
+        assert len(promotions) == 2
+        assert promotions[0].from_branch == "dev"
+        assert promotions[0].to_branch == "staging"
+        assert promotions[1].from_branch == "staging"
+        assert promotions[1].to_branch == "main"
