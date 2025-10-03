@@ -1,6 +1,6 @@
 [project]
 name = "auto_semver"
-version = "0.1.0"
+version = "0.5.0-dev"
 description = ""
 authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
 readme = "README.md"
