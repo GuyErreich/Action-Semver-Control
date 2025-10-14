@@ -1,5 +1,7 @@
 ---
-tools: ['codebase', 'runCommands', 'think', 'changes', 'todos', 'GitKraken (bundled with GitLens)', 'github', 'memory']
+description: Create a commit for existing changes without modifying code or files.
+mode: agent
+tools: ['codebase', 'runCommands', 'think', 'changes', 'todos', 'github', 'memory']
 ---
 
 # Create Proper Commit Message

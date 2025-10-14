@@ -1,9 +1,24 @@
-"""
+'''
 Unit tests for the TemplateEngine class.
 
-Tests the centralized Jinja2 template engine with pluggable custom functions,
+Tests the centralized Jinja2 t    @pytest.mark.unit
+    def test_register_custom_function(self) -> None:
+        """Test registering custom functions."""
+        engine = TemplateEngine()
+
+        def reverse_function(text: str) -> str:
+            return text[::-1]
+
+        engine.register_function("reverse", reverse_function)
+
+        # Check function is registered
+        assert "reverse" in engine.list_functions()
+
+        # Test using the function in a template
+        result = engine.render_template("{{ reverse('hello') }}", {})
+        assert result == "olleh"ith pluggable custom functions,
 filters, and template validation functionality.
-"""
+'''
 
 from datetime import datetime
 from typing import Any, cast
@@ -40,10 +55,6 @@ class TestTemplateEngine:
         assert "truncate_text" in functions
         assert "pluralize" in functions
 
-        # Check that filters are registered (same as functions)
-        filters = engine.list_filters()
-        assert set(functions) == set(filters)
-
     @pytest.mark.unit
     def test_singleton_pattern(self) -> None:
         """Test that get_template_engine returns the same instance."""
@@ -79,23 +90,6 @@ class TestTemplateEngine:
         assert result == "custom: test"
 
     @pytest.mark.unit
-    def test_register_custom_filter(self) -> None:
-        """Test registering a custom filter."""
-        engine = TemplateEngine()
-
-        def reverse_filter(text: str) -> str:
-            return text[::-1]
-
-        engine.register_filter("reverse", reverse_filter)
-
-        # Check filter is registered
-        assert "reverse" in engine.list_filters()
-
-        # Test using the filter in a template
-        result = engine.render_template("{{ 'hello' | reverse }}", {})
-        assert result == "olleh"
-
-    @pytest.mark.unit
     def test_register_multiple_functions(self) -> None:
         """Test registering multiple functions at once."""
         engine = TemplateEngine()
@@ -114,26 +108,6 @@ class TestTemplateEngine:
         assert result == "func1: test - func2: test"
 
     @pytest.mark.unit
-    def test_register_multiple_filters(self) -> None:
-        """Test registering multiple filters at once."""
-        engine = TemplateEngine()
-
-        filters = {
-            "upper_filter": lambda x: x.upper(),
-            "lower_filter": lambda x: x.lower(),
-        }
-
-        engine.register_filters(filters)
-
-        assert "upper_filter" in engine.list_filters()
-        assert "lower_filter" in engine.list_filters()
-
-        result = engine.render_template(
-            "{{ 'Test' | upper_filter }} - {{ 'Test' | lower_filter }}", {}
-        )
-        assert result == "TEST - test"
-
-    @pytest.mark.unit
     def test_unregister_function(self) -> None:
         """Test unregistering a custom function."""
         engine = TemplateEngine()
@@ -147,22 +121,6 @@ class TestTemplateEngine:
 
         # Test unregistering non-existent function
         result = engine.unregister_function("non_existent")
-        assert result is False
-
-    @pytest.mark.unit
-    def test_unregister_filter(self) -> None:
-        """Test unregistering a custom filter."""
-        engine = TemplateEngine()
-
-        engine.register_filter("test_filter", lambda x: x)
-        assert "test_filter" in engine.list_filters()
-
-        result = engine.unregister_filter("test_filter")
-        assert result is True
-        assert "test_filter" not in engine.list_filters()
-
-        # Test unregistering non-existent filter
-        result = engine.unregister_filter("non_existent")
         assert result is False
 
     @pytest.mark.unit
@@ -367,7 +325,7 @@ class TestTemplateEngine:
         # Release {{ version }} ({{ format_date(date, '%B %d, %Y') }})
         
         {% for message in messages %}
-        - {{ truncate_text(message, 50) | title_case }}
+        - {{ title_case(truncate_text(message, 50)) }}
         {% endfor %}
         
         Total: {{ pluralize(messages|length, 'commit') }}
@@ -399,8 +357,8 @@ class TestTemplateEngineWithCommitGroups:
         reset_template_engine()
 
     @pytest.mark.unit
-    def test_filter_returning_commit_group(self) -> None:
-        """Test filter that returns CommitGroup type."""
+    def test_function_returning_commit_group(self) -> None:
+        """Test function that returns CommitGroup type."""
         engine = TemplateEngine()
 
         # Mock CommitGroup-like object for testing
@@ -410,19 +368,19 @@ class TestTemplateEngineWithCommitGroups:
                 self.pattern = pattern
                 self.commits = commits
 
-        def mock_group_filter(messages: list[str]) -> list[MockCommitGroup]:
-            """Mock filter that returns CommitGroup-like list."""
+        def mock_group_function(messages: list[str]) -> list[MockCommitGroup]:
+            """Mock function that returns CommitGroup-like list."""
             return [
                 MockCommitGroup(
                     title="Features", pattern=r"^feat:", commits=["feat: add new feature"]
                 )
             ]
 
-        engine.register_filter("group_commits", cast(Any, mock_group_filter))
+        engine.register_function("group_commits", cast(Any, mock_group_function))
 
         # This should work without type errors
         template_str = (
-            "{% for group in ['feat: add new feature'] | group_commits %}"
+            "{% for group in group_commits(['feat: add new feature']) %}"
             "{{ group.title }}: {{ group.commits|length }}"
             "{% endfor %}"
         )
@@ -430,8 +388,8 @@ class TestTemplateEngineWithCommitGroups:
         assert "Features: 1" in result
 
     @pytest.mark.unit
-    def test_filter_returning_grouped_messages(self) -> None:
-        """Test filter that returns GroupedMessages type."""
+    def test_function_returning_grouped_messages(self) -> None:
+        """Test function that returns GroupedMessages type."""
         engine = TemplateEngine()
 
         # Mock GroupedMessages-like object for testing
@@ -440,8 +398,8 @@ class TestTemplateEngineWithCommitGroups:
                 self.grouped_messages = data.get("grouped_messages", [])
                 self.ungrouped_messages = data.get("ungrouped_messages", [])
 
-        def mock_grouped_filter(messages: list[str]) -> MockGroupedMessages:
-            """Mock filter that returns GroupedMessages-like object."""
+        def mock_grouped_function(messages: list[str]) -> MockGroupedMessages:
+            """Mock function that returns GroupedMessages-like object."""
             return MockGroupedMessages(
                 {
                     "grouped_messages": [{"title": "Features", "commits": ["feat: add feature"]}],
@@ -449,10 +407,10 @@ class TestTemplateEngineWithCommitGroups:
                 }
             )
 
-        engine.register_filter("group_messages", cast(Any, mock_grouped_filter))
+        engine.register_function("group_messages", cast(Any, mock_grouped_function))
 
         # This should work without type errors
         result = engine.render_template(
-            "{{ (['feat: add feature'] | group_messages).grouped_messages|length }}", {}
+            "{{ group_messages(['feat: add feature']).grouped_messages|length }}", {}
         )
         assert "1" in result

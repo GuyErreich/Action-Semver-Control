@@ -2,7 +2,17 @@
 Centralized Jinja2 template engine for auto-semver.
 
 This module provides a pluggable template engine that allows other modules
-to register their own domain-specific functions and filters.
+to register their own domain-specific functions and variables.
+
+Built-in functions available in all templates:
+    - format_date
+    - format_commit
+    - title_case
+    - list_join
+    - truncate_text
+    - pluralize
+
+Note: Do not re-register these built-in functions in your PRBuilder or extensions.
 
 Example usage:
 
@@ -25,17 +35,20 @@ Example usage:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from jinja2 import DictLoader, Environment, Template, TemplateSyntaxError, nodes
 
 from .types import (
-    FilterDict,
     FunctionDict,
-    TemplateFilter,
     TemplateFunction,
+    TemplateValue,
     TemplateVariables,
 )
+
+# Use a module-level logger for template engine warnings
+logger = logging.getLogger(__name__)
 
 
 class TemplateEngine:
@@ -56,11 +69,9 @@ class TemplateEngine:
 
         # Storage for registered functions and filters
         self._custom_functions: FunctionDict = {}
-        self._custom_filters: FilterDict = {}
 
         # Register core built-in functions and filters
         self._register_builtin_functions()
-        self._register_builtin_filters()
 
         # Apply all registered functions and filters to the environment
         self._update_environment()
@@ -78,15 +89,37 @@ class TemplateEngine:
             }
         )
 
-    def _register_builtin_filters(self) -> None:
-        """Register core built-in filters."""
-        # Filters are the same as functions in our case
-        self._custom_filters.update(self._custom_functions)
-
     def _update_environment(self) -> None:
-        """Update the Jinja2 environment with all registered functions and filters."""
+        """Update the Jinja2 environment with all registered functions and variables."""
         self.env.globals.update(self._custom_functions)
-        self.env.filters.update(self._custom_filters)
+        self.env.globals.update(getattr(self, "_custom_variables", {}))
+
+    def register_variable(self, name: str, value: TemplateValue) -> None:
+        """Register a custom variable for use in templates."""
+        if not hasattr(self, "_custom_variables"):
+            self._custom_variables = {}
+        if name in self.env.globals:
+            logger.warning(
+                f"TemplateEngine: '{name}' is already registered as a "
+                f"function or variable. Skipping registration."
+            )
+            return
+        self._custom_variables[name] = value
+        self.env.globals[name] = value
+
+    def register_variables(self, variables: TemplateVariables) -> None:
+        """Register multiple variables for use in templates."""
+        if not hasattr(self, "_custom_variables"):
+            self._custom_variables = {}
+        for name, value in variables.items():
+            if name in self.env.globals:
+                logger.warning(
+                    f"TemplateEngine: '{name}' is already registered as a "
+                    f"function or variable. Skipping registration."
+                )
+                continue
+            self._custom_variables[name] = value
+            self.env.globals[name] = value
 
     def register_function(self, name: str, func: TemplateFunction) -> None:
         """
@@ -96,19 +129,14 @@ class TemplateEngine:
             name: Name to use in templates (e.g., 'group_commits')
             func: Function to register
         """
+        if name in self.env.globals:
+            logger.warning(
+                f"TemplateEngine: '{name}' is already registered as a "
+                f"function or variable. Skipping registration."
+            )
+            return
         self._custom_functions[name] = func
         self.env.globals[name] = func
-
-    def register_filter(self, name: str, func: TemplateFilter) -> None:
-        """
-        Register a custom filter for use in templates.
-
-        Args:
-            name: Name to use in templates (e.g., 'group_commits')
-            func: Filter function to register
-        """
-        self._custom_filters[name] = func
-        self.env.filters[name] = func
 
     def register_functions(self, functions: FunctionDict) -> None:
         """
@@ -119,16 +147,6 @@ class TemplateEngine:
         """
         for name, func in functions.items():
             self.register_function(name, func)
-
-    def register_filters(self, filters: FilterDict) -> None:
-        """
-        Register multiple custom filters at once.
-
-        Args:
-            filters: Dictionary mapping filter names to filter functions
-        """
-        for name, func in filters.items():
-            self.register_filter(name, func)
 
     def unregister_function(self, name: str) -> bool:
         """
@@ -147,30 +165,9 @@ class TemplateEngine:
             return True
         return False
 
-    def unregister_filter(self, name: str) -> bool:
-        """
-        Unregister a custom filter.
-
-        Args:
-            name: Name of the filter to remove
-
-        Returns:
-            True if filter was removed, False if it didn't exist
-        """
-        if name in self._custom_filters:
-            del self._custom_filters[name]
-            if name in self.env.filters:
-                del self.env.filters[name]
-            return True
-        return False
-
     def list_functions(self) -> list[str]:
         """Get list of all registered function names."""
         return list(self._custom_functions.keys())
-
-    def list_filters(self) -> list[str]:
-        """Get list of all registered filter names."""
-        return list(self._custom_filters.keys())
 
     def _store_template(self, name: str, template_str: str) -> None:
         """

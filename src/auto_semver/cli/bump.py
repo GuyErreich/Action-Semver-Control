@@ -6,9 +6,9 @@ import logging
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
 from auto_semver.config._models._commit_group import CommitGroupConfig
-from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
+from auto_semver.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 from auto_semver.semver import Version
 from auto_semver.semver.lock import SemverLock
 from auto_semver.semver.updater import VersionFileUpdater
@@ -202,22 +202,36 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
 
     release_date = datetime.date.today().strftime("%d-%m-%Y")
 
-    # Build template variables using the dataclass
-    template_vars = PullRequestTemplateVars(
-        version=new_version,
-        date=release_date,
-        messages=commit_messages,
-    )
-
-    # If commit groups are configured, process them and add to template vars
+    # Process commit groups if configured
+    commit_groups_data = None
     if config.data.commit_groups:
         commit_groups_data = CommitGroupConfig.group_messages(
             commit_messages, config.data.commit_groups
         )
-        template_vars.commit_groups = commit_groups_data
 
-    pr_body: str = config.data.pull_request.render_body(template_vars)
-    pr_title: str = config.data.pull_request.render_title(template_vars)
+    # Build template variables for PR builder
+    pr_variables = GitHubPRTemplateVariables(
+        version=new_version,
+        previous_version=str(version),
+        commit_groups=commit_groups_data or [],
+        breaking_changes=[],  # TODO: Extract from commit_groups_data if needed
+        # TODO: Add author support - should tag as auto-semver
+        author=event.get_actor() if hasattr(event, "get_actor") else "auto-semver",
+        repository=repo_full_name,
+        date=release_date,
+        branch=release_branch_name,
+        base_branch=target_branch,
+        labels=config.data.pull_request.labels,
+        groups=commit_groups_data,
+    )
+
+    # Use PR builder to generate title and body
+    pr_builder = GitHubPRBuilder()
+    pr_builder.title_template = config.data.pull_request.title
+    pr_builder.body_template = config.data.pull_request.body
+
+    pr_title: str = pr_builder.build_title(pr_variables)
+    pr_body: str = pr_builder.build_body(pr_variables)
 
     gitops.create_pr(
         repo_full_name=repo_full_name,

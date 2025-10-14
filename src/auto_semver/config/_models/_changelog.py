@@ -1,17 +1,14 @@
-"""Changelog configuration models."""
+"""Configuration models for changelog generation."""
 
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 
-from jinja2 import TemplateSyntaxError
+from jinja2 import Template, TemplateSyntaxError
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
-from ...templates.engine import get_template_engine
-from ...templates.types import FunctionDict, TemplateVariables
 from ..constants import DEFAULT_CHANGELOG
-from ._commit_group import CommitGroupConfig, CommitGroups
+from ._commit_group import CommitGroups
 
 
 @dataclass
@@ -36,59 +33,6 @@ class ChangelogTemplateVars:
 
 
 class ChangelogConfig(BaseModel):
-    def model_post_init(self, __context: dict[str, object] | None) -> None:
-        """
-        Post-initialization hook to register changelog-specific template functions.
-
-        This ensures that the template functions are available whenever an instance
-        of this class is created, without requiring manual registration.
-        """
-        self._register_changelog_template_functions()
-
-    def _register_changelog_template_functions(self) -> None:
-        """
-        Register changelog-specific template functions with the global template engine.
-
-        Adds domain-specific functions useful for changelog templates:
-        - format_date_changelog: Format date strings for changelog
-        - group_commits: Group commit messages for grouped changelogs
-        - title_case: Convert text to title case.
-        """
-        engine = get_template_engine()
-
-        # TODO: try to simplify these functions and remove complex return types
-        # as they complicate serialization and validation
-        changelog_functions: FunctionDict = {
-            "format_date_changelog": lambda date_str, fmt="%d-%m-%Y": (
-                datetime.strptime(date_str, "%Y-%m-%d").strftime(fmt)
-                if isinstance(date_str, str)
-                else date_str
-            ),
-            "group_commits": lambda messages, commit_groups: (
-                CommitGroupConfig.group_messages(messages, commit_groups)
-                if messages and commit_groups
-                else []
-            ),
-            "get_group_titles": lambda messages, commit_groups: [
-                group.title for group in CommitGroupConfig.group_messages(messages, commit_groups)
-            ]
-            if messages and commit_groups
-            else [],
-            "get_commits_by_group": lambda messages, commit_groups, group_title: [
-                commit.title
-                for group in CommitGroupConfig.group_messages(messages, commit_groups)
-                if group.title == group_title
-                for commit in group.commits
-            ]
-            if messages and commit_groups
-            else [],
-            "title_case": lambda text: text.title() if isinstance(text, str) else text,
-        }
-
-        # Register all functions as both global functions and filters
-        engine.register_functions(changelog_functions)
-        engine.register_filters(changelog_functions)
-
     """
     Defines how the changelog should be generated and formatted.
 
@@ -150,37 +94,8 @@ class ChangelogConfig(BaseModel):
 
         """
         try:
-            # Use the template engine for validation to include all registered functions
-            engine = get_template_engine()
-            engine.validate_template(value)
+            # Basic syntax validation using Jinja2 Template
+            Template(value)
             return value
         except TemplateSyntaxError as err:
             raise ValueError(f"Invalid Jinja2 template: {err}") from err
-
-    def render_template(self, variables: ChangelogTemplateVars) -> str:
-        """
-        Render the changelog template with proper typing.
-
-        Args:
-            variables: Template variables containing version, date, messages, and optionally commit_groups.
-
-        Returns:
-            Rendered template string
-
-        Raises:
-            TemplateSyntaxError: If template has syntax errors
-            Exception: If rendering fails
-        """
-        # Convert to TemplateVariables for engine compatibility
-        template_vars: TemplateVariables = {
-            "version": variables.version,
-            "date": variables.date,
-            "messages": variables.messages,
-        }
-
-        # Add commit_groups if provided by the user
-        if variables.commit_groups is not None:
-            template_vars["commit_groups"] = variables.commit_groups
-
-        engine = get_template_engine()
-        return engine.render_template(self.template, template_vars)

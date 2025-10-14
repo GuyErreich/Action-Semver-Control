@@ -15,10 +15,10 @@ import logging
 from datetime import date
 from pathlib import Path
 
-from jinja2 import Template
-
 from auto_semver.config import Config
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.templates.engine import get_template_engine
+from auto_semver.templates.utils import format_date_iso_to_custom
 
 logger = logging.getLogger(__package__)
 
@@ -44,22 +44,47 @@ class ChangelogManager:
         header: str,
         footer: str,
     ) -> None:
-        """
-        Initialize the changelog manager with user-provided parameters.
+        """Initialize a changelog manager.
 
         Args:
-            path (Path): Path to the changelog file.
-            truncate (bool): Whether to overwrite existing changelog content.
-            template (str): The Jinja-style template for the changelog entry.
-            header (str): Header content of the changelog file.
-            footer (str): Footer content of the changelog file.
-
+            path: Path to the changelog file.
+            truncate: Whether to overwrite existing content instead of prepending.
+            template: Template string for rendering changelog entries.
+            header: Header text.
+            footer: Footer text.
         """
         self.path = path
         self.truncate = truncate
         self.template = template
         self.header = header
         self.footer = footer
+        # Initialize template engine for this manager
+        self._engine = get_template_engine()
+        self._register_changelog_functions()
+
+    def _register_changelog_functions(self) -> None:
+        """Register changelog-specific template functions."""
+        # Register changelog-specific functions
+        self._engine.register_function("format_date_changelog", self._format_date_changelog)
+
+    def _format_date_changelog(self, date_str: str, fmt: str = "%d-%m-%Y") -> str:
+        """Format date strings for changelog display.
+
+        Args:
+            date_str: Date string in YYYY-MM-DD format.
+            fmt: Target format string (default: "%d-%m-%Y").
+
+        Returns:
+            Formatted date string, or original string if parsing fails.
+
+        Examples:
+            >>> manager = ChangelogManager(Path("test.md"), False, "", "", "")
+            >>> manager._format_date_changelog("2024-12-25", "%B %d, %Y")
+            'December 25, 2024'
+            >>> manager._format_date_changelog("invalid-date")
+            'invalid-date'
+        """
+        return format_date_iso_to_custom(date_str, fmt)
 
     @classmethod
     def from_config(cls, config: Config) -> "ChangelogManager":
@@ -80,6 +105,39 @@ class ChangelogManager:
             header=config.data.changelog.header or "",
             footer=config.data.changelog.footer or "",
         )
+
+    def render_template(self, template_vars: dict[str, object]) -> str:
+        """
+        Render the changelog template with the provided variables.
+
+        Args:
+            template_vars: Dictionary of variables to use in template rendering.
+
+        Returns:
+            Rendered template string.
+
+        Raises:
+            ValueError: If template rendering fails due to missing variables or syntax errors.
+            TypeError: If template variables are of incorrect type.
+        """
+        # Validate required template variables
+        required_vars = ["version", "date"]
+        missing_vars = [var for var in required_vars if var not in template_vars]
+        if missing_vars:
+            raise ValueError(f"Missing required template variables: {missing_vars}")
+
+        try:
+            # Add backward compatibility alias for grouped_messages
+            enhanced_vars = template_vars.copy()
+            if "commit_groups" in enhanced_vars and "grouped_messages" not in enhanced_vars:
+                enhanced_vars["grouped_messages"] = enhanced_vars["commit_groups"]
+
+            return self._engine.render_template(self.template, enhanced_vars)
+        except Exception as e:
+            logger.error(f"Failed to render changelog template: {e}")
+            logger.debug(f"Template: {self.template}")
+            logger.debug(f"Variables: {list(template_vars.keys())}")
+            raise ValueError(f"Changelog template rendering failed: {e}") from e
 
     def update(
         self,
@@ -106,24 +164,27 @@ class ChangelogManager:
             logger.warning("No commit messages provided. Adding default message.")
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
+        grouped_data = (
+            CommitGroupConfig.group_messages(messages, commit_groups) if commit_groups else None
+        )
+
+        # Manager handles all template rendering
         template_vars: dict[str, object] = {
             "version": version,
             "date": date.today().strftime("%d-%m-%Y"),
             "messages": messages,
         }
 
-        # Add grouped messages if commit groups are provided
-        if commit_groups:
-            grouped_data = CommitGroupConfig.group_messages(messages, commit_groups)
+        # Add both canonical and legacy names for commit groups
+        if grouped_data is not None:
             template_vars["commit_groups"] = grouped_data
+            template_vars["grouped_messages"] = grouped_data  # backward compatibility
 
-        template: Template = Template(self.template, autoescape=True)
-        rendered: str = template.render(**template_vars)
+        # Use manager's template engine with registered functions
+        rendered = self._engine.render_template(self.template, template_vars)
 
-        logger.debug(f"Rendered template: {rendered}")
-
+        # Compose updated content
         if not self.path.exists():
-            logger.warning("Changelog file not found. Creating a new file.")
             content = self._compose_new_changelog(rendered)
         else:
             with open(self.path, encoding="utf-8") as f:

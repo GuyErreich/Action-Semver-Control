@@ -9,7 +9,10 @@ from pathlib import Path
 
 import pytest
 
+from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
+from auto_semver.config._models._changelog import ChangelogTemplateVars
+from auto_semver.config._models._commit_group import CommitGroupConfig
 from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from tests.fixtures.config_fixture import ConfigFixture
 
@@ -136,6 +139,41 @@ changelog:
         assert str(changelog_config.file) == "CHANGELOG.md"
         assert changelog_config.truncate is False
         assert changelog_config.template == "## [{{version}}] - {{date}}\n"
+
+    @pytest.mark.unit
+    def test_changelog_legacy_grouped_messages_alias(self, config_fixture: ConfigFixture) -> None:
+        """Ensure templates using legacy 'grouped_messages' still render with commit_groups."""
+        config_fixture.create(
+            commit_groups=[{"title": "Features", "patterns": ["^feat:"], "priority": 1}],
+            changelog={
+                "file": "CHANGELOG.md",
+                "truncate": True,
+                # Intentionally use legacy grouped_messages variable
+                "template": (
+                    "## [{{version}}] - {{date}}\n\n"
+                    "{% for group in grouped_messages -%}\n"
+                    "### {{ group.title }}\n\n"
+                    "{% for commit in group.commits -%}\n"
+                    "- {{ commit.title if commit.title else commit.message if commit.message else commit }}\n"
+                    "{% endfor -%}\n"
+                    "{% endfor -%}\n"
+                ),
+            },
+        )
+        config = Config(config_fixture.config_path)
+        messages = ["feat: add feature"]
+        grouped = CommitGroupConfig.group_messages(messages, config.data.commit_groups)
+        vars = ChangelogTemplateVars(
+            version="1.0.0",
+            date="2025-10-03",
+            messages=messages,
+            commit_groups=grouped,
+        )
+        # Use manager for rendering, not config model
+        manager = ChangelogManager.from_config(config)
+        rendered = manager.render_template(vars.__dict__)
+        assert "Features" in rendered
+        assert "add feature" in rendered
 
     @pytest.mark.unit
     def test_config_promotions_interface(self, config_fixture: ConfigFixture) -> None:
