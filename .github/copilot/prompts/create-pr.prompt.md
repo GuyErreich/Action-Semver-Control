@@ -1,7 +1,7 @@
 ---
 description: Create a GitHub Pull Request for existing changes without modifying code or files.
 mode: agent
-tools: ['codebase', 'runCommands', 'think', 'changes', 'fetch', 'githubRepo', 'todos', 'GitKraken (bundled with GitLens)', 'github', 'memory', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
+tools: ['codebase', 'runCommands', 'think', 'changes', 'fetch', 'githubRepo', 'todos', 'github', 'memory', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
 ---
 
 # Create GitHub Pull Request
@@ -18,10 +18,17 @@ tools: ['codebase', 'runCommands', 'think', 'changes', 'fetch', 'githubRepo', 't
 - Adding features or functionality
 
 **YOUR ONLY TASK:** Create a PR that accurately describes the changes already present in the pushed branch.
-
+ 
 ---
 
 Generate a comprehensive, well-structured pull request following auto-semver conventions and best practices.
+
+## 🤖 Automation Rules (Agent MUST)
+1. First check if a PR already exists for (head=current branch, base=default) using: `gh pr list --head <branch> --base <base> --state all`
+2. If one exists: OUTPUT the URL and STOP (no body regeneration unless user explicitly asks).
+3. If none exists: continue with steps below and attempt creation exactly once.
+4. Never modify repository files or create new commits during this prompt.
+5. Always build PR body in a temporary markdown file (e.g., `/tmp/pr-body.md`) before creation.
 
 ## Key Requirements:
 
@@ -48,10 +55,12 @@ Generate a comprehensive, well-structured pull request following auto-semver con
    - **DO NOT** push new changes to the branch
    - Only create a PR for the changes that are already committed and pushed
 
-2. **Verify branch status (READ-ONLY)**
-   - Confirm branch is already pushed: `git log --oneline origin/[branch-name]` to see pushed commits
-   - Check if local and remote are in sync: `git status` (ignore any uncommitted local changes)
-   - If branch needs updates or is not pushed, exit and ask user to handle them separately
+2. **Verify branch & existing PR (READ-ONLY)**
+   - Confirm branch is pushed: `git log --oneline origin/[branch-name]`
+   - Check for existing PR: `gh pr list --head [branch] --base [base] --state all`
+   - If PR exists: print URL and STOP (do NOT recreate or overwrite)
+   - If branch not pushed or diverged unexpectedly: STOP and inform user
+   - Confirm working tree clean: `git status` (do not stage/commit anything)
 
 3. **Create PR content in markdown file FIRST**
    - Create markdown file with PR content: `/tmp/pr-body.md`
@@ -59,10 +68,18 @@ Generate a comprehensive, well-structured pull request following auto-semver con
    - Test formatting and content accuracy
    - Iterate and refine as needed
 
-4. **Create PR using GitHub CLI with markdown file**
-   - **GitHub CLI**: `gh pr create --title "[title]" --body-file /tmp/pr-body.md`
-   - **Alternative**: Copy content from markdown file to web interface
-   - Base PR content on changes already present in the pushed branch
+4. **Create PR using GitHub CLI (only if no existing PR)**
+   - Run: `gh pr create --base [base] --head [branch] --title "[title]" --body-file /tmp/pr-body.md`
+   - If command succeeds: output PR URL and STOP
+   - If it fails (network/auth): report error succinctly; do NOT retry automatically more than once
+
+5. **Compliance Checklist (MUST complete mentally before finishing)**
+   - [ ] Checked for existing PR first
+   - [ ] Did not modify repository files
+   - [ ] PR body authored in temp markdown file
+   - [ ] Title matches branch intent (no unintended prefixes)
+   - [ ] No additional commits created
+   - [ ] Stopped immediately after successful creation or existing PR detection
 
 ## PR Title Format:
 
@@ -125,9 +142,9 @@ Brief description of what this PR accomplishes and why it's needed.
 - [ ] API documentation updated
 
 ## 🔗 Related Issues
-- Closes #[issue-number]
-- Related to #[issue-number]
-- References #[issue-number]
+- Closes: (link issue number if applicable)
+- Related to: (link issue number if applicable)
+- References: (link issue number if applicable)
 
 ## ✅ Checklist
 - [ ] Code follows project style guidelines
@@ -191,8 +208,10 @@ nano /tmp/pr-body.md  # or your preferred editor
 
 ### Step 3: Create PR with File
 ```bash
-# Create PR using the markdown file
-gh pr create --title "feat: your feature title" --body-file /tmp/pr-body.md
+# Create PR only if one does NOT already exist
+gh pr list --head feature/your-branch --base dev --state all
+# (If no result) then:
+gh pr create --base dev --head feature/your-branch --title "feat: your feature title" --body-file /tmp/pr-body.md
 
 # Or for draft PR
 gh pr create --draft --title "WIP: feature" --body-file /tmp/pr-body.md
@@ -347,14 +366,6 @@ cp /tmp/pr-body.md docs/templates/feature-pr-template.md
 
 ## Notes:
 - **CRITICAL**: This tool is for creating PRs from EXISTING pushed changes only
+- **ALWAYS** check for an existing PR before attempting creation
 - **ALWAYS** create PR content in markdown files first for better iteration
 - **DO NOT** make any new commits or file modifications during PR creation
-- **USE** markdown files for easy editing, formatting, and content refinement
-- **ITERATE BASED ON FEEDBACK**: Remove sections that users identify as irrelevant
-- Use draft PRs for early feedback on large changes
-- Request specific reviewers familiar with the changed components
-- Link related issues and discussions
-- Update PR description using markdown files as changes evolve
-- Ensure auto-semver branch naming is correct for proper version bumping
-- Consider the impact on existing workflows and users
-- **MARKDOWN FILE WORKFLOW**: Always create → review → iterate → apply

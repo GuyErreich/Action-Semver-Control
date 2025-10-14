@@ -19,6 +19,7 @@ from auto_semver.utils import setup_logger
 logger = logging.getLogger(__name__)
 
 
+# TODO: Research about click package for CLI
 def main() -> None:
     """
     Automating semantic versioning and release processes.

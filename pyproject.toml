@@ -6,11 +6,11 @@ authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "gitpython~=3.1.32",
-    "jinja2~=3.1",
-    "pydantic~=2.11",
-    "pygithub~=2.6",
-    "pyyaml~=6.0",
+  "gitpython~=3.1.32",
+  "jinja2~=3.1",
+  "pydantic~=2.11",
+  "pygithub~=2.6",
+  "pyyaml~=6.0",
 ]
 
 [project.scripts]
@@ -127,14 +127,15 @@ non_interactive = false
 
 [dependency-groups]
 dev = [
-    "docker~=7.1",
-    "mypy~=1.8",
-    "pre-commit~=4.2",
-    "pyfakefs~=5.9",
-    "pytest~=8.3",
-    "pytest-cov~=6.1",
-    "pytest-mock~=3.14",
-    "ruff~=0.11",
-    "types-docker~=7.1",
-    "types-PyYAML~=6.0",
+  "docker~=7.1",
+  "mypy~=1.8",
+  "pre-commit~=4.2",
+  "pyfakefs~=5.9",
+  "pytest~=8.3",
+  "pytest-cov~=6.1",
+  "pytest-mock~=3.14",
+  "ruff~=0.11",
+  "types-docker~=7.1",
+  "types-PyYAML~=6.0",
+  "responses~=0.25",
 ]
