@@ -124,11 +124,9 @@ class PullRequestConfig(BaseModel):
             ),
             "conventional_type": lambda msg: (msg.split(":")[0].strip() if ":" in msg else "other"),
             "capitalize_first": lambda text: (text[0].upper() + text[1:] if text else text),
-            "count_commits": lambda groups: (
-                sum(len(g["commits"]) for g in groups) if groups else 0
-            ),
+            "count_commits": lambda groups: (sum(len(g.commits) for g in groups) if groups else 0),
             "has_breaking": lambda groups: (
-                any("breaking" in g["title"].lower() or "🔥" in g["title"] for g in groups)
+                any("breaking" in g.title.lower() or "🔥" in g.title for g in groups)
                 if groups
                 else False
             ),
@@ -140,9 +138,6 @@ class PullRequestConfig(BaseModel):
         # Register as functions (for explicit function calls like count_commits(groups))
         # Note: Function syntax is more explicit and readable than filter syntax
         engine.register_functions(pr_functions)
-
-        # Also register as filters for use with | syntax
-        engine.register_filters(pr_functions)
 
     @field_validator("title", "body")
     @classmethod
@@ -210,6 +205,8 @@ class PullRequestConfig(BaseModel):
         }
         if variables.commit_groups is not None:
             template_vars["commit_groups"] = variables.commit_groups
+            # Provide legacy alias expected by older templates / configs
+            template_vars["grouped_messages"] = variables.commit_groups
         engine = get_template_engine()
         rendered = engine.render_template(self.body, template_vars)
         return f"{PR_HIDDEN_MARKER}\n{rendered}"

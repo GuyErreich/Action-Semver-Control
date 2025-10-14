@@ -12,6 +12,7 @@ from pyfakefs.fake_filesystem import FakeFilesystem
 from auto_semver.config import Config, ConfigData
 
 
+# TODO: make this better by using Config instead of kwargs
 class ConfigFixture:
     """
     A fixture class that provides configuration files for tests using fakefs.

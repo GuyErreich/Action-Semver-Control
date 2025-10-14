@@ -12,8 +12,13 @@ from pytest_mock import MockerFixture
 
 from tests.fixtures.changelog_fixture import ChangelogFixture
 from tests.fixtures.config_fixture import ConfigFixture
+from tests.fixtures.env_isolation_fixture import isolated_env
 from tests.fixtures.file_fixture import FileFixture
+from tests.fixtures.git_repo_fixture import temp_git_repo
+from tests.fixtures.github_api_mock_fixture import mock_github_api
 from tests.fixtures.github_event_fixture import GitHubEventFixture
+
+__all__ = ["isolated_env", "mock_github_api", "temp_git_repo"]
 
 
 @pytest.fixture

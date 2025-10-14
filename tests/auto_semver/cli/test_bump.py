@@ -60,8 +60,8 @@ class TestBump:
 
         # Set up PR config
         mock_pr_config = mocker.Mock()
-        mock_pr_config.render_title.return_value = "Release 1.0.0"
-        mock_pr_config.render_body.return_value = "Release notes"
+        mock_pr_config.title = "Release {{ version }}"
+        mock_pr_config.body = "Release notes for {{ version }}"
         mock_pr_config.labels = ["semver-bump"]
         mock.data.pull_request = mock_pr_config
 
