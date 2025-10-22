@@ -1,34 +1,238 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [0.2.8-dev] - 25-06-2025
+## [0.5.3-dev] - 22-10-2025
 
-### 🚀 Features & Additions
-- Added unit tests for semver package
-- Added release commit filtering for release PR
-
-### 🔧 Improvements
-- data.py improvements
-- manager.py fix
-- better tests
-- Better ci caching
-
-### 🧪 Testing
-- better tests
-
-### 📚 Documentation & Configuration
-- copilot instruction and prompts
-- better coverage support in toml
-- modified .gitignore
-
-### 🔧 Build & CI
-- Better ci caching
-- Fixing semver config
-- fixing suffix to match promotion
-
+### ✨ Features & Enhancements
+- Add .python-version file for consistent development environment
+- Add _detect_tag_source_branch() to identify version origins from suffixes
+- Add _is_tag_promotion_scenario() to detect promotion vs. regular bump scenarios
+- Add comprehensive test suite for promotion scenarios with mocking support
+- Add development rules for consistent coding standards across team
+- Enhance project documentation with feature details and tooling info
+- Add format task to Taskfile.yml for code consistency
+- Add pre-commit hooks configuration
+- Add proper exception handling in CLI main function
+- Add missing import statements for logging and sys modules
+- Add commit.prompt.md for structured commit message generation
+- Add create-pr.prompt.md for comprehensive PR creation
+- Add new-branch.prompt.md for proper Git workflow
+- Add instruction-improvement.prompt.md for iterative docs
+- Add Git workflow and commit standards sections
+- Enhance AI usage guidelines for consistency
+- Add comprehensive Docker integration tests with build validation
+- Enhance Docker image with git installation and PATH configuration
+- Add Docker SDK and type stubs to development dependencies
+- Enhance test readability and maintainability
+- Add `uv pip install --no-deps -e .` to install application dependencies
+- Add console script 'auto-semver' in pyproject.toml
+- Add README.md to build context for proper package metadata
+- Add try-catch block for OSError and PermissionError handling
+- Add new test case for permission error handling scenarios
+- Enhance clarity in test descriptions for permission errors
+- Add new test for git safe directory configuration with root user
+- Add initial commit with a dummy file for valid repository state
+- Add section relevance guidelines to prevent irrelevant template sections
+- Enhance update-pr.prompt.md with better iteration workflows
+- Add specific guidance for removing non-applicable sections
+- Add feedback response patterns for better prompt adaptation
+- Add section headers for each message in the changelog
+- Enhance readability by using headings for each change
+- Add typed template variable dataclasses for type safety
+- Add PromotionRule model for branch promotion validation
+- Add comprehensive test suite for template function registration
+- Add template validation and rendering tests
+- Add config model interaction and conflict resolution tests
+- Add test fixtures for changelog and config scenarios
+- Add engine reset functionality for test isolation
+- Add modular fixtures for isolated testing (git_repo, github_api_mock, env_isolation, network_block)
+- Add comprehensive template function registry
+- Add date formatting and commit grouping utilities
+- Add custom Jinja2 functions for PR title/body generation
+- Add manager-engine integration tests
+- Add 173 lines of test improvements
+- Add template engine integration tests
+- Add GitHub PR builder tests with custom functions
+- Add responses library for API mocking
+- Add PR builder test to validate commit_groups rendering
+- Add bullet point extraction logic to parse structured commit bodies
+- Add _extract_individual_items() method to parse bullet points
+- Add 6 comprehensive tests for bullet extraction scenarios
+### ♻️ Refactoring & Code Quality
+- Refactor ChangelogManager to use template engine
+### 🔧 Infrastructure & Tooling
+- Update CI workflow to use uv with caching and streamlined task execution
+- Update bump workflow to preserve version numbers during promotions (only change suffix)
+- Update GitHub Copilot instructions with project-specific guidelines
+- Update pytest configuration with enhanced coverage settings
+- Update mock configurations in tests to handle promotion logic
+- Update copilot-instructions.md with modern tooling (uv, Python 3.13+)
+- 3.13-slim to ghcr.io/astral-sh/uv:0.7.20-python3.13-alpine
+- Update Taskfile pytest configuration for cleaner output
+- Update type hints for Docker client and image in tests
+- Update Dockerfile ENTRYPOINT to use 'auto-semver' directly
+- Update PATH comment to reflect console script usage
+- Update tools list to remove 'openSimpleBrowser'
+- Install package system-wide using pip install dist/*.whl
+- Update docstring to reflect repository-level config scope
+- Update test assertions to expect repository-level config calls
+- Update GitOps.__ensure_git_safe_directory() method
+- Update test_init_with_ensure_safe() to expect global config calls
+- Update test_init_with_ensure_safe_permission_error() assertions
+- Update pyproject.toml with new test dependencies
+- Update uv.lock with new dependency tree
+- Update pull_request.body to iterate commit_groups
+- Update template variable names for consistency (commit_groups)
 ### 📝 Other Changes
-- First test implementation
-- Saving progress for continuation on LapTop
+- Release 0.2.8-dev
+- Upgrade Python runtime from 3.12 to 3.13 in Dockerfile and CI
+- Migrate from pip/venv to uv for faster dependency management
+- Replace requirements.txt files with pyproject.toml dependency groups
+- Implement tag promotion workflow for seamless version advancement between branches
+- Rename 'files_to_update' to 'version_files' for clarity
+- Improve test configuration with better error reporting (--tb=short)
+- Improve logging and debugging capabilities
+- Include reusable development prompts guidelines
+- Ensures consistent commit and PR formatting across team
+- Improves onboarding for new contributors
+- Aligns with auto-semver branch naming conventions
+- Promotes modern Python development practices
+- Log an error if the target branch is not found in suffixes
+- Raise a ValueError to prevent further execution
+- Remove unnecessary system dependency installations
+- Streamline user and group creation for better security
+- Reduced image size and improved build performance
+- Enhanced security by minimizing installed packages
+- Fix pytest log level from DEBUG to INFO to suppress noisy third-party logs
+- Improve logger tests to use NullHandler for clean test execution
+- Improve CI prompt tools configuration
+- Replace generic types with specific Docker types for clarity
+- Ensure consistent usage of Docker client methods
+- Facilitate better integration with type checkers
+- Ensure proper ownership of the working directory after installation
+- Streamlines the Docker image build process
+- Ensures all necessary dependencies are available for the application
+- main entry point
+- Enable direct command execution without python -m
+- Change from 'python -m auto_semver.cli' to 'auto-semver'
+- Maintain editable install with uv for development workflow
+- Cleaner command-line interface for end users
+- Standard Python packaging best practices
+- Simplified Docker container execution
+- Better integration with package managers
+- Easier distribution and installation
+- Modify tools list to include 'runCommands' and 'terminalLastCommand'
+- Revise commit message generation guidelines to emphasize descriptive titles without conventional prefixes
+- Simplify PR title format to focus on descriptive language only
+- Enhances clarity for contributors on commit and PR creation processes
+- Aligns with auto-semver best practices for better version management
+- Change from uv sync to uv build for proper wheel creation
+- Remove virtual environment PATH manipulation
+- Simplify container setup by using system Python directly
+- Eliminate need for .venv directory in production container
+- Cleaner production container without virtual environment overhead
+- More reliable package installation for GitHub Actions usage
+- Better alignment with Docker best practices for single-purpose containers
+- Change git safe directory config from global to repository level in GitOps
+- Raise RuntimeError with descriptive message on configuration failures
+- Verify proper RuntimeError is raised with expected error message
+- Resolves Docker permission issues where global config is not writable
+- Provides same functionality without requiring elevated privileges
+- Repository-scoped configuration is more appropriate for CI environments
+- Better error handling provides clearer debugging information
+- Repository-level config provides equivalent security for CI environments
+- Change maintains backward compatibility for existing functionality
+- Error messages help diagnose configuration issues in containerized environments
+- **
+- Simplify environment variable setup
+- Ensure container runs as root user for GitHub Actions compatibility
+- **
+- Modify tests to reflect root user requirements
+- Aligns Docker setup with GitHub Actions requirements
+- Improves test reliability and clarity for future maintainers
+- Replace manual git repository setup with `Repo.init()`
+- Ensure that the test for git safe directory configuration works with the new setup
+- Improve reliability of tests by using a proper Git repository structure
+- Change GitOps safe directory config from repository to global level
+- Avoid permission errors when accessing repository-level config
+- Ensure proper Git security in containerized CI environments
+- Change config_level from "repository" to "global" in config_writer
+- Global config avoids write permission issues in restricted CI contexts
+- Maintain test coverage for permission error handling
+- Improves reliability in Docker-based GitHub Actions
+- Reduces CI failures related to Git security policies
+- Maintains backwards compatibility with existing workflows
+- Addresses Git security restrictions in CI environments
+- Global config scope is appropriate for safe directory settings
+- No functional changes to core auto-semver logic
+- Reorganize PR template sections into required vs optional categories
+- Emphasize markdown file workflow for better content iteration
+- Include user feedback handling instructions for prompt improvement
+- Streamline create-pr.prompt.md with clearer section organization
+- Remove auto-semver impact sections from generic templates
+- Provide clear guidelines on when to include/exclude template sections
+- Emphasize flexibility over rigid template following
+- Improve markdown file creation and iteration processes
+- Changes maintain existing functionality while improving usability
+- Templates now better adapt to actual change scenarios
+- Reduces noise in PR descriptions by removing irrelevant sections
+- Supports better collaboration through clearer prompt instructions
+- Improve changelog message formatting for clarity
+- Enhances readability of changelog entries
+- Provides better structure for release notes
+- Improve formatting of the changes section in the pull request template
+- Provides clearer structure for release notes
+- Facilitates better understanding of changes for reviewers
+- Split monolithic config/data.py into focused model modules
+- Create centralized Jinja2 template engine with pluggable functions
+- Implement automatic template function registration per config model
+- Extract ChangelogConfig to _models/_changelog.py with auto-registration
+- Extract PullRequestConfig to _models/_pull_request.py with domain functions
+- Extract CommitGroupConfig to _models/_commit_group.py with grouping logic
+- Create unified ConfigData model in _models/_config.py
+- Global template engine singleton with function registration
+- Domain-specific function sets (changelog, PR, commit grouping)
+- Built-in template validation using registered functions
+- Extensible function and filter registration system
+- Template variable type safety with dataclass structures
+- Rename config/loader.py to config/config.py for clarity
+- Remove config/data.py (functionality moved to _models/)
+- Template functions now auto-register on model instantiation
+- Configuration validation now uses centralized template engine
+- Create 17 comprehensive E2E/integration tests covering full release workflows
+- Implement test_e2e_workflows.py with 6 workflow scenarios
+- Implement test_action_integration.py with 5 GitHub Actions simulations
+- Implement test_full_e2e.py with 6 complete release cycle tests
+- Extract shared template utilities to templates/utils.py
+- Implement custom Jinja2 filters for PR/changelog generation
+- Create new PR builder architecture (pr/builder.py)
+- Implement GitHubPRBuilder with template rendering
+- Support dynamic data injection for templates
+- Move changelog template logic to engine integration
+- All 17 E2E/integration tests passing with full isolation
+- All tests use tmp_path for temporary git repos
+- No real git repositories touched during testing
+- All GitHub API calls mocked with responses
+- Network access blocked via fixture
+- Environment variables isolated per test
+- Keep changelog template compatible (legacy alias supported)
+- Rely on config variable names; no code aliases required
+- Extract individual items from commit body bullets for granular categorization
+- Simplify PR and changelog templates to display clean grouped commits
+- Detect bullets with -, *, or • markers in commit bodies
+- Preserve simple commits without bullets as single items
+- Each bullet categorized independently by pattern matching
+- Remove verbose body rendering from PR/changelog templates
+- Display only commit.title in clean bullet lists
+- Maintain group headers with emoji icons and priorities
+- Support both commit_groups and grouped_messages variables
+- Test simple commits, bulleted commits, and mixed scenarios
+- Verify pattern matching works per-bullet not per-commit
+- Validate backward compatibility with title-only commits
+- Supports Git best practices for structured commit bodies
+- Clean, organized release notes from detailed commit messages
+- Accurate grouping at item level instead of commit level
+- Maintains flexibility for future template customization
 
 ## License
 This project is licensed under the MIT License.
