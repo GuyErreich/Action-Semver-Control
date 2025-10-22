@@ -159,6 +159,9 @@ class CommitGroupConfig(BaseModel):
 
         Takes a list of raw commit messages and groups them according to the
         configured patterns, returning structured data for template rendering.
+        
+        For commits with multi-line bodies containing bullet points, extracts
+        each bullet point as a separate commit item to categorize individually.
 
         Args:
             messages: List of raw commit messages from git.
@@ -179,26 +182,29 @@ class CommitGroupConfig(BaseModel):
         # Sort groups by priority (lower numbers first)
         sorted_groups = sorted(commit_groups, key=lambda g: g.priority)
 
-        # Group messages
+        # Extract individual items from commit messages (including body bullet points)
+        individual_items = CommitGroupConfig._extract_individual_items(messages)
+
+        # Group individual items
         groups: dict[str, CommitGroup] = {}
         unmatched: list[str] = []
 
-        for message in messages:
+        for item in individual_items:
             matched = False
             for group in sorted_groups:
-                if CommitGroupConfig._message_matches(message, group.patterns):
+                if CommitGroupConfig._message_matches(item, group.patterns):
                     if group.title not in groups:
                         groups[group.title] = CommitGroup(
                             title=group.title,
                             commits=[],
                             priority=group.priority,
                         )
-                    groups[group.title].commits.append(CommitGroupConfig._parse_commit(message))
+                    groups[group.title].commits.append(CommitGroupConfig._parse_commit(item))
                     matched = True
                     break
 
             if not matched:
-                unmatched.append(message)
+                unmatched.append(item)
 
         # Handle unmatched messages
         if unmatched:
@@ -212,6 +218,36 @@ class CommitGroupConfig(BaseModel):
 
         # Sort by priority (lower numbers first)
         return sorted(result, key=lambda g: g.priority)
+
+    @staticmethod
+    def _extract_individual_items(messages: list[str]) -> list[str]:
+        """
+        Extract individual items from commit messages.
+        
+        For commits with bullet points in the body, extract each bullet as a separate item.
+        Returns a list of individual commit lines/items to be categorized.
+        """
+        items = []
+        for message in messages:
+            lines = message.strip().split("\n")
+            
+            # Check if there are bullet points in the body
+            has_bullets = any(line.strip().startswith(("-", "*", "•")) for line in lines[1:])
+            
+            if has_bullets:
+                # Extract each bullet point as a separate item
+                for line in lines[1:]:
+                    stripped_line = line.strip()
+                    if stripped_line.startswith(("-", "*", "•")):
+                        # Remove bullet marker and clean up
+                        clean_line = stripped_line.lstrip("-*•").strip()
+                        if clean_line:
+                            items.append(clean_line)
+            else:
+                # No bullets, use the full commit message
+                items.append(message)
+        
+        return items
 
     @staticmethod
     def _message_matches(message: str, patterns: list[str]) -> bool:

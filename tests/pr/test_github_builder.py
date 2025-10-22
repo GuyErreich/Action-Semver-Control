@@ -51,8 +51,8 @@ def test_build_body_with_commit_groups() -> None:
     # Create test commit groups
     commit1 = Commit(title="add new feature", body=None)
     commit2 = Commit(title="fix bug", body=None)
-    group1 = CommitGroup(title="Features", commits=[commit1], priority=1)
-    group2 = CommitGroup(title="Bug Fixes", commits=[commit2], priority=2)
+    group1 = CommitGroup(title="✨ Features & Enhancements", commits=[commit1], priority=1)
+    group2 = CommitGroup(title="🐛 Bug Fixes & Resolutions", commits=[commit2], priority=2)
     
     data = GitHubPRTemplateVariables(
         version="1.2.3",
@@ -68,20 +68,28 @@ def test_build_body_with_commit_groups() -> None:
         groups=[group1, group2],
     )
     
-    # Use template similar to config file
-    body_template = """## Release {{ version }}
+    # Use template matching the config file format
+    body_template = """## 🚀 Release Notes
+**Version:** {{ version }}  
+**Date:** {{ date }}
+
 {% for group in commit_groups -%}
+{% if group.commits -%}
 ### {{ group.title }}
 {% for commit in group.commits -%}
 - {{ commit.title }}
 {% endfor -%}
+
+{% endif -%}
 {% endfor -%}"""
     
     builder = GitHubPRBuilder(data=data, body_template=body_template)
     
-    assert "## Release 1.2.3" in builder.body
-    assert "### Features" in builder.body
-    assert "### Bug Fixes" in builder.body
+    # Verify structured output with grouped sections
+    assert "## 🚀 Release Notes" in builder.body
+    assert "**Version:** 1.2.3" in builder.body
+    assert "### ✨ Features & Enhancements" in builder.body
+    assert "### 🐛 Bug Fixes & Resolutions" in builder.body
     assert "- add new feature" in builder.body
     assert "- fix bug" in builder.body
 

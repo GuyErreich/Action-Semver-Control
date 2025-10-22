@@ -118,17 +118,11 @@ pull_request:
     
     {% for group in commit_groups -%}
     {% if group.commits -%}
-    ## {{ group.title }}
-    
+    ### {{ group.title }}
     {% for commit in group.commits -%}
-    {% if commit.body -%}
-    ### {{ commit.title }}
-    {{ commit.body }}
-    {% else -%}
-    - {{ commit.message }}
-    {% endif -%}
-    
+    - {{ commit.title }}
     {% endfor -%}
+    
     {% endif -%}
     {% endfor -%}
 
@@ -141,16 +135,10 @@ changelog:
     {% for group in grouped_messages -%}
     {% if group.commits -%}
     ### {{ group.title }}
-    
     {% for commit in group.commits -%}
-    {% if commit.body -%}
-    **{{ commit.title }}**  
-    {{ commit.body }}
-    {% else -%}
-    - {{ commit.message }}
-    {% endif -%}
-    
+    - {{ commit.title }}
     {% endfor -%}
+    
     {% endif -%}
     {% endfor -%}
 
