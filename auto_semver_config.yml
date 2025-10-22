@@ -116,7 +116,7 @@ pull_request:
     **Version:** {{version}}  
     **Date:** {{date}}
     
-    {% for group in grouped_messages -%}
+    {% for group in commit_groups -%}
     {% if group.commits -%}
     ## {{ group.title }}
     
