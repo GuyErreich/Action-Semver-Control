@@ -1,6 +1,7 @@
 """Unit tests for GitHubPRBuilder template functions."""
 
 from auto_semver.config._models._commit_group import Commit, CommitGroup
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 
 
@@ -25,7 +26,7 @@ def test_pr_builder_registers_functions() -> None:
         body_template="Type: {{ conventional_type('feat: add feature') }}",
     )
     assert builder.title == "This is a very lo..."
-    assert builder.body == "Type: feat"
+    assert builder.body == f"{PR_HIDDEN_MARKER}\nType: feat"
 
 
 def test_pr_builder_functions_as_filters() -> None:
@@ -49,7 +50,7 @@ def test_pr_builder_functions_as_filters() -> None:
         body_template="{{ capitalize_first('hello world') }}",
     )
     assert builder.title == "This is a very lo..."
-    assert builder.body == "Hello world"
+    assert builder.body == f"{PR_HIDDEN_MARKER}\nHello world"
 
 
 def test_pr_builder_complex_functions() -> None:
@@ -94,7 +95,7 @@ def test_pr_builder_complex_functions() -> None:
         body_template="Breaking: {{ has_breaking(groups) }}",
     )
     assert builder.title == "Groups: 3, Commits: 4"  # 2 + 1 + 1 = 4 commits total
-    assert builder.body == "Breaking: True"
+    assert builder.body == f"{PR_HIDDEN_MARKER}\nBreaking: True"
 
 
 def test_pr_builder_date_formatting() -> None:
@@ -118,4 +119,4 @@ def test_pr_builder_date_formatting() -> None:
         body_template="Date: {{ format_date_custom(date, '%m/%d/%Y') }}",
     )
     assert builder.title == "Released: December 25, 2024"
-    assert builder.body == "Date: 12/25/2024"
+    assert builder.body == f"{PR_HIDDEN_MARKER}\nDate: 12/25/2024"

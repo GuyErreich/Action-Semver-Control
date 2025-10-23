@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from auto_semver.changelog.manager import ChangelogManager
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.pr.github_builder import (
     GitHubPRBuilder,
     GitHubPRTemplateVariables,
@@ -110,7 +111,7 @@ def test_template_variable_typing() -> None:
     )
 
     assert builder.title == "Release 1.2.3"
-    assert builder.body == "Body: 1.2.3"
+    assert builder.body == f"{PR_HIDDEN_MARKER}\nBody: 1.2.3"
 
 
 def test_comprehensive_docstrings() -> None:
@@ -160,7 +161,7 @@ def test_integration_with_shared_utilities() -> None:
 
     # These should use the shared utilities internally
     assert builder.title == "This is a very lo..."
-    assert builder.body == "December 25, 2024"
+    assert builder.body == f"{PR_HIDDEN_MARKER}\nDecember 25, 2024"
 
 
 if __name__ == "__main__":
