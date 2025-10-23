@@ -7,6 +7,7 @@ Handles GitHub pull request generation with specific templates and configuration
 from dataclasses import dataclass
 
 from auto_semver.config._models._commit_group import CommitGroup
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 
 from .builder import BasePRTemplateVariables, PRBuilder
 
@@ -61,9 +62,12 @@ class GitHubPRBuilder(PRBuilder[GitHubPRTemplateVariables]):
         return result
 
     def _build_body(self) -> str:
-        """Build the PR body using the body template and instance data."""
-        result: str = self._engine.render_template(self.body_template, self._data.__dict__)
-        return result
+        """Build the PR body using the body template and instance data.
+        
+        Automatically prepends the hidden marker for finalization detection.
+        """
+        rendered: str = self._engine.render_template(self.body_template, self._data.__dict__)
+        return f"{PR_HIDDEN_MARKER}\n{rendered}"
 
     def _build_labels(self) -> list[str]:
         """Build the PR labels using the labels template and instance data."""

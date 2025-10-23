@@ -1,6 +1,7 @@
 """Unit tests for GitHubPRBuilder."""
 
 from auto_semver.config._models._commit_group import Commit, CommitGroup
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 
 
@@ -42,7 +43,11 @@ def test_build_body() -> None:
         data=data,
         body_template="This PR releases version {{ version }} on {{ date }}.\nCommits: fix: bug, feat: new",
     )
-    expected = "This PR releases version 1.2.3 on 2025-10-08.\nCommits: fix: bug, feat: new"
+    expected = (
+        f"{PR_HIDDEN_MARKER}\n"
+        "This PR releases version 1.2.3 on 2025-10-08.\n"
+        "Commits: fix: bug, feat: new"
+    )
     assert builder.body == expected
 
 
