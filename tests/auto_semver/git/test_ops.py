@@ -21,9 +21,15 @@ class TestGitOps:
 
     @pytest.fixture
     def mock_repo(self, mocker: MockerFixture) -> Any:
-        """Create a mock Git repository."""
+        """Create a mock Git repository with a properly mocked remote."""
         mock = mocker.MagicMock(spec=Repo)
         mock.git = mocker.MagicMock()
+
+        # Mock the remote with a valid URL for _parse_repository_name
+        mock_remote = mocker.MagicMock()
+        mock_remote.url = "git@github.com:owner/repo.git"
+        mock.remote.return_value = mock_remote
+
         return mock
 
     @pytest.fixture
@@ -50,6 +56,13 @@ class TestGitOps:
     def patch_github(self, mocker: MockerFixture, mock_github: Any) -> Any:
         """Patch the Github class."""
         return mocker.patch("auto_semver.git.ops.Github", return_value=mock_github)
+
+    @pytest.fixture(autouse=True)
+    def patch_parse_repository_name(self, mocker: MockerFixture) -> Any:
+        """Patch _parse_repository_name to avoid needing real remote URLs in all tests."""
+        return mocker.patch(
+            "auto_semver.git.ops.GitOps._parse_repository_name", return_value="owner/repo"
+        )
 
     @pytest.mark.unit
     def test_init_with_ensure_safe(self, mocker: MockerFixture, mock_repo: Any) -> None:
@@ -234,10 +247,12 @@ class TestGitOps:
         # Create GitOps instance
         gitops = GitOps()
 
+        # Mock get_repository_name to return a test repo
+        mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+
         # Call create_pr
         pr_number = gitops.create_pr(
             github_token="token",
-            repo_full_name="owner/repo",
             title="Test PR",
             body="Test body",
             source="feature-branch",
@@ -265,10 +280,12 @@ class TestGitOps:
         # Create GitOps instance
         gitops = GitOps()
 
+        # Mock get_repository_name to return a test repo
+        mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+
         # Call create_pr
         pr_number = gitops.create_pr(
             github_token="token",
-            repo_full_name="owner/repo",
             title="Test PR",
             body="Test body",
             source="feature-branch",
@@ -304,10 +321,12 @@ class TestGitOps:
         # Create GitOps instance
         gitops = GitOps()
 
+        # Mock get_repository_name to return a test repo
+        mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+
         # Call close_old_release_prs
         gitops.close_old_release_prs(
             github_token="token",
-            repo_full_name="owner/repo",
             target_branch="main",
             labels=["semver-bump"],
         )

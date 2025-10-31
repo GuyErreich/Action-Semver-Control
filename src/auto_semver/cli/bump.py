@@ -111,7 +111,9 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     # if not target_branch:
     # logger.info("Target branch not provided. Extracting from GITHUB_EVENT_PATH...")
     target_branch: str = event.get_target_branch_name()
-    repo_full_name: str = event.get_repository()
+
+    # Get repository name from GitOps (will be cached)
+    repo_full_name: str = gitops.get_repository_name()
 
     if target_branch not in config.data.suffixes:
         logger.error(f"Target branch '{target_branch}' not found in suffixes configuration.")
@@ -195,7 +197,6 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
         logger.info("Closing old release PRs (branch_strategy=single)...")
         gitops.close_old_release_prs(
             github_token=github_token,
-            repo_full_name=repo_full_name,
             target_branch=target_branch,
             labels=config.data.pull_request.labels,
         )
@@ -238,7 +239,6 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     pr_body: str = pr_builder.body
 
     gitops.create_pr(
-        repo_full_name=repo_full_name,
         title=pr_title,
         body=pr_body,
         source=release_branch_name,

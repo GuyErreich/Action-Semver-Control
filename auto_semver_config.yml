@@ -8,8 +8,10 @@ suffixes:
 promotions:
   - from_branch: dev
     to_branch: staging
+    auto_promote: true  # Automatically create staging PR after dev tagging
   - from_branch: staging
     to_branch: master
+    auto_promote: false # Manual promotion only for production
 
 branch_strategy: "single"  # "single" or "multi"
 

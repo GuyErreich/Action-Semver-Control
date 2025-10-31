@@ -335,6 +335,9 @@ class TestDockerWithMountedVolume:
         # Initialize a proper Git repository
         repo = Repo.init(temp_workspace)
 
+        # Add a remote to satisfy GitOps initialization requirements
+        repo.create_remote("origin", "https://github.com/testuser/testrepo.git")
+
         # Create a dummy file and make an initial commit to have a valid repository
         dummy_file = temp_workspace / "dummy.txt"
         dummy_file.write_text("dummy content")

@@ -66,7 +66,7 @@ def main() -> None:
         event = GitHubEvent()
 
         if is_finalized(config=config, event=event):
-            finalize.run(gitops=gitops, event=event, config=config)
+            finalize.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
         else:
             bump.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
     except KeyboardInterrupt:

@@ -10,7 +10,7 @@ from git import Repo
 @pytest.fixture
 def temp_git_repo(tmp_path: Path) -> Generator[tuple[Repo, Path], None, None]:
     """Create a temporary git repository inside tmp_path.
-    
+
     Returns the Repo object and repo path.
     """
     repo_dir = tmp_path / "repo"

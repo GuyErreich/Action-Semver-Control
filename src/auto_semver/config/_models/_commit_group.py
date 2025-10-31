@@ -159,7 +159,7 @@ class CommitGroupConfig(BaseModel):
 
         Takes a list of raw commit messages and groups them according to the
         configured patterns, returning structured data for template rendering.
-        
+
         For commits with multi-line bodies containing bullet points, extracts
         each bullet point as a separate commit item to categorize individually.
 
@@ -223,17 +223,17 @@ class CommitGroupConfig(BaseModel):
     def _extract_individual_items(messages: list[str]) -> list[str]:
         """
         Extract individual items from commit messages.
-        
+
         For commits with bullet points in the body, extract each bullet as a separate item.
         Returns a list of individual commit lines/items to be categorized.
         """
         items = []
         for message in messages:
             lines = message.strip().split("\n")
-            
+
             # Check if there are bullet points in the body
             has_bullets = any(line.strip().startswith(("-", "*", "•")) for line in lines[1:])
-            
+
             if has_bullets:
                 # Extract each bullet point as a separate item
                 for line in lines[1:]:
@@ -246,7 +246,7 @@ class CommitGroupConfig(BaseModel):
             else:
                 # No bullets, use the full commit message
                 items.append(message)
-        
+
         return items
 
     @staticmethod

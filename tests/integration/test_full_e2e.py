@@ -84,7 +84,7 @@ def test_full_release_with_finalize(
     # Setup
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -96,10 +96,10 @@ changelog:
   enabled: true
   file: CHANGELOG.md
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -171,7 +171,7 @@ def test_full_promotion_cycle(
     # Setup with promotion config
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0-dev.1\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -187,15 +187,15 @@ promotion:
   from: dev
   to: main
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: setup v1.0.0-dev.1")
-    
+
     # Create branches and tag
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
     repo.create_tag("v1.0.0-dev.1")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -206,7 +206,7 @@ promotion:
         json={"default_branch": "main"},
         status=200,
     )
-    
+
     mock_github_api.add(
         responses.POST,
         "https://api.github.com/repos/testuser/testrepo/releases",
@@ -260,7 +260,7 @@ def test_full_cycle_with_pr_creation(
     # Setup with PR config
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -282,10 +282,10 @@ changelog:
   enabled: true
   file: CHANGELOG.md
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     # Create dev branch
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
@@ -304,7 +304,7 @@ changelog:
         json={"default_branch": "main"},
         status=200,
     )
-    
+
     mock_github_api.add(
         responses.POST,
         "https://api.github.com/repos/testuser/testrepo/pulls",
@@ -360,7 +360,7 @@ def test_full_cycle_with_multiple_commits_and_changelog(
     # Setup with detailed changelog config
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -391,10 +391,10 @@ changelog:
     - {{commit.message}}
     {% endfor %}
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -463,7 +463,7 @@ def test_error_recovery_invalid_config(
     # Setup with INVALID config
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -472,10 +472,10 @@ branches:
   main:
     bump: invalid_bump_type
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: setup with invalid config")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 

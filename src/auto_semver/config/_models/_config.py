@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
@@ -11,6 +12,8 @@ from ._changelog import ChangelogConfig
 from ._commit_group import CommitGroupConfig, CommitGroups
 from ._promotion import PromotionRule
 from ._pull_request import PullRequestConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigData(BaseModel):
@@ -106,3 +109,80 @@ class ConfigData(BaseModel):
             CommitGroups: list of CommitGroup dataclasses for template rendering.
         """
         return CommitGroupConfig.group_messages(messages, self.commit_groups)
+
+    def find_promotion_rule(self, *, from_branch: str, to_branch: str) -> PromotionRule | None:
+        """
+        Find a promotion rule that allows promotion from source to target branch.
+
+        Args:
+            from_branch: Source branch name
+            to_branch: Target branch name
+
+        Returns:
+            PromotionRule if found, None otherwise
+        """
+        for rule in self.promotions:
+            if rule.from_branch == from_branch and rule.to_branch == to_branch:
+                return rule
+        return None
+
+    def validate_promotion(
+        self, *, from_branch: str, to_branch: str, require_auto_promote: bool = False
+    ) -> PromotionRule:
+        """
+        Validate that a promotion between branches is allowed by configuration.
+
+        Args:
+            from_branch: Source branch name
+            to_branch: Target branch name
+            require_auto_promote: If True, only allow promotions with auto_promote=True
+
+        Returns:
+            PromotionRule: The matching promotion rule
+
+        Raises:
+            ValueError: If promotion is not allowed
+        """
+        # Check if both branches are configured
+        if from_branch not in self.suffixes:
+            raise ValueError(f"Source branch '{from_branch}' is not configured in suffixes")
+
+        if to_branch not in self.suffixes:
+            raise ValueError(f"Target branch '{to_branch}' is not configured in suffixes")
+
+        # Find promotion rule
+        rule = self.find_promotion_rule(from_branch=from_branch, to_branch=to_branch)
+
+        if rule is None:
+            raise ValueError(
+                f"No promotion rule found from '{from_branch}' to '{to_branch}'. "
+                f"Available rules: {[(r.from_branch, r.to_branch) for r in self.promotions]}"
+            )
+
+        # Check auto_promote requirement if specified
+        if require_auto_promote and not rule.auto_promote:
+            raise ValueError(
+                f"Promotion from '{from_branch}' to '{to_branch}' is not configured for auto-promotion"
+            )
+
+        logger.info(
+            f"Promotion validated: {from_branch} → {to_branch} (auto_promote={rule.auto_promote})"
+        )
+        return rule
+
+    def get_auto_promotion_targets(self, *, from_branch: str) -> list[str]:
+        """
+        Get all target branches that can be auto-promoted from the given branch.
+
+        Args:
+            from_branch: Source branch name
+
+        Returns:
+            List of target branch names that have auto_promote=True
+        """
+        targets = []
+        for rule in self.promotions:
+            if rule.from_branch == from_branch and rule.auto_promote:
+                targets.append(rule.to_branch)
+
+        return targets

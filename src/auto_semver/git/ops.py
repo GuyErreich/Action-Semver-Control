@@ -14,14 +14,14 @@ Typical usage example::
     gitops.push(branch_name="release/v1.0.0")
     gitops.create_pr(
         github_token="...",
-        repo_full_name="owner/repo",
         title="Release v1.0.0",
-        head="release/v1.0.0",
-        base="main",
+        source="release/v1.0.0",
+        target="main",
     )
 """
 
 import logging
+import re
 from pathlib import Path
 
 import yaml
@@ -58,6 +58,7 @@ class GitOps:
         """
 
         self.repo = Repo(path=repo_path)
+        self._repo_full_name: str = self._parse_repository_name()  # Cache repository name on init
         if ensure_safe:
             self.__ensure_git_safe_directory()
 
@@ -103,6 +104,54 @@ class GitOps:
 
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:
         return Github(github_token).get_repo(repo_full_name)
+
+    def _parse_repository_name(self, *, remote_name: str = "origin") -> str:
+        """
+        Extract the repository name from the Git remote URL.
+
+        Args:
+            remote_name (str): Name of the Git remote (default: 'origin').
+
+        Returns:
+            str: Repository name in "owner/repo" format.
+
+        Raises:
+            ValueError: If remote URL cannot be parsed or is not a GitHub URL.
+        """
+        try:
+            remote: Remote = self.repo.remote(name=remote_name)
+            remote_url = remote.url
+
+            # Handle both SSH and HTTPS GitHub URLs
+            # SSH: git@github.com:owner/repo.git
+            # HTTPS: https://github.com/owner/repo.git
+
+            patterns = [
+                r"git@github\.com:([^/]+)/(.+?)(?:\.git)?$",  # SSH format
+                r"https://github\.com/([^/]+)/(.+?)(?:\.git)?$",  # HTTPS format
+            ]
+
+            for pattern in patterns:
+                match = re.match(pattern, remote_url)
+                if match:
+                    owner, repo = match.groups()
+                    return f"{owner}/{repo}"
+
+            raise ValueError(f"Unable to parse GitHub repository from remote URL: {remote_url}")
+
+        except Exception as e:
+            raise ValueError(
+                f"Failed to get repository name from remote '{remote_name}': {e}"
+            ) from e
+
+    def get_repository_name(self) -> str:
+        """
+        Get the cached repository name.
+
+        Returns:
+            str: Repository name in "owner/repo" format.
+        """
+        return self._repo_full_name
 
     def create_branch(self, *, branch_name: str, force: bool = False) -> None:
         """
@@ -216,7 +265,6 @@ class GitOps:
         self,
         *,
         github_token: str,
-        repo_full_name: str,
         target_branch: str,
         labels: list[str] | None = None,
     ) -> None:
@@ -230,7 +278,6 @@ class GitOps:
 
         Args:
             github_token: GitHub access token.
-            repo_full_name: The repository name (e.g., "owner/repo").
             target_branch: The target branch (e.g., 'dev' or 'main').
             labels: Optional list of label names to match.
 
@@ -239,6 +286,9 @@ class GitOps:
             GithubException: If there is an error with the GitHub API.
 
         """
+
+        # Get the repository name (uses cached value)
+        repo_full_name = self._repo_full_name
 
         logger.info(f"Checking for existing PRs for target branch: {target_branch}")
 
@@ -269,7 +319,6 @@ class GitOps:
         self,
         *,
         github_token: str,
-        repo_full_name: str,
         title: str,
         body: str,
         source: str,
@@ -281,7 +330,6 @@ class GitOps:
 
         Args:
             github_token (str): GitHub API token.
-            repo_full_name (str): Repository name in "owner/repo" format.
             title (str): Title for the PR.
             body (str): Body for the PR content.
             source (str): Source branch.
@@ -293,6 +341,9 @@ class GitOps:
             The PR number.
 
         """
+
+        # Get the repository name (uses cached value)
+        repo_full_name = self._repo_full_name
 
         logger.debug("Creating PR with the following parameters:")
         logger.debug(f"  Repo: {repo_full_name}")

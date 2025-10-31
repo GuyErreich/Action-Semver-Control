@@ -1,0 +1,95 @@
+name: Manual Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      from_branch:
+        description: 'Source branch to promote from'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+      to_branch:
+        description: 'Target branch to promote to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - master
+      dry_run:
+        description: 'Validate promotion without creating PR'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Need full history for git operations
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: uv sync
+
+    - name: Validate promotion (dry run)
+      if: ${{ inputs.dry_run }}
+      run: |
+        echo "🧪 Dry run mode - validating promotion configuration..."
+        uv run python -c "
+        from auto_semver.config import Config
+        from auto_semver.utils.promotion import validate_promotion
+        
+        config = Config()
+        try:
+            rule = validate_promotion(
+                from_branch='${{ inputs.from_branch }}',
+                to_branch='${{ inputs.to_branch }}',
+                config=config
+            )
+            print(f'✅ Promotion validated: ${{ inputs.from_branch }} → ${{ inputs.to_branch }}')
+            print(f'   Auto-promotion enabled: {rule.auto_promote}')
+        except ValueError as e:
+            print(f'❌ Promotion validation failed: {e}')
+            exit(1)
+        "
+
+    - name: Create promotion PR
+      if: ${{ !inputs.dry_run }}
+      run: |
+        echo "🚀 Creating promotion PR: ${{ inputs.from_branch }} → ${{ inputs.to_branch }}"
+        uv run auto-semver-promote \
+          --from "${{ inputs.from_branch }}" \
+          --to "${{ inputs.to_branch }}" \
+          --github-token "${{ secrets.GH_TOKEN }}" \
+          --debug
+
+    - name: Summary
+      run: |
+        if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+          echo "### 🧪 Dry Run Completed" >> $GITHUB_STEP_SUMMARY
+          echo "Promotion validation: **${{ inputs.from_branch }}** → **${{ inputs.to_branch }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ✅ Configuration valid" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "### 🚀 Promotion PR Created" >> $GITHUB_STEP_SUMMARY
+          echo "Promotion: **${{ inputs.from_branch }}** → **${{ inputs.to_branch }}**" >> $GITHUB_STEP_SUMMARY
+          echo "A new pull request has been created to promote the latest version." >> $GITHUB_STEP_SUMMARY
+          echo "Check the repository's pull requests to review and merge." >> $GITHUB_STEP_SUMMARY
+        fi
