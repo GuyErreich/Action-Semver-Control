@@ -130,7 +130,9 @@ class TestMain:
         assert "event" in call_args.kwargs
 
         # Verify finalize.run was called with correct arguments
-        mock_finalize.assert_called_once_with(gitops=mock_gitops, event=event, config=mock_config)
+        mock_finalize.assert_called_once_with(
+            gitops=mock_gitops, event=event, config=mock_config, github_token="mock-token"
+        )
 
         # Verify bump.run was not called
         mock_bump.assert_not_called()

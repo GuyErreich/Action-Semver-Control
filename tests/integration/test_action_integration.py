@@ -41,7 +41,7 @@ def test_action_on_push_event(
     # Setup version and config
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -53,10 +53,10 @@ branches:
   main:
     bump: minor
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
 
@@ -143,7 +143,7 @@ def test_action_on_pull_request_event(
     # Setup
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -157,17 +157,17 @@ pull_request:
   enabled: true
   title_template: "Release {{version}}"
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     # Create branches
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
-    
+
     feature_branch = repo.create_head("feature/test")
     feature_branch.checkout()
-    
+
     feature_file = repo_dir / "feature.py"
     feature_file.write_text("# Feature\n")
     repo.index.add(["feature.py"])
@@ -199,7 +199,7 @@ pull_request:
         json={"default_branch": "main"},
         status=200,
     )
-    
+
     mock_github_api.add(
         responses.GET,
         "https://api.github.com/repos/testuser/testrepo/pulls/1",
@@ -263,7 +263,7 @@ def test_action_on_tag_push_event(
     # Setup
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0-dev.1\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -279,14 +279,14 @@ promotion:
   from: dev
   to: main
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: setup")
-    
+
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
     repo.create_tag("v1.0.0-dev.1")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -366,7 +366,7 @@ def test_action_with_changelog_generation(
     # Setup with changelog config
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -386,10 +386,10 @@ changelog:
     - {{commit.message}}
     {% endfor %}
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -473,7 +473,7 @@ def test_action_with_missing_permissions(
     # Setup
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -482,10 +482,10 @@ branches:
   main:
     bump: patch
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: setup")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 

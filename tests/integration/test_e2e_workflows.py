@@ -43,7 +43,7 @@ def test_feature_branch_to_dev_workflow(
     # Create initial files
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -54,10 +54,10 @@ branches:
   main:
     bump: minor
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial commit")
-    
+
     # Create dev branch
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
@@ -105,7 +105,7 @@ branches:
 
     # Verify execution
     assert result.returncode == 0, f"Command failed:\n{result.stderr}"
-    
+
     # In dry-run mode, version file shouldn't change
     assert version_file.read_text().strip() == "1.0.0"
 
@@ -137,7 +137,7 @@ def test_hotfix_to_main_workflow(
     # Create initial state at v2.0.0
     version_file = repo_dir / "version.txt"
     version_file.write_text("2.0.0\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -148,10 +148,10 @@ branches:
   dev:
     bump: patch
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: initial commit at v2.0.0")
-    
+
     # Create main branch
     main_branch = repo.create_head("main")
     main_branch.checkout()
@@ -222,7 +222,7 @@ def test_promotion_workflow(
     # Create initial state
     version_file = repo_dir / "version.txt"
     version_file.write_text("1.0.0-dev.1\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -238,15 +238,15 @@ promotion:
   from: dev
   to: main
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: setup v1.0.0-dev.1")
-    
+
     # Create branches
     dev_branch = repo.create_head("dev")
     dev_branch.checkout()
     repo.create_tag("v1.0.0-dev.1")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -301,13 +301,13 @@ def test_multiple_version_files_workflow(
     # Create multiple version files
     version_txt = repo_dir / "version.txt"
     version_txt.write_text("1.0.0\n")
-    
+
     package_json = repo_dir / "package.json"
     package_json.write_text('{\n  "version": "1.0.0"\n}\n')
-    
+
     pyproject_toml = repo_dir / "pyproject.toml"
     pyproject_toml.write_text('[project]\nversion = "1.0.0"\n')
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -318,10 +318,10 @@ branches:
   main:
     bump: patch
 """)
-    
+
     repo.index.add(["version.txt", "package.json", "pyproject.toml", "auto_semver_config.yml"])
     repo.index.commit("chore: initial setup")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 
@@ -355,7 +355,7 @@ branches:
     )
 
     assert result.returncode == 0, f"Command failed:\n{result.stderr}"
-    
+
     # Verify all files still at original version (dry-run)
     assert "1.0.0" in version_txt.read_text()
     assert "1.0.0" in package_json.read_text()
@@ -428,7 +428,7 @@ def test_error_handling_invalid_version(
     # Create version file with invalid version
     version_file = repo_dir / "version.txt"
     version_file.write_text("not-a-valid-version\n")
-    
+
     config_file = repo_dir / "auto_semver_config.yml"
     config_file.write_text("""
 version_files:
@@ -437,10 +437,10 @@ branches:
   main:
     bump: patch
 """)
-    
+
     repo.index.add(["version.txt", "auto_semver_config.yml"])
     repo.index.commit("chore: invalid version")
-    
+
     main_branch = repo.create_head("main")
     main_branch.checkout()
 

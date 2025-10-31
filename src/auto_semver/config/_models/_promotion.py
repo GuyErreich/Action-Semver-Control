@@ -29,11 +29,17 @@ class PromotionRule(BaseModel):
         max_length=MAX_BRANCH_NAME_LENGTH,
         description="Source branch name",
     )
+
     to_branch: BranchName = Field(
         ...,
         min_length=MIN_BRANCH_NAME_LENGTH,
         max_length=MAX_BRANCH_NAME_LENGTH,
         description="Target branch name",
+    )
+
+    auto_promote: bool = Field(
+        default=False,
+        description="Whether to automatically create promotion PR after tagging source branch",
     )
 
     @field_validator("from_branch", "to_branch")

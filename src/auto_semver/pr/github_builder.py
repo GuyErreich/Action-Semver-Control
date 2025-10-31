@@ -63,7 +63,7 @@ class GitHubPRBuilder(PRBuilder[GitHubPRTemplateVariables]):
 
     def _build_body(self) -> str:
         """Build the PR body using the body template and instance data.
-        
+
         Automatically prepends the hidden marker for finalization detection.
         """
         rendered: str = self._engine.render_template(self.body_template, self._data.__dict__)

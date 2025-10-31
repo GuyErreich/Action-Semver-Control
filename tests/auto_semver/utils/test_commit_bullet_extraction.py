@@ -18,7 +18,7 @@ Template System Improvements:
 - Implement custom Jinja2 filters for PR/changelog generation"""
 
     items = CommitGroupConfig._extract_individual_items([commit_with_bullets])
-    
+
     # Should extract 6 bullet points
     assert len(items) == 6
     assert "Add modular fixtures for isolated testing" in items
@@ -32,9 +32,9 @@ Template System Improvements:
 def test_extract_individual_items_without_bullets() -> None:
     """Test that commits without bullets are kept as-is."""
     simple_commit = "feat: add user authentication system"
-    
+
     items = CommitGroupConfig._extract_individual_items([simple_commit])
-    
+
     assert len(items) == 1
     assert items[0] == simple_commit
 
@@ -51,9 +51,9 @@ Core Changes:
 - Add typed template variable dataclasses""",
         "docs: update README",
     ]
-    
+
     items = CommitGroupConfig._extract_individual_items(messages)
-    
+
     # Should have: 1 simple + 3 bullets + 1 simple = 5 items
     assert len(items) == 5
     assert "fix: resolve login bug" in items
@@ -76,17 +76,17 @@ Features:
 - Add console script entry point for Docker
 - Enhance changelog template formatting"""
     ]
-    
+
     commit_groups = [
         CommitGroupConfig(title="✨ Features", patterns=["^Add ", "^Enhance "], priority=1),
         CommitGroupConfig(title="🧪 Testing", patterns=["^Create ", "fixtures"], priority=2),
     ]
-    
+
     grouped = CommitGroupConfig.group_messages(messages, commit_groups)
-    
+
     # Should have 2 groups
     assert len(grouped) == 2
-    
+
     # Check Features group
     features = next(g for g in grouped if g.title == "✨ Features")
     assert len(features.commits) == 3  # "Add modular...", "Add console...", "Enhance..."
@@ -94,8 +94,8 @@ Features:
     assert "Add modular fixtures for isolated testing" in titles
     assert "Add console script entry point for Docker" in titles
     assert "Enhance changelog template formatting" in titles
-    
-    # Check Testing group  
+
+    # Check Testing group
     testing = next(g for g in grouped if g.title == "🧪 Testing")
     assert len(testing.commits) == 1  # "Create 17..."
     assert "Create 17 comprehensive E2E/integration tests" in testing.commits[0].title
@@ -109,30 +109,30 @@ def test_group_messages_simple_commits_without_body() -> None:
         "docs: update README",
         "Add console script entry point",
     ]
-    
+
     commit_groups = [
         CommitGroupConfig(title="✨ Features", patterns=["^feat:", "^Add "], priority=1),
         CommitGroupConfig(title="🐛 Bug Fixes", patterns=["^fix:"], priority=2),
         CommitGroupConfig(title="📚 Documentation", patterns=["^docs:"], priority=3),
     ]
-    
+
     grouped = CommitGroupConfig.group_messages(messages, commit_groups)
-    
+
     # Should have 3 groups
     assert len(grouped) == 3
-    
+
     # Check Features group - should have 2 items
     features = next(g for g in grouped if g.title == "✨ Features")
     assert len(features.commits) == 2
     titles = [c.title for c in features.commits]
     assert "add user authentication" in titles  # Cleaned from "feat: ..."
     assert "Add console script entry point" in titles
-    
+
     # Check Bug Fixes group - should have 1 item
     fixes = next(g for g in grouped if g.title == "🐛 Bug Fixes")
     assert len(fixes.commits) == 1
     assert "resolve login bug" in fixes.commits[0].title
-    
+
     # Check Documentation group - should have 1 item
     docs = next(g for g in grouped if g.title == "📚 Documentation")
     assert len(docs.commits) == 1
@@ -155,32 +155,36 @@ Testing:
 - Implement fixture-based testing""",
         "docs: update installation guide",
     ]
-    
+
     commit_groups = [
-        CommitGroupConfig(title="♻️ Refactoring", patterns=["^Refactor", "^Split ", "^Create "], priority=1),
+        CommitGroupConfig(
+            title="♻️ Refactoring", patterns=["^Refactor", "^Split ", "^Create "], priority=1
+        ),
         CommitGroupConfig(title="🐛 Bug Fixes", patterns=["^fix:"], priority=2),
-        CommitGroupConfig(title="🧪 Testing", patterns=["^Add comprehensive", "^Implement "], priority=3),
+        CommitGroupConfig(
+            title="🧪 Testing", patterns=["^Add comprehensive", "^Implement "], priority=3
+        ),
         CommitGroupConfig(title="📚 Documentation", patterns=["^docs:"], priority=4),
         CommitGroupConfig(title="📝 Other", patterns=["^Add typed"], priority=5),
     ]
-    
+
     grouped = CommitGroupConfig.group_messages(messages, commit_groups)
-    
+
     # Check that simple commits are preserved
     fixes = next(g for g in grouped if g.title == "🐛 Bug Fixes")
     assert len(fixes.commits) == 1
     assert "resolve login timeout issue" in fixes.commits[0].title
-    
+
     docs = next(g for g in grouped if g.title == "📚 Documentation")
     assert len(docs.commits) == 1
     assert "update installation guide" in docs.commits[0].title
-    
+
     # Check that bullets were extracted and categorized
     refactoring = next(g for g in grouped if g.title == "♻️ Refactoring")
     assert len(refactoring.commits) == 2  # "Split..." and "Create..."
-    
+
     testing = next(g for g in grouped if g.title == "🧪 Testing")
     assert len(testing.commits) == 2  # "Add comprehensive..." and "Implement..."
-    
+
     other = next(g for g in grouped if g.title == "📝 Other")
     assert len(other.commits) == 1  # "Add typed..."

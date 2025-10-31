@@ -58,7 +58,7 @@ def test_build_body_with_commit_groups() -> None:
     commit2 = Commit(title="fix bug", body=None)
     group1 = CommitGroup(title="✨ Features & Enhancements", commits=[commit1], priority=1)
     group2 = CommitGroup(title="🐛 Bug Fixes & Resolutions", commits=[commit2], priority=2)
-    
+
     data = GitHubPRTemplateVariables(
         version="1.2.3",
         previous_version="1.2.2",
@@ -72,7 +72,7 @@ def test_build_body_with_commit_groups() -> None:
         labels=None,
         groups=[group1, group2],
     )
-    
+
     # Use template matching the config file format
     body_template = """## 🚀 Release Notes
 **Version:** {{ version }}  
@@ -87,9 +87,9 @@ def test_build_body_with_commit_groups() -> None:
 
 {% endif -%}
 {% endfor -%}"""
-    
+
     builder = GitHubPRBuilder(data=data, body_template=body_template)
-    
+
     # Verify structured output with grouped sections
     assert "## 🚀 Release Notes" in builder.body
     assert "**Version:** 1.2.3" in builder.body
