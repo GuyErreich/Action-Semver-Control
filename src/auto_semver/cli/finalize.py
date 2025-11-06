@@ -78,44 +78,21 @@ def create_auto_promotion_prs(
         logger.info(f"No auto-promotion rules found for branch '{target_branch}'")
         return
 
-    if not github_token:
-        logger.warning(
-            f"Auto-promotion targets found ({auto_targets}) but no GitHub token provided. "
-            "Auto-promotion skipped."
-        )
-        return
+    # Auto-promotion is performed locally (SCM-agnostic). We don't require a GitHub token
+    # to perform the branch merge and tagging — pushes rely on repository remote credentials.
 
     for to_branch in auto_targets:
-        logger.info(f"Creating auto-promotion PR: {target_branch} → {to_branch}")
+        logger.info(f"Auto-promoting {target_branch} → {to_branch}")
 
         try:
-            # Create promotion PR using GitOps
-            pr_title = f"🚀 Promote {version} from {target_branch} to {to_branch}"
-            pr_body = (
-                f"This is an automated promotion PR created after tagging "
-                f"`{target_branch}` with version `{version}`.\n\n"
-                f"**Promotion**: `{target_branch}` → `{to_branch}`\n"
-                f"**Version**: `{version}`\n"
-                f"**Auto-created**: This PR was automatically created due to "
-                f"`auto_promote: true` configuration.\n\n"
-                "Merging this PR will trigger the next stage of the release workflow."
+            gitops.auto_promote(
+                source_branch=target_branch, target_branch=to_branch, version=version
             )
 
-            gitops.create_pr(
-                title=pr_title,
-                body=pr_body,
-                source=target_branch,
-                target=to_branch,
-                github_token=github_token,
-                labels=["auto-promotion", "semver"],
-            )
-
-            logger.info(f"✅ Auto-promotion PR created: {target_branch} → {to_branch}")
+            logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")
 
         except Exception as e:
-            logger.error(
-                f"❌ Failed to create auto-promotion PR {target_branch} → {to_branch}: {e}"
-            )
+            logger.error(f"❌ Failed to auto-promote {target_branch} → {to_branch}: {e}")
             # Continue with other auto-promotions even if one fails
             continue
 

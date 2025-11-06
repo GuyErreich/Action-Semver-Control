@@ -261,6 +261,191 @@ class GitOps:
         """
         return self.repo.create_tag(path=tag, ref=branch, message="").name
 
+    def fetch(self, *, remote_name: str = "origin") -> None:
+        """
+        Fetch all refs from the remote repository.
+
+        Args:
+            remote_name (str): Name of the Git remote (default: 'origin').
+
+        Raises:
+            GitCommandError: If fetch operation fails.
+        """
+        logger.info(f"Fetching from remote '{remote_name}'")
+
+        try:
+            remote: Remote = self.repo.remote(name=remote_name)
+            remote.fetch()
+            logger.debug(f"Fetch from '{remote_name}' completed")
+        except GitCommandError as err:
+            logger.error(f"Failed to fetch from remote '{remote_name}': {err}")
+            raise
+
+    def checkout(self, *, branch_name: str, create_from: str | None = None) -> None:
+        """
+        Checkout an existing branch or create and checkout a new branch.
+
+        Args:
+            branch_name (str): Name of the branch to checkout.
+            create_from (str | None): If provided, create the branch from this ref before checkout.
+
+        Raises:
+            GitCommandError: If checkout operation fails.
+        """
+        try:
+            if create_from:
+                logger.info(
+                    f"Creating and checking out branch '{branch_name}' from '{create_from}'"
+                )
+                new_branch = self.repo.create_head(branch_name, create_from)
+                new_branch.checkout()
+            else:
+                logger.info(f"Checking out branch '{branch_name}'")
+                self.repo.heads[branch_name].checkout()
+
+            logger.debug(f"Checked out branch '{branch_name}'")
+        except (GitCommandError, IndexError) as err:
+            logger.error(f"Failed to checkout branch '{branch_name}': {err}")
+            raise GitCommandError(f"Checkout failed for branch '{branch_name}'") from err
+
+    def pull(self, *, branch_name: str, remote_name: str = "origin") -> None:
+        """
+        Pull the latest changes for the current branch from remote.
+
+        Args:
+            branch_name (str): Name of the branch to pull.
+            remote_name (str): Name of the Git remote (default: 'origin').
+
+        Raises:
+            GitCommandError: If pull operation fails.
+        """
+        logger.info(f"Pulling latest changes for '{branch_name}' from '{remote_name}'")
+
+        try:
+            remote: Remote = self.repo.remote(name=remote_name)
+            remote.pull(branch_name)
+            logger.debug(f"Pull for '{branch_name}' completed")
+        except GitCommandError as err:
+            logger.error(f"Failed to pull '{branch_name}' from '{remote_name}': {err}")
+            raise
+
+    def merge(
+        self, *, source_ref: str, message: str, no_ff: bool = True, remote_name: str = "origin"
+    ) -> None:
+        """
+        Merge a source ref into the current branch.
+
+        Args:
+            source_ref (str): Source reference to merge (branch name, will use remote/branch).
+            message (str): Merge commit message.
+            no_ff (bool): If True, create a merge commit even if fast-forward is possible.
+            remote_name (str): Remote name to prefix to source_ref (default: 'origin').
+
+        Raises:
+            RuntimeError: If merge fails due to conflicts or other errors.
+        """
+        full_source_ref = f"{remote_name}/{source_ref}"
+        logger.info(f"Merging '{full_source_ref}' into current branch (no-ff={no_ff})")
+
+        try:
+            self.repo.git.merge(full_source_ref, no_ff=no_ff, m=message)
+            logger.info(f"Merge successful: {full_source_ref} → HEAD")
+        except GitCommandError as merge_err:
+            stderr = str(merge_err)
+            if "CONFLICT" in stderr or "conflict" in stderr.lower():
+                logger.error(f"Merge conflict detected: {merge_err}")
+                # Attempt to abort the merge to keep repo clean
+                try:
+                    self.repo.git.merge("--abort")
+                    logger.debug("Aborted merge after conflict")
+                except Exception:
+                    logger.warning("Failed to abort merge after conflict")
+
+                raise RuntimeError(
+                    f"Merge conflict detected when merging '{full_source_ref}'. "
+                    "Please resolve conflicts manually."
+                ) from merge_err
+
+            logger.error(f"Merge failed: {merge_err}")
+            raise RuntimeError(f"Merge failed: {merge_err}") from merge_err
+
+    def auto_promote(
+        self,
+        *,
+        source_branch: str,
+        target_branch: str,
+        version: str,
+        remote_name: str = "origin",
+    ) -> str:
+        """
+        Automatically promote changes from source branch to target branch.
+
+        This performs a local merge operation (SCM-agnostic) that:
+        1. Fetches latest changes from remote
+        2. Checks out/creates the target branch
+        3. Pulls latest changes on target
+        4. Merges source branch into target
+        5. Creates a tag on target
+        6. Pushes target branch and tags to remote
+
+        Args:
+            source_branch (str): Source branch name (e.g., 'dev').
+            target_branch (str): Target branch name (e.g., 'staging').
+            version (str): Version tag to create on the target branch.
+            remote_name (str): Remote name (default: 'origin').
+
+        Returns:
+            str: The version tag that was created.
+
+        Raises:
+            RuntimeError: If any operation fails (fetch, merge, push, etc.).
+        """
+        logger.info(f"Starting auto-promotion: {source_branch} → {target_branch}")
+
+        try:
+            # 1. Fetch latest changes
+            self.fetch(remote_name=remote_name)
+
+            # 2. Checkout or create target branch
+            if target_branch in self.repo.heads:
+                self.checkout(branch_name=target_branch)
+            else:
+                self.checkout(
+                    branch_name=target_branch, create_from=f"{remote_name}/{target_branch}"
+                )
+
+            # 3. Pull latest changes on target
+            self.pull(branch_name=target_branch, remote_name=remote_name)
+
+            # 4. Merge source into target
+            merge_message = f"chore: auto-promote {version} from {source_branch} to {target_branch}"
+            self.merge(source_ref=source_branch, message=merge_message, remote_name=remote_name)
+
+            # 5. Create tag
+            logger.info(f"Creating tag '{version}' on '{target_branch}'")
+            tag_ref = self.repo.create_tag(version, message=f"Auto-promotion: {version}")
+
+            # 6. Push target branch
+            self.push(branch_name=target_branch, remote_name=remote_name)
+
+            # 7. Push tags
+            logger.info("Pushing tags to remote")
+            remote: Remote = self.repo.remote(name=remote_name)
+            remote.push(tags=True)
+
+            logger.info(
+                f"✅ Auto-promotion complete: {source_branch} → {target_branch} (tagged: {version})"
+            )
+
+            return str(tag_ref)
+
+        except (GitCommandError, RuntimeError) as err:
+            logger.error(f"Auto-promotion failed: {err}")
+            raise RuntimeError(f"Auto-promotion failed: {err}") from err
+        except Exception as err:
+            logger.error(f"Unexpected error during auto-promotion: {err}")
+            raise RuntimeError(f"Auto-promotion failed unexpectedly: {err}") from err
+
     def close_old_release_prs(
         self,
         *,

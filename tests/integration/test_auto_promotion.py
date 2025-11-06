@@ -114,7 +114,9 @@ class FileHelper:
             "target_branch": target_branch,
             "target_base_sha": target_base_sha,
         }
-        self.fs.create_file(filename, contents=yaml.dump(lock_data, default_flow_style=False, sort_keys=False))
+        self.fs.create_file(
+            filename, contents=yaml.dump(lock_data, default_flow_style=False, sort_keys=False)
+        )
         return filename
 
 
@@ -181,7 +183,7 @@ def test_auto_promotion_finalize_workflow(
     mock_gitops = mocker.Mock(spec=GitOps)
     mock_gitops.tag.return_value = "1.1.1234-dev"
     mock_gitops.push.return_value = None
-    mock_gitops.create_pr.return_value = None
+    mock_gitops.auto_promote.return_value = None
 
     # Mock GitOps constructor
     mocker.patch("auto_semver.cli.finalize.GitOps", return_value=mock_gitops)
@@ -225,18 +227,17 @@ def test_auto_promotion_finalize_workflow(
     mock_gitops.tag.assert_called_once_with(tag="1.1.1234-dev", branch="dev")
     mock_gitops.push.assert_called_once_with(branch_name="1.1.1234-dev")
 
-    # Verify auto-promotion PR creation was attempted
-    mock_gitops.create_pr.assert_called_once()
-    create_pr_call = mock_gitops.create_pr.call_args
+    # Verify auto-promotion was attempted via local promotion
+    mock_gitops.auto_promote.assert_called_once()
+    create_call = mock_gitops.auto_promote.call_args
 
-    # Verify PR details (repo_full_name is now cached internally in GitOps)
-    assert "🚀 Promote 1.1.1234-dev from dev to staging" in create_pr_call[1]["title"]
-    assert create_pr_call[1]["source"] == "dev"
-    assert create_pr_call[1]["target"] == "staging"
-    assert create_pr_call[1]["github_token"] == "fake-token"
+    # Verify call details
+    assert create_call[1]["source_branch"] == "dev"
+    assert create_call[1]["target_branch"] == "staging"
+    assert create_call[1]["version"] == "1.1.1234-dev"
 
     # Verify logging shows auto-promotion attempt
-    mock_logger.info.assert_any_call("Creating auto-promotion PR: dev → staging")
+    mock_logger.info.assert_any_call("Auto-promoting dev → staging")
 
 
 @pytest.mark.integration
@@ -353,8 +354,8 @@ changelog:
     mock_gitops.tag.assert_called_once_with(tag="1.0.1-dev", branch="dev")
     mock_gitops.push.assert_called_once_with(branch_name="1.0.1-dev")
 
-    # Verify no PR creation was attempted
-    mock_gitops.create_pr.assert_not_called()
+    # Verify no auto-promotion was attempted
+    mock_gitops.auto_promote.assert_not_called()
 
     # Verify no GitHub API calls were made for PR creation
     pr_requests = [call for call in mock_github_api.calls if call.request.method == "POST"]
@@ -461,8 +462,7 @@ changelog:
     config = Config()
     event = GitHubEvent()
 
-    # Capture logs to verify warning about missing token
-    mock_logger = mocker.patch("auto_semver.cli.finalize.logger")
+    # Run finalize without GitHub token
     finalize.run(
         gitops=mock_gitops,
         event=event,
@@ -474,11 +474,5 @@ changelog:
     mock_gitops.tag.assert_called_once_with(tag="1.0.1-dev", branch="dev")
     mock_gitops.push.assert_called_once_with(branch_name="1.0.1-dev")
 
-    # Verify no PR creation was attempted
-    mock_gitops.create_pr.assert_not_called()
-
-    # Verify warning about missing token
-    mock_logger.warning.assert_any_call(
-        "Auto-promotion targets found (['staging']) but no GitHub token provided. "
-        "Auto-promotion skipped."
-    )
+    # Verify auto-promotion was attempted even without a GitHub token
+    mock_gitops.auto_promote.assert_called_once()
