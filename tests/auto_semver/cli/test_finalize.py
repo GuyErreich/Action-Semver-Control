@@ -49,6 +49,7 @@ class TestFinalize:
 
         # Set default behavior
         mock.data.suffixes = {"main": "", "develop": "-dev"}
+        mock.data.get_auto_promotion_targets.return_value = []  # No auto-promotion by default
         return mock
 
     @pytest.fixture
