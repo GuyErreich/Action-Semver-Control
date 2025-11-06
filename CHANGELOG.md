@@ -1,32 +1,37 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [0.6.0-dev] - 31-10-2025
+## [0.7.0-dev] - 06-11-2025
 
 ### ✨ Features & Enhancements
-- Add auto-promotion detection and PR creation in finalize workflow
-- Add find_promotion_rule(), validate_promotion(), and get_auto_promotion_targets()
-- Add promote.yml GitHub Actions workflow for manual promotions
-- Add comprehensive integration tests for auto-promotion scenarios
-- Add test fixtures for promotion workflow scenarios
-- Add promotion rules to auto_semver_config.yml
+- Add auto_promote() method to GitOps for SCM-agnostic promotions
+- Add fetch() method for remote synchronization
+- Add checkout() method with branch creation support
+- Add pull() method for updating local branches
+- Add merge() method with conflict detection and abort logic
+- Add mock for get_auto_promotion_targets() in unit tests
+### ♻️ Refactoring & Code Quality
+- Refactor auto_promote() to use GitOps helper methods
 ### 🔧 Infrastructure & Tooling
-- Use eager initialization pattern with _parse_repository_name()
-- Update ci.yml to support promotion branch detection
-- Update all promotion tests to use ConfigData instance methods
+- Update integration tests to expect auto_promote() calls
 ### 📝 Other Changes
-- Release 0.5.5-dev
-- Implement promote CLI command for manual version promotions
-- Extend ConfigData model with promotion validation methods
-- Cache repository name on GitOps initialization for better performance
-- Remove redundant repo_full_name parameters from create_pr() and close_old_release_prs()
-- Configure workflow permissions for PR creation
-- Fix FileHelper to create YAML lock files (not JSON) for pyfakefs compatibility
-- Ensure tests don't touch real .semver.lock file
-- Support auto_promote flag for automatic promotion triggers
-- Enable chained promotions (dev → staging → main)
-- Promotion logic moved from utils to ConfigData model for better encapsulation
-- Tests now properly use pyfakefs for all file operations
+- Release 0.6.0-dev
+- fetch, checkout, pull, merge, tag, push
+- Replace PR-based promotion with direct branch merging
+- Remove GitHub token requirement for auto-promotion
+- Eliminate PR creation in favor of direct merges
+- Maintain SCM-agnostic approach using GitPython
+- Preserve merge commit history with --no-ff strategy
+- Mock new GitOps methods (fetch, checkout, pull, merge)
+- Remove PR-based test assertions
+- Truly automatic promotion without manual PR merges
+- Works with any Git remote (GitHub, GitLab, Bitbucket)
+- Cleaner GitOps abstraction with reusable methods
+- Better error handling for merge conflicts
+- Faster promotion cycle in CI/CD pipelines
+- Auto-promotion no longer creates PRs (uses direct merge)
+- GitHub token optional for auto-promotion workflow
+- Existing auto-promotion PRs won't be closed automatically
 
 ## License
 This project is licensed under the MIT License.
