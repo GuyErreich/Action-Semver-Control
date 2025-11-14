@@ -61,6 +61,7 @@ class GitOps:
         self._repo_full_name: str = self._parse_repository_name()  # Cache repository name on init
         if ensure_safe:
             self.__ensure_git_safe_directory()
+        self.__ensure_git_identity()
 
     def __ensure_git_safe_directory(self) -> None:
         """
@@ -307,6 +308,44 @@ class GitOps:
         except (GitCommandError, IndexError) as err:
             logger.error(f"Failed to checkout branch '{branch_name}': {err}")
             raise GitCommandError(f"Checkout failed for branch '{branch_name}'") from err
+
+    def __ensure_git_identity(
+        self, *, email: str = "auto-semver@github.action", name: str = "Auto-Semver Bot"
+    ) -> None:
+        """
+        Ensure Git user identity is configured for commits.
+
+        This is required for merge operations that create commits.
+        If not already set, configures user.email and user.name locally.
+
+        Args:
+            email (str): Git user email (default: 'auto-semver@github.action').
+            name (str): Git user name (default: 'Auto-Semver Bot').
+        """
+        try:
+            # Check if identity is already configured
+            with self.repo.config_reader() as config:
+                try:
+                    existing_email = config.get_value("user", "email")
+                    existing_name = config.get_value("user", "name")
+                    logger.debug(
+                        f"Git identity already configured: {existing_name} <{existing_email}>"
+                    )
+                    return
+                except Exception:
+                    # Not configured, will set below
+                    pass
+
+            # Configure identity locally
+            logger.info(f"Configuring Git identity: {name} <{email}>")
+            with self.repo.config_writer() as config:
+                config.set_value("user", "email", email)
+                config.set_value("user", "name", name)
+
+            logger.debug("Git identity configured successfully")
+        except Exception as err:
+            logger.warning(f"Failed to configure Git identity: {err}")
+            # Don't raise - let the merge fail with clearer error if needed
 
     def pull(self, *, branch_name: str, remote_name: str = "origin") -> None:
         """
