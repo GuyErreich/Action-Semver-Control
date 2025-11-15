@@ -234,7 +234,8 @@ def test_auto_promotion_finalize_workflow(
     # Verify call details
     assert create_call[1]["source_branch"] == "dev"
     assert create_call[1]["target_branch"] == "staging"
-    assert create_call[1]["version"] == "1.1.1234-dev"
+    # Version should be transformed to use target branch suffix (-rc for staging)
+    assert create_call[1]["version"] == "1.1.1234-rc"
 
     # Verify logging shows auto-promotion attempt
     mock_logger.info.assert_any_call("Auto-promoting dev → staging")

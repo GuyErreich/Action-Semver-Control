@@ -460,7 +460,7 @@ class GitOps:
             merge_message = f"chore: auto-promote {version} from {source_branch} to {target_branch}"
             self.merge(source_ref=source_branch, message=merge_message, remote_name=remote_name)
 
-            # 5. Create tag
+            # 5. Create tag on target branch
             logger.info(f"Creating tag '{version}' on '{target_branch}'")
             tag_ref = self.repo.create_tag(version, message=f"Auto-promotion: {version}")
 
