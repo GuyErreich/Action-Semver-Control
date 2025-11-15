@@ -1,7 +1,7 @@
 ---
 description: Create a GitHub Pull Request for existing changes without modifying code or files.
-mode: agent
-tools: ['codebase', 'runCommands', 'think', 'changes', 'fetch', 'githubRepo', 'todos', 'github', 'memory', 'copilotCodingAgent', 'activePullRequest', 'openPullRequest']
+agent: agent
+tools: ['edit/createFile', 'search/codebase', 'runCommands', 'github/*', 'memory/*', 'changes', 'fetch', 'githubRepo', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'todos']
 ---
 
 # Create GitHub Pull Request
@@ -28,14 +28,14 @@ Generate a comprehensive, well-structured pull request following auto-semver con
 2. If one exists: OUTPUT the URL and STOP (no body regeneration unless user explicitly asks).
 3. If none exists: continue with steps below and attempt creation exactly once.
 4. Never modify repository files or create new commits during this prompt.
-5. Always build PR body in a temporary markdown file (e.g., `/tmp/pr-body.md`) before creation.
+5. Always build PR body in a temporary markdown file in the current workspace (e.g., `./pr-body.md`) before creation.
 
 ## Key Requirements:
 
 ### 📝 Use Markdown Files for Examples and Iteration
 **ALWAYS use markdown files for PR content creation and examples:**
 - Create PR body content in separate markdown files first
-- Use files like `/tmp/pr-body.md` or `docs/examples/pr-example.md`
+- Use files like `./pr-body.md` or `docs/examples/pr-example.md`
 - Test and iterate on the markdown content before applying
 - This allows for easy editing, formatting verification, and content refinement
 - Apply final content using GitHub CLI: `gh pr create --body-file /path/to/file.md`
@@ -63,13 +63,13 @@ Generate a comprehensive, well-structured pull request following auto-semver con
    - Confirm working tree clean: `git status` (do not stage/commit anything)
 
 3. **Create PR content in markdown file FIRST**
-   - Create markdown file with PR content: `/tmp/pr-body.md`
+   - Create markdown file with PR content: `./pr-body.md`
    - Include all sections from the template below
    - Test formatting and content accuracy
    - Iterate and refine as needed
 
 4. **Create PR using GitHub CLI (only if no existing PR)**
-   - Run: `gh pr create --base [base] --head [branch] --title "[title]" --body-file /tmp/pr-body.md`
+   - Run: `gh pr create --base [base] --head [branch] --title "[title]" --body-file ./pr-body.md`
    - If command succeeds: output PR URL and STOP
    - If it fails (network/auth): report error succinctly; do NOT retry automatically more than once
 
@@ -97,7 +97,7 @@ Follow conventional commit format aligned with branch type:
 
 ## PR Description Template:
 
-**Create this content in a markdown file first (e.g., `/tmp/pr-body.md`):**
+**Create this content in a markdown file first (e.g., `./pr-body.md`):**
 
 ### Core Required Sections:
 ```markdown
@@ -187,7 +187,7 @@ Brief description of what this PR accomplishes and why it's needed.
 ### Step 1: Create PR Body Content
 ```bash
 # Create markdown file with PR content
-cat > /tmp/pr-body.md << 'CONTENT'
+cat > ./pr-body.md << 'CONTENT'
 ## 🎯 Summary
 [Your PR summary here]
 
@@ -200,10 +200,10 @@ CONTENT
 ### Step 2: Review and Iterate
 ```bash
 # Review the content
-cat /tmp/pr-body.md
+cat ./pr-body.md
 
 # Edit if needed
-nano /tmp/pr-body.md  # or your preferred editor
+nano ./pr-body.md  # or your preferred editor
 ```
 
 ### Step 3: Create PR with File
@@ -211,10 +211,10 @@ nano /tmp/pr-body.md  # or your preferred editor
 # Create PR only if one does NOT already exist
 gh pr list --head feature/your-branch --base dev --state all
 # (If no result) then:
-gh pr create --base dev --head feature/your-branch --title "feat: your feature title" --body-file /tmp/pr-body.md
+gh pr create --base dev --head feature/your-branch --title "feat: your feature title" --body-file ./pr-body.md
 
 # Or for draft PR
-gh pr create --draft --title "WIP: feature" --body-file /tmp/pr-body.md
+gh pr create --draft --title "WIP: feature" --body-file ./pr-body.md
 ```
 
 ## Auto-Semver Specific Templates:
@@ -319,12 +319,12 @@ Modernize [infrastructure component] for better [performance/maintainability].
 
 **Create PR with markdown file:**
 ```bash
-gh pr create --title "feat: add new feature" --body-file /tmp/pr-body.md
+gh pr create --title "feat: add new feature" --body-file ./pr-body.md
 ```
 
 **Create draft PR with file:**
 ```bash
-gh pr create --draft --title "WIP: feature implementation" --body-file /tmp/pr-body.md
+gh pr create --draft --title "WIP: feature implementation" --body-file ./pr-body.md
 ```
 
 **Update existing PR with new markdown content:**
@@ -335,7 +335,7 @@ gh pr edit 123 --body-file /tmp/updated-pr-body.md
 **Create reusable template:**
 ```bash
 # Save template for future use
-cp /tmp/pr-body.md docs/templates/feature-pr-template.md
+cp ./pr-body.md docs/templates/feature-pr-template.md
 ```
 
 ## Best Practices with Markdown Files:
