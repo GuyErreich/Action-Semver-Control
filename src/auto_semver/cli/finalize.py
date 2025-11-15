@@ -11,7 +11,7 @@ import logging
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
-from auto_semver.semver import SemverLock
+from auto_semver.semver import SemverLock, Version
 
 logger = logging.getLogger(__package__)
 
@@ -85,8 +85,22 @@ def create_auto_promotion_prs(
         logger.info(f"Auto-promoting {target_branch} → {to_branch}")
 
         try:
+            # Get the suffix for the target branch and create the appropriate version tag
+            target_suffix = config.data.suffixes.get(to_branch, "")
+            
+            # Parse the current version and apply the target branch's suffix
+            current_version = Version.parse(version)
+            promoted_version = Version(
+                major=current_version.major,
+                minor=current_version.minor,
+                patch=current_version.patch,
+                suffix=target_suffix if target_suffix else None
+            )
+            
+            logger.info(f"Promoting version {version} → {promoted_version}")
+            
             gitops.auto_promote(
-                source_branch=target_branch, target_branch=to_branch, version=version
+                source_branch=target_branch, target_branch=to_branch, version=str(promoted_version)
             )
 
             logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")
