@@ -1,37 +1,27 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [0.7.0-dev] - 06-11-2025
+## [0.7.1-dev] - 15-11-2025
 
-### ✨ Features & Enhancements
-- Add auto_promote() method to GitOps for SCM-agnostic promotions
-- Add fetch() method for remote synchronization
-- Add checkout() method with branch creation support
-- Add pull() method for updating local branches
-- Add merge() method with conflict detection and abort logic
-- Add mock for get_auto_promotion_targets() in unit tests
-### ♻️ Refactoring & Code Quality
-- Refactor auto_promote() to use GitOps helper methods
 ### 🔧 Infrastructure & Tooling
-- Update integration tests to expect auto_promote() calls
+- Update tools list to include specific GitHub Copilot tools
 ### 📝 Other Changes
-- Release 0.6.0-dev
-- fetch, checkout, pull, merge, tag, push
-- Replace PR-based promotion with direct branch merging
-- Remove GitHub token requirement for auto-promotion
-- Eliminate PR creation in favor of direct merges
-- Maintain SCM-agnostic approach using GitPython
-- Preserve merge commit history with --no-ff strategy
-- Mock new GitOps methods (fetch, checkout, pull, merge)
-- Remove PR-based test assertions
-- Truly automatic promotion without manual PR merges
-- Works with any Git remote (GitHub, GitLab, Bitbucket)
-- Cleaner GitOps abstraction with reusable methods
-- Better error handling for merge conflicts
-- Faster promotion cycle in CI/CD pipelines
-- Auto-promotion no longer creates PRs (uses direct merge)
-- GitHub token optional for auto-promotion workflow
-- Existing auto-promotion PRs won't be closed automatically
+- Release 0.7.0-dev
+- Renamed ensure_git_identity() to __ensure_git_identity() (private method)
+- Git identity now configured automatically in __init__() method
+- Removed explicit call from auto_promote() method
+- Git identity configured once during GitOps initialization
+- Cleaner architecture with proper encapsulation
+- Required for merge operations in CI/CD environments like GitHub Actions
+- Prevents merge failures due to missing committer identity
+- Added comprehensive python.instructions.md for project standards
+- Includes auto-semver architecture, testing patterns, and AI guidelines
+- Documents Git workflow and branch management conventions
+- **
+- Change temporary markdown file path from `/tmp/pr-body.md` to `./pr-body.md`
+- Ensure all references to markdown file paths are consistent
+- Clarify usage of markdown files for PR content creation
+- Improve instructions for creating and iterating on PR content
 
 ## License
 This project is licensed under the MIT License.
