@@ -1,0 +1,141 @@
+[project]
+name = "auto_semver"
+version = "0.7.2-dev"
+description = ""
+authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "gitpython~=3.1.32",
+  "jinja2~=3.1",
+  "pydantic~=2.11",
+  "pygithub~=2.6",
+  "pyyaml~=6.0",
+]
+
+[project.scripts]
+auto-semver = "auto_semver.cli:main"
+
+[build-system]
+requires = ["setuptools>=80.4"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion  = "6.0"
+# addopts     = "-ra -q --cov=src --cov-report=term-missing"
+pythonpath  = "src"
+testpaths   = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=80 --tb=short"
+log_level = "INFO"
+markers = [
+    "unit: mark a test as a unit test",
+    "integration: mark a test as an integration test",
+    "edge_case: mark a test as an edge case test",
+    "slow: mark a test as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.coverage.run]
+omit = [
+    "*/__init__.py",
+    "*/__main__.py"
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+preview = false
+
+[tool.ruff.lint]
+preview = false
+select = [
+  "E",    # pycodestyle (PEP8)
+  "F",    # pyflakes
+  "N",    # pep8-naming
+  "D",    # pydocstyle
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # bugbear
+  "RUF",  # ruff-specific rules
+  "PL",   # pylint
+]
+ignore = [
+  "D202",     # No blank lines after function docstring
+  "D203",     # 1 blank line required before class docstring
+  "D212",     # Multi-line docstring summary should start at the first line
+  "D104",     # Missing docstring in public module
+  "PLR0913",  # Too many arguments
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and fixtures
+"tests/*" = ["PLR2004", "S101", "ARG", "FBT"]
+# CLI orchestration functions can have more statements for workflow clarity
+"src/auto_semver/cli/bump.py" = ["PLR0915"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 112
+max-line-length = 112
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+preview = false
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = false
+follow_imports = "normal"
+show_error_codes = true
+pretty = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+check_untyped_defs = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_any_generics = true
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+no_implicit_optional = true
+allow_redefinition = false
+install_types = false
+non_interactive = false
+
+[dependency-groups]
+dev = [
+  "docker~=7.1",
+  "mypy~=1.8",
+  "pre-commit~=4.2",
+  "pyfakefs~=5.9",
+  "pytest~=8.3",
+  "pytest-cov~=6.1",
+  "pytest-mock~=3.14",
+  "ruff~=0.11",
+  "types-docker~=7.1",
+  "types-PyYAML~=6.0",
+  "responses~=0.25",
+]

@@ -1,0 +1,32 @@
+name: Auto Semver Bump
+
+on:
+  pull_request:
+    types:
+      - closed  # Means merged or declined
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: write   # Allow push, create branches, modify files
+  pull-requests: write  # Allow create/close PRs
+
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Important! Needed for git history
+
+    - name: Run Auto Semver Action
+      uses: ./  # Local Docker action
+      with:
+        # target-branch: ${{ github.ref_name }}
+        github-token: ${{ secrets.GH_TOKEN }}
+        # repo-full-name: ${{ github.repository }}
+        debug: true
