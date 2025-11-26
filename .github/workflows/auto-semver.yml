@@ -5,7 +5,7 @@ on:
     types:
       - closed  # Means merged or declined
     branches:
-      - main
+      - master
       - dev
 
 permissions:
