@@ -2,8 +2,9 @@ name: Publish Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - staging
+      - master
 
 jobs:
   release:
@@ -11,32 +12,37 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # Dynamically set environment based on tag suffix
-    environment: ${{ contains(github.ref_name, '-') && 'staging' || 'production' }}
+    # Dynamically set environment based on branch
+    environment: ${{ github.ref_name == 'master' && 'production' || 'staging' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required to fetch tags
 
-      - name: Determine Release Type
-        id: type
+      - name: Determine Release Details
+        id: details
         run: |
-          if [[ "${{ github.ref_name }}" == *"-"* ]]; then
+          # Get the exact tag for the current commit. Fails if no tag.
+          TAG=$(git describe --tags --exact-match)
+          echo "Found tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          
+          if [[ "${{ github.ref_name }}" == "staging" ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
             echo "make_latest=false" >> $GITHUB_OUTPUT
-            echo "Environment: Staging (Pre-release)"
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
             echo "make_latest=true" >> $GITHUB_OUTPUT
-            echo "Environment: Production (Latest)"
           fi
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-          PRERELEASE: ${{ steps.type.outputs.is_prerelease }}
-          LATEST: ${{ steps.type.outputs.make_latest }}
+          TAG: ${{ steps.details.outputs.tag }}
+          PRERELEASE: ${{ steps.details.outputs.is_prerelease }}
+          LATEST: ${{ steps.details.outputs.make_latest }}
         run: |
           gh release create "$TAG" \
             --generate-notes \
