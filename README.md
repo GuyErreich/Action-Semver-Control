@@ -14,6 +14,20 @@ A custom GitHub Action written in Python to automatically bump semantic versioni
 - Comprehensive test coverage with pytest and pyfakefs
 - Modern Python tooling (ruff, mypy, pre-commit)
 
+## CLI Usage
+
+The action is primarily designed to run in CI/CD, but the CLI can be used for manual operations.
+
+### Manual Promotion
+To manually promote a version from one branch to another (e.g., `dev` -> `staging`):
+
+```bash
+auto-semver --github-token <TOKEN> promote --from-branch dev --to-branch staging
+```
+
+Options:
+- `--dry-run`: Validate the promotion without creating a PR.
+
 ## Configuration (`auto_semver_config.yml`)
 
 ```yaml
