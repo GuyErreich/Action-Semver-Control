@@ -28,6 +28,7 @@ class TestMain:
         args = argparse.Namespace()
         args.github_token = "mock-token"
         args.debug = True
+        args.command = None
         return args
 
     @pytest.fixture
