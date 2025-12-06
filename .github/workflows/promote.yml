@@ -53,31 +53,20 @@ jobs:
       if: ${{ inputs.dry_run }}
       run: |
         echo "🧪 Dry run mode - validating promotion configuration..."
-        uv run python -c "
-        from auto_semver.config import Config
-        from auto_semver.utils.promotion import validate_promotion
-        
-        config = Config()
-        try:
-            rule = validate_promotion(
-                from_branch='${{ inputs.from_branch }}',
-                to_branch='${{ inputs.to_branch }}',
-                config=config
-            )
-            print(f'✅ Promotion validated: ${{ inputs.from_branch }} → ${{ inputs.to_branch }}')
-            print(f'   Auto-promotion enabled: {rule.auto_promote}')
-        except ValueError as e:
-            print(f'❌ Promotion validation failed: {e}')
-            exit(1)
-        "
+        uv run auto-semver promote \
+          --from-branch "${{ inputs.from_branch }}" \
+          --to-branch "${{ inputs.to_branch }}" \
+          --github-token "${{ secrets.GH_TOKEN }}" \
+          --dry-run \
+          --debug
 
     - name: Create promotion PR
       if: ${{ !inputs.dry_run }}
       run: |
         echo "🚀 Creating promotion PR: ${{ inputs.from_branch }} → ${{ inputs.to_branch }}"
-        uv run auto-semver-promote \
-          --from "${{ inputs.from_branch }}" \
-          --to "${{ inputs.to_branch }}" \
+        uv run auto-semver promote \
+          --from-branch "${{ inputs.from_branch }}" \
+          --to-branch "${{ inputs.to_branch }}" \
           --github-token "${{ secrets.GH_TOKEN }}" \
           --debug
 
