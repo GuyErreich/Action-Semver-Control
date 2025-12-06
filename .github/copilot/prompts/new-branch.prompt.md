@@ -8,24 +8,8 @@ Follow proper Git workflow to create a new branch with all current changes.
 
 ## Workflow Steps:
 
-1. **Stash current changes** (if any uncommitted work exists)
-   - Use descriptive stash message: `git stash push -m "WIP: [brief description]"`
-
-2. **Switch to main/dev branch**
-   - `git checkout dev` (or main if that's your default)
-
-3. **Pull latest changes**
-   - `git pull origin dev`
-
-4. **Create new feature branch**
+1.. **Create new feature branch**
    - Use descriptive branch name following auto-semver conventions (see below)
-
-5. **Restore stashed changes**
-   - `git stash pop`
-
-6. **Stage and commit changes**
-   - `git add .`
-   - Create proper commit message (use commit prompt if needed)
 
 7. **Push branch with upstream tracking**
    - `git push -u origin [branch-name]`
