@@ -1,5 +1,5 @@
-version: 1.2.0-dev
+version: 1.2.1-dev
 source_branch: feature/lockfile
 target_branch: dev
-target_base_sha: ed878487dd3c2c14f853da1dc7b57a15946d1615
+target_base_sha: e9cd9c741e4355e0f76640808997743f4db9cd3c
 finalized: false
