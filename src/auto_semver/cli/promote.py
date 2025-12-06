@@ -15,7 +15,13 @@ logger = logging.getLogger(__name__)
 
 # Think about moving this as a function in finalize.py since it's similar to auto-promotion PRs
 def run(
-    *, gitops: GitOps, config: Config, github_token: str, from_branch: str, to_branch: str
+    *,
+    gitops: GitOps,
+    config: Config,
+    github_token: str,
+    from_branch: str,
+    to_branch: str,
+    dry_run: bool = False,
 ) -> None:
     """
     Create a promotion PR from one branch to another.
@@ -26,6 +32,7 @@ def run(
         github_token (str): GitHub token for creating PRs.
         from_branch (str): Source branch name.
         to_branch (str): Target branch name.
+        dry_run (bool): If True, validate only without creating PR.
 
     Raises:
         ValueError: If promotion is not allowed by configuration.
@@ -40,6 +47,10 @@ def run(
     )
 
     logger.info(f"Promotion validated: {promotion_rule.from_branch} → {promotion_rule.to_branch}")
+
+    if dry_run:
+        logger.info("🧪 Dry run mode: Skipping version check and PR creation.")
+        return
 
     # Get the latest tag/version from the source branch
     try:
