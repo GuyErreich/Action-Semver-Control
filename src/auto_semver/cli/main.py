@@ -9,7 +9,7 @@ import argparse
 import logging
 import sys
 
-from auto_semver.cli import bump, finalize
+from auto_semver.cli import bump, finalize, promote
 from auto_semver.cli.utils import is_finalized
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
@@ -35,34 +35,48 @@ def main() -> None:
         8. Push branch + open PR
 
     Command-line Arguments:
-    - `--branch-name`: Name of the branch triggering the release process.
-    - `--target-branch`: Target branch for the release pull request.
-    - `--github-token`: GitHub token for authentication.
-    - `--repo-full-name`: Full name of the repository (e.g., `owner/repo`).
+    - `--github-token`: GitHub token for authentication (required).
     - `--debug`: Enables debug logging if specified.
+    - `promote`: Subcommand for manual promotion.
+        - `--from-branch`: Source branch (required).
+        - `--to-branch`: Target branch (required).
+        - `--dry-run`: Validate without creating PR.
 
     Raises:
-    - FileNotFoundError: If `version.txt` is not found and no start version is configured.
-    - Other exceptions may be raised by Git operations or API calls.
-
-    Note:
-    - Ensure that the `version.txt` file exists or a start version is configured in the `Config` class.
-    - The `CHANGELOG.md` file is updated with recent commits, and its handling should be
-      encapsulated in a dedicated class in the future.
-
+    - SystemExit: With code 1 on failure or cancellation.
     """
     try:
         parser = argparse.ArgumentParser()
-        # parser.add_argument("--branch-name", required=True, type=str)
-        # parser.add_argument("--target-branch", required=True, type=str)
-        parser.add_argument("--github-token", required=True, type=str)
-        # parser.add_argument("--repo-full-name", required=True, type=str)
-        parser.add_argument("--debug", action="store_true")
+        parser.add_argument("--github-token", required=True, type=str, help="GitHub token")
+        parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+
+        subparsers = parser.add_subparsers(dest="command")
+
+        # Promote command
+        promote_parser = subparsers.add_parser("promote", help="Manually promote version between branches")
+        promote_parser.add_argument("--from-branch", required=True, help="Source branch")
+        promote_parser.add_argument("--to-branch", required=True, help="Target branch")
+        promote_parser.add_argument(
+            "--dry-run", action="store_true", help="Validate promotion without creating PR"
+        )
+
         args = parser.parse_args()
 
         setup_logger(args.debug)
         config = Config()
         gitops = GitOps(ensure_safe=True)
+
+        if args.command == "promote":
+            promote.run(
+                gitops=gitops,
+                config=config,
+                github_token=args.github_token,
+                from_branch=args.from_branch,
+                to_branch=args.to_branch,
+                dry_run=args.dry_run,
+            )
+            return
+
         event = GitHubEvent()
 
         if is_finalized(config=config, event=event):
