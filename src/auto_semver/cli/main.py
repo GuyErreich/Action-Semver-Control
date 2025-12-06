@@ -46,14 +46,20 @@ def main() -> None:
     - SystemExit: With code 1 on failure or cancellation.
     """
     try:
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--github-token", required=True, type=str, help="GitHub token")
-        parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+        # Parent parser for common arguments
+        parent_parser = argparse.ArgumentParser(add_help=False)
+        parent_parser.add_argument("--github-token", type=str, help="GitHub token")
+        parent_parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
+        parser = argparse.ArgumentParser(parents=[parent_parser])
         subparsers = parser.add_subparsers(dest="command")
 
         # Promote command
-        promote_parser = subparsers.add_parser("promote", help="Manually promote version between branches")
+        promote_parser = subparsers.add_parser(
+            "promote",
+            help="Manually promote version between branches",
+            parents=[parent_parser],
+        )
         promote_parser.add_argument("--from-branch", required=True, help="Source branch")
         promote_parser.add_argument("--to-branch", required=True, help="Target branch")
         promote_parser.add_argument(
@@ -61,6 +67,9 @@ def main() -> None:
         )
 
         args = parser.parse_args()
+
+        if not args.github_token:
+            parser.error("the following arguments are required: --github-token")
 
         setup_logger(args.debug)
         config = Config()
