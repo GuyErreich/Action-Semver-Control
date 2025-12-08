@@ -54,7 +54,7 @@ def run(
 
     # Get the latest tag/version from the source branch
     try:
-        version = gitops.get_highest_release_lock_version_for_target(from_branch)
+        version = gitops.get_lock_version_from_branch(branch_name=from_branch)
         if not version:
             raise ValueError(
                 f"No version found for branch '{from_branch}'. Ensure the branch is tagged."

@@ -361,58 +361,30 @@ class TestGitOps:
         mock_repo.iter_commits.assert_called_once_with("abc123..HEAD")
 
     @pytest.mark.unit
-    def test_get_highest_release_lock_version_for_target(self, mocker: MockerFixture) -> None:
-        """Test getting the highest release lock version with get_highest_release_lock_version_for_target."""
-        # Create mock repo and remote
+    def test_get_lock_version_from_branch(self, mocker: MockerFixture) -> None:
+        """Test getting the lock version from a specific branch."""
+        # Create mock repo
         mock_repo = mocker.MagicMock()
-        mock_remote = mocker.MagicMock()
-        mock_repo.remote.return_value = mock_remote
-
-        # Create mock refs
-        mock_ref1 = mocker.MagicMock()
-        mock_ref1.name = "origin/release/v1.0.0"
-        mock_ref2 = mocker.MagicMock()
-        mock_ref2.name = "origin/release/v1.1.0"
-        mock_ref3 = mocker.MagicMock()
-        mock_ref3.name = "origin/develop"  # Should be skipped
-        mock_remote.refs = [mock_ref1, mock_ref2, mock_ref3]
-
-        # Set up mock lock files - must include all required fields
-        lock1 = {"version": "1.0.0", "target_branch": "main", "source_branch": "develop"}
-        lock2 = {"version": "1.1.0", "target_branch": "main", "source_branch": "develop"}
 
         # Patch functions
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
-        mocker.patch("auto_semver.git.ops.yaml.safe_load", side_effect=[lock1, lock2])
-        # Create a mock Version object to return in SemverLock
+
+        # Mock lock file data
+        lock_data = {"version": "1.2.3", "target_branch": "main", "source_branch": "develop"}
+        mocker.patch("auto_semver.git.ops.yaml.safe_load", return_value=lock_data)
+
+        # Mock SemverLock
         mock_version = mocker.MagicMock(spec=Version)
-        mock_version.__str__.return_value = "1.1.0"
-
-        # Mock SemverLock creation
-        mocker.patch(
-            "auto_semver.git.ops.SemverLock.from_dict",
-            side_effect=lambda x: mocker.MagicMock(
-                version=mock_version, target_branch=x["target_branch"]
-            ),
-        )
-
-        # Set up show behavior for lock files
-        def mock_show(path: str) -> str:
-            if "v1.0.0" in path:
-                return "v1.0.0 lock"
-            if "v1.1.0" in path:
-                return "v1.1.0 lock"
-            raise Exception("Not found")
-
-        mock_repo.git.show.side_effect = mock_show
+        mock_semver_lock = mocker.MagicMock(version=mock_version)
+        mocker.patch("auto_semver.git.ops.SemverLock.from_dict", return_value=mock_semver_lock)
 
         # Create GitOps instance
         gitops = GitOps()
 
-        # Call get_highest_release_lock_version_for_target
-        highest_version = gitops.get_highest_release_lock_version_for_target(target_branch="main")
+        # Call get_lock_version_from_branch
+        version = gitops.get_lock_version_from_branch(branch_name="develop")
 
-        # Check results - should have a Version object now
-        assert highest_version is not None
-        assert isinstance(highest_version, Version)
-        mock_remote.fetch.assert_called_once_with(prune=True)
+        # Check results
+        assert version == mock_version
+        mock_repo.git.fetch.assert_called_once_with("origin", "develop")
+        mock_repo.git.show.assert_called_once_with("origin/develop:.semver.lock")

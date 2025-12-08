@@ -37,7 +37,7 @@ class TestBump:
         """Create a mock GitOps object."""
         mock = mocker.Mock(spec=GitOps)
         # Set up some default behaviors
-        mock.get_highest_release_lock_version_for_target.return_value = None
+        mock.get_lock_version_from_branch.return_value = None
         mock.get_recent_commits.return_value = ["feat: add new feature", "fix: bug fix"]
         return mock
 
@@ -135,7 +135,7 @@ class TestBump:
         """Test bump with existing version."""
         # Set up mock to return an existing version
         existing_version = Version.parse("0.9.0")
-        mock_gitops.get_highest_release_lock_version_for_target.return_value = existing_version
+        mock_gitops.get_lock_version_from_branch.return_value = existing_version
 
         # Mock datetime.now for consistent testing
         mock_now = datetime.datetime(2023, 1, 1, 12, 0, 0)
@@ -150,7 +150,7 @@ class TestBump:
 
         # Verify version was bumped from the existing version
         # The SemverLock constructor should have been used
-        mock_gitops.get_highest_release_lock_version_for_target.assert_called_once_with("main")
+        mock_gitops.get_lock_version_from_branch.assert_called_once_with("main")
 
         # Verify PR was created
         mock_gitops.create_pr.assert_called_once()

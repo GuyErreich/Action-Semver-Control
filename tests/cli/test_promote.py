@@ -13,7 +13,7 @@ from auto_semver.semver import Version
 class TestPromoteCLI:
     """Tests for the promote CLI command."""
 
-    @patch("auto_semver.git.GitOps.get_highest_release_lock_version_for_target")
+    @patch("auto_semver.git.GitOps.get_lock_version_from_branch")
     @patch("auto_semver.git.GitOps.create_pr")
     def test_successful_promotion(
         self, mock_create_pr: MagicMock, mock_get_version: MagicMock
@@ -25,7 +25,7 @@ class TestPromoteCLI:
 
         # Create mock objects
         gitops = MagicMock(spec=GitOps)
-        gitops.get_highest_release_lock_version_for_target = mock_get_version
+        gitops.get_lock_version_from_branch = mock_get_version
         gitops.create_pr = mock_create_pr
 
         # Mock the config with proper data attribute
@@ -47,7 +47,7 @@ class TestPromoteCLI:
         config.data.validate_promotion.assert_called_once_with(
             from_branch="dev", to_branch="staging", require_auto_promote=False
         )
-        mock_get_version.assert_called_once_with("dev")
+        mock_get_version.assert_called_once_with(branch_name="dev")
         mock_create_pr.assert_called_once()
 
         # Check PR creation parameters (repo_full_name is no longer a parameter)
@@ -78,14 +78,14 @@ class TestPromoteCLI:
                 to_branch="invalid",
             )
 
-    @patch("auto_semver.git.GitOps.get_highest_release_lock_version_for_target")
+    @patch("auto_semver.git.GitOps.get_lock_version_from_branch")
     def test_no_version_found(self, mock_get_version: MagicMock) -> None:
         """Test handling when no version is found for source branch."""
         mock_rule = PromotionRule(from_branch="dev", to_branch="staging")
         mock_get_version.return_value = None
 
         gitops = MagicMock(spec=GitOps)
-        gitops.get_highest_release_lock_version_for_target = mock_get_version
+        gitops.get_lock_version_from_branch = mock_get_version
 
         # Mock the config with proper data attribute
         config = MagicMock(spec=Config)
