@@ -682,65 +682,40 @@ class GitOps:
 
             raise RuntimeError(f"Failed to fetch recent commits: {err}") from err
 
-    def get_highest_release_lock_version_for_target(
-        self, target_branch: str | None = None, remote_name: str = "origin"
+    def get_lock_version_from_branch(
+        self,
+        branch_name: str,
+        remote_name: str = "origin",
     ) -> Version | None:
         """
-        Scan all release/* branches, for lockfile.
+        Get the version from the lockfile on a specific branch.
 
         Args:
-            target_branch (str): The target branch to check against.
+            branch_name (str): The branch to check.
             remote_name (str): The name of the remote to check.
 
         Returns:
-            The highest Version object found, or None if none found.
+            The Version object found, or None if none found.
 
         """
-        highest: Version | None = None
-        remote: Remote = self.repo.remote(name=remote_name)
-
         try:
-            logger.info("Fetching all remote branches...")
-            remote.fetch(prune=True)
+            logger.info(f"Fetching branch '{branch_name}' from remote '{remote_name}'...")
+            self.repo.git.fetch(remote_name, branch_name)
 
-            for ref in remote.refs:
-                if (
-                    not ref.name.startswith("origin/release/")
-                    and ref.name != f"origin/{target_branch}"
-                ):
-                    logger.debug(f"Skipping branch {ref.name}.")
-                    continue
+            full_branch_ref = f"{remote_name}/{branch_name}"
+            logger.debug(f"Checking branch for lockfile: {full_branch_ref}")
 
-                branch_name = ref.name
-                short_branch_name = branch_name.removeprefix("origin/")
-                logger.debug(f"Checking branch for lockfile: {short_branch_name}")
-
-                try:
-                    blob = self.repo.git.show(f"{branch_name}:{SemverLock.path}")
-                    lock = SemverLock.from_dict(yaml.safe_load(blob))
-                    logger.debug(f"Loaded lockfile from {short_branch_name}: {lock}")
-
-                    if target_branch and lock.target_branch != target_branch:
-                        logger.debug(
-                            f"Skipping lockfile on {short_branch_name} for target branch {target_branch}."
-                        )
-                        continue
-
-                    logger.debug(f"Found lock version {lock.version} on {short_branch_name}")
-
-                    if highest is None:
-                        highest = lock.version
-                        logger.debug(f"First lockfile found: {highest}")
-                    else:
-                        highest = max(highest, lock.version)
-                        logger.debug(f"New highest version: {highest}")
-                except Exception as err:
-                    logger.warning(f"No lockfile in {short_branch_name}: {err}")
-
-            return highest
+            try:
+                blob = self.repo.git.show(f"{full_branch_ref}:{SemverLock.path}")
+                lock = SemverLock.from_dict(yaml.safe_load(blob))
+                logger.debug(f"Loaded lockfile from {branch_name}: {lock}")
+                return lock.version
+            except Exception as err:
+                logger.warning(f"No lockfile in {branch_name}: {err}")
+                return None
 
         except Exception as err:
-            logger.error(f"Failed to scan remote release branches: {err}")
+            logger.error(f"Failed to get lock version from branch {branch_name}: {err}")
             return None
 
     def _filter_release_commits(self, messages: list[str], config: Config) -> list[str]:
