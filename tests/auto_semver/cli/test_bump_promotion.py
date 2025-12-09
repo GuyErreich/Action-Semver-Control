@@ -185,7 +185,7 @@ class TestPromotionWorkflow:
     def mock_gitops(self, mocker: MockerFixture) -> Any:
         """Create a mock GitOps object."""
         mock = mocker.Mock(spec=GitOps)
-        mock.get_highest_release_lock_version_for_target.return_value = None
+        mock.get_lock_version_from_branch.return_value = None
         mock.get_recent_commits.return_value = ["feat: promotion feature"]
         return mock
 

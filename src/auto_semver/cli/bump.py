@@ -122,7 +122,7 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     logger.info(f"Branch name: {current_branch}")
 
     # Get current version first to check for tag promotion
-    version = gitops.get_highest_release_lock_version_for_target(target_branch)
+    version = gitops.get_lock_version_from_branch(target_branch)
 
     if not version:
         try:
