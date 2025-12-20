@@ -46,6 +46,9 @@ def main() -> None:
     - SystemExit: With code 1 on failure or cancellation.
     """
     try:
+        # Filter out empty arguments that might come from GitHub Actions expressions
+        sys.argv = [arg for arg in sys.argv if arg]
+
         # Parent parser for common arguments
         parent_parser = argparse.ArgumentParser(add_help=False)
         parent_parser.add_argument("--github-token", type=str, help="GitHub token")
@@ -57,18 +60,19 @@ def main() -> None:
         # Promote command
         promote_parser = subparsers.add_parser(
             "promote",
-            help="Manually promote version between branches",
+            help="Promote version between branches",
             parents=[parent_parser],
         )
-        promote_parser.add_argument("--from-branch", required=True, help="Source branch")
-        promote_parser.add_argument("--to-branch", required=True, help="Target branch")
+
         promote_parser.add_argument(
             "--dry-run", action="store_true", help="Validate promotion without creating PR"
         )
+        promote_parser.add_argument("--from-tag", required=True, help="Specific tag to promote")
+        promote_parser.add_argument("--to-branch", required=True, help="Target branch")
 
         args = parser.parse_args()
 
-        if not args.github_token:
+        if args.command != "promote" and not args.github_token:
             parser.error("the following arguments are required: --github-token")
 
         setup_logger(args.debug)
@@ -79,9 +83,8 @@ def main() -> None:
             promote.run(
                 gitops=gitops,
                 config=config,
-                github_token=args.github_token,
-                from_branch=args.from_branch,
                 to_branch=args.to_branch,
+                from_tag=args.from_tag,
                 dry_run=args.dry_run,
             )
             return
@@ -91,6 +94,7 @@ def main() -> None:
         if is_finalized(config=config, event=event):
             finalize.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
         else:
+            # Default to bump if not finalized
             bump.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
