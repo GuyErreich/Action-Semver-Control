@@ -34,16 +34,6 @@ jobs:
       with:
         fetch-depth: 0  # Need full history for git operations
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-      with:
-        enable-cache: true
-        cache-dependency-glob: "uv.lock"
-        python-version: "3.12"
-
-    - name: Install dependencies
-      run: uv sync
-
     - name: List recent tags
       run: |
         echo "📋 Recent tags (for reference):"
