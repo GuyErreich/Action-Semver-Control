@@ -72,8 +72,11 @@ def run(
     logger.info(f"Promoting version {version} → {promoted_version}")
 
     try:
+        # Use tag as source if available, otherwise use branch
+        merge_source = from_tag if from_tag else source_branch
+
         gitops.auto_promote(
-            source_branch=source_branch,
+            source_branch=merge_source,
             target_branch=to_branch,
             version=str(promoted_version),
             source_version=str(version),
@@ -109,7 +112,18 @@ def _get_source_version(
     """
     if from_tag:
         logger.info(f"Using specified tag: {from_tag}")
-        version = gitops.get_lock_version_from_tag(tag_name=from_tag)
+
+        version: Version | None
+        # Try to parse version from tag name first
+        try:
+            version = Version.parse(from_tag)
+            logger.info(f"Parsed version from tag name: {version}")
+        except ValueError:
+            logger.warning(
+                f"Could not parse version from tag name '{from_tag}'. Falling back to lockfile."
+            )
+            version = gitops.get_lock_version_from_tag(tag_name=from_tag)
+
         if not version:
             raise ValueError(f"No version found for tag '{from_tag}'.")
 
@@ -131,12 +145,12 @@ def _get_source_version(
 
     if from_branch:
         logger.info(f"Using latest version from branch: {from_branch}")
-        version = gitops.get_lock_version_from_branch(branch_name=from_branch)
-        if not version:
+        branch_version = gitops.get_lock_version_from_branch(branch_name=from_branch)
+        if not branch_version:
             raise ValueError(
                 f"No version found for branch '{from_branch}'. Ensure the branch is tagged."
             )
-        return version, from_branch
+        return branch_version, from_branch
 
     raise ValueError("Either --from-branch or --from-tag must be provided.")
 
