@@ -460,9 +460,14 @@ class GitOps:
 
             # 4. Merge source into target
             if source_version:
-                merge_message = f"chore: auto-promote {source_version} from {source_branch} to {target_branch} as {version}"
+                merge_message = (
+                    f"chore: auto-promote {source_version} from {source_branch} "
+                    f"to {target_branch} as {version}"
+                )
             else:
-                merge_message = f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
+                merge_message = (
+                    f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
+                )
 
             self.merge(source_ref=source_branch, message=merge_message, remote_name=remote_name)
 
