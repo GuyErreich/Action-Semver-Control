@@ -100,7 +100,10 @@ def create_auto_promotion_prs(
             logger.info(f"Promoting version {version} → {promoted_version}")
 
             gitops.auto_promote(
-                source_branch=target_branch, target_branch=to_branch, version=str(promoted_version)
+                source_branch=target_branch,
+                target_branch=to_branch,
+                version=str(promoted_version),
+                source_version=version,
             )
 
             logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")

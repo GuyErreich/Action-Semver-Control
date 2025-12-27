@@ -28,13 +28,13 @@ class TestDockerBuild:
         """Create a Docker client for testing."""
         try:
             client = docker_from_env()
-            client.ping()  # type: ignore[no-untyped-call]
+            client.ping()
             yield client
         except Exception as e:
             pytest.skip(f"Docker not available: {e}")
         finally:
             if "client" in locals():
-                client.close()  # type: ignore[no-untyped-call]
+                client.close()
 
     @pytest.fixture(scope="class")
     def docker_image(self, docker_client: DockerClient) -> Generator[DockerImage, None, None]:
@@ -219,13 +219,13 @@ class TestDockerWithMountedVolume:
         """Create a Docker client for testing."""
         try:
             client = docker_from_env()
-            client.ping()  # type: ignore[no-untyped-call]
+            client.ping()
             yield client
         except Exception as e:
             pytest.skip(f"Docker not available: {e}")
         finally:
             if "client" in locals():
-                client.close()  # type: ignore[no-untyped-call]
+                client.close()
 
     @pytest.fixture
     def temp_workspace(self) -> Generator[Path, None, None]:
@@ -376,13 +376,13 @@ class TestDockerPerformance:
         """Create a Docker client for testing."""
         try:
             client = docker_from_env()
-            client.ping()  # type: ignore[no-untyped-call]
+            client.ping()
             yield client
         except Exception as e:
             pytest.skip(f"Docker not available: {e}")
         finally:
             if "client" in locals():
-                client.close()  # type: ignore[no-untyped-call]
+                client.close()
 
     @pytest.fixture(scope="class")
     def docker_image_perf(self, docker_client: DockerClient) -> Generator[DockerImage, None, None]:
@@ -450,8 +450,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     """Skip Docker tests if Docker is not available."""
     try:
         client = docker_from_env()
-        client.ping()  # type: ignore[no-untyped-call]
-        client.close()  # type: ignore[no-untyped-call]
+        client.ping()
+        client.close()
     except docker_errors.APIError:
         skip_docker = pytest.mark.skip(reason="Docker not available")
         for item in items:

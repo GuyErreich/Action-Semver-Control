@@ -3,14 +3,10 @@ name: Manual Promotion
 on:
   workflow_dispatch:
     inputs:
-      from_branch:
-        description: 'Source branch to promote from'
+      from_tag:
+        description: 'Specific tag to promote (e.g. v1.0.0-beta.1)'
         required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - staging
+        type: string
       to_branch:
         description: 'Target branch to promote to'
         required: true
@@ -20,14 +16,13 @@ on:
           - staging
           - master
       dry_run:
-        description: 'Validate promotion without creating PR'
+        description: 'Validate promotion without performing changes'
         required: false
         default: false
         type: boolean
 
 permissions:
-  contents: read
-  pull-requests: write
+  contents: write
 
 jobs:
   promote:
@@ -49,36 +44,46 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
+    - name: List recent tags
+      run: |
+        echo "📋 Recent tags (for reference):"
+        git tag -l | sort -V | tail -n 10
+
     - name: Validate promotion (dry run)
       if: ${{ inputs.dry_run }}
-      run: |
-        echo "🧪 Dry run mode - validating promotion configuration..."
-        uv run auto-semver promote \
-          --from-branch "${{ inputs.from_branch }}" \
-          --to-branch "${{ inputs.to_branch }}" \
-          --github-token "${{ secrets.GH_TOKEN }}" \
-          --dry-run \
-          --debug
+      uses: ./
+      with:
+        action: promote
+        to_branch: ${{ inputs.to_branch }}
+        from_tag: ${{ inputs.from_tag }}
+        dry_run: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        debug: true
 
-    - name: Create promotion PR
+    - name: Execute Promotion
       if: ${{ !inputs.dry_run }}
-      run: |
-        echo "🚀 Creating promotion PR: ${{ inputs.from_branch }} → ${{ inputs.to_branch }}"
-        uv run auto-semver promote \
-          --from-branch "${{ inputs.from_branch }}" \
-          --to-branch "${{ inputs.to_branch }}" \
-          --github-token "${{ secrets.GH_TOKEN }}" \
-          --debug
+      uses: ./
+      with:
+        action: promote
+        to_branch: ${{ inputs.to_branch }}
+        from_tag: ${{ inputs.from_tag }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        debug: true
 
     - name: Summary
+      if: always()
       run: |
+        SOURCE="${{ inputs.from_tag }}"
+        if [[ -z "$SOURCE" ]]; then
+          SOURCE="latest from ${{ inputs.from_branch }}"
+        fi
+        
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           echo "### 🧪 Dry Run Completed" >> $GITHUB_STEP_SUMMARY
-          echo "Promotion validation: **${{ inputs.from_branch }}** → **${{ inputs.to_branch }}**" >> $GITHUB_STEP_SUMMARY
+          echo "Promotion validation: **$SOURCE** → **${{ inputs.to_branch }}**" >> $GITHUB_STEP_SUMMARY
           echo "Status: ✅ Configuration valid" >> $GITHUB_STEP_SUMMARY
         else
-          echo "### 🚀 Promotion PR Created" >> $GITHUB_STEP_SUMMARY
-          echo "Promotion: **${{ inputs.from_branch }}** → **${{ inputs.to_branch }}**" >> $GITHUB_STEP_SUMMARY
-          echo "A new pull request has been created to promote the latest version." >> $GITHUB_STEP_SUMMARY
-          echo "Check the repository's pull requests to review and merge." >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 Promotion Completed" >> $GITHUB_STEP_SUMMARY
+          echo "Promotion: **$SOURCE** → **${{ inputs.to_branch }}**" >> $GITHUB_STEP_SUMMARY
+          echo "✅ The version has been promoted and tagged on the target branch." >> $GITHUB_STEP_SUMMARY
         fi

@@ -414,6 +414,7 @@ class GitOps:
         source_branch: str,
         target_branch: str,
         version: str,
+        source_version: str | None = None,
         remote_name: str = "origin",
     ) -> str:
         """
@@ -431,6 +432,7 @@ class GitOps:
             source_branch (str): Source branch name (e.g., 'dev').
             target_branch (str): Target branch name (e.g., 'staging').
             version (str): Version tag to create on the target branch.
+            source_version (str | None): Original version tag from source branch.
             remote_name (str): Remote name (default: 'origin').
 
         Returns:
@@ -457,7 +459,16 @@ class GitOps:
             self.pull(branch_name=target_branch, remote_name=remote_name)
 
             # 4. Merge source into target
-            merge_message = f"chore: auto-promote {version} from {source_branch} to {target_branch}"
+            if source_version:
+                merge_message = (
+                    f"chore: auto-promote {source_version} from {source_branch} "
+                    f"to {target_branch} as {version}"
+                )
+            else:
+                merge_message = (
+                    f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
+                )
+
             self.merge(source_ref=source_branch, message=merge_message, remote_name=remote_name)
 
             # 5. Create tag on target branch
@@ -716,6 +727,26 @@ class GitOps:
 
         except Exception as err:
             logger.error(f"Failed to get lock version from branch {branch_name}: {err}")
+            return None
+
+    def get_lock_version_from_tag(self, tag_name: str) -> Version | None:
+        """
+        Get the version from the lockfile at a specific tag.
+
+        Args:
+            tag_name (str): The tag to check.
+
+        Returns:
+            The Version object found, or None if none found.
+        """
+        try:
+            logger.debug(f"Checking tag for lockfile: {tag_name}")
+            blob = self.repo.git.show(f"{tag_name}:{SemverLock.path}")
+            lock = SemverLock.from_dict(yaml.safe_load(blob))
+            logger.debug(f"Loaded lockfile from {tag_name}: {lock}")
+            return lock.version
+        except Exception as err:
+            logger.warning(f"No lockfile in tag {tag_name}: {err}")
             return None
 
     def _filter_release_commits(self, messages: list[str], config: Config) -> list[str]:

@@ -1,7 +1,7 @@
 """
 CLI command for manually promoting versions between branches.
 
-This command allows users to create promotion PRs manually, with validation
+This command allows users to promote versions manually, with validation
 against the configured promotion rules.
 """
 
@@ -9,86 +9,162 @@ import logging
 
 from auto_semver.config import Config
 from auto_semver.git import GitOps
+from auto_semver.semver import Version
 
 logger = logging.getLogger(__name__)
 
 
-# Think about moving this as a function in finalize.py since it's similar to auto-promotion PRs
 def run(
     *,
     gitops: GitOps,
     config: Config,
-    github_token: str,
-    from_branch: str,
     to_branch: str,
+    from_branch: str | None = None,
+    from_tag: str | None = None,
     dry_run: bool = False,
 ) -> None:
     """
-    Create a promotion PR from one branch to another.
+    Promote a version from one branch to another directly (merge + tag).
 
     Args:
         gitops (GitOps): Git operations handler.
         config (Config): Loaded configuration object.
-        github_token (str): GitHub token for creating PRs.
-        from_branch (str): Source branch name.
         to_branch (str): Target branch name.
-        dry_run (bool): If True, validate only without creating PR.
+        from_branch (str | None): Source branch name. Optional if tag is provided.
+        from_tag (str | None): Specific tag to promote. If None, uses latest from branch.
+        dry_run (bool): If True, validate only without performing git operations.
 
     Raises:
-        ValueError: If promotion is not allowed by configuration.
+        ValueError: If promotion is not allowed or fails.
     """
-    logger.info(f"Initiating manual promotion: {from_branch} → {to_branch}")
+    logger.info(f"Initiating manual promotion to {to_branch}")
+
+    try:
+        version, source_branch = _get_source_version(gitops, config, from_tag, from_branch)
+    except Exception as e:
+        raise ValueError(f"Failed to get version from source: {e}") from e
 
     # Validate promotion is allowed
     promotion_rule = config.data.validate_promotion(
-        from_branch=from_branch,
+        from_branch=source_branch,
         to_branch=to_branch,
-        require_auto_promote=False,  # Manual promotions don't require auto_promote=True
+        require_auto_promote=False,
     )
 
     logger.info(f"Promotion validated: {promotion_rule.from_branch} → {promotion_rule.to_branch}")
+    logger.info(f"Found version {version} to promote")
+
+    _validate_target_version(gitops, to_branch, version)
 
     if dry_run:
-        logger.info("🧪 Dry run mode: Skipping version check and PR creation.")
+        logger.info("🧪 Dry run mode: Skipping promotion.")
         return
 
-    # Get the latest tag/version from the source branch
+    # Calculate promoted version
+    target_suffix = config.data.suffixes.get(to_branch, "")
+    promoted_version = Version(
+        major=version.major,
+        minor=version.minor,
+        patch=version.patch,
+        suffix=target_suffix if target_suffix else None,
+    )
+
+    logger.info(f"Promoting version {version} → {promoted_version}")
+
     try:
+        gitops.auto_promote(
+            source_branch=source_branch,
+            target_branch=to_branch,
+            version=str(promoted_version),
+            source_version=str(version),
+        )
+
+        logger.info(f"✅ Promotion completed successfully: {source_branch} → {to_branch}")
+        logger.info(f"Tagged {to_branch} with {promoted_version}")
+
+    except Exception as e:
+        raise ValueError(f"Failed to promote: {e}") from e
+
+
+def _get_source_version(
+    gitops: GitOps,
+    config: Config,
+    from_tag: str | None,
+    from_branch: str | None,
+) -> tuple[Version, str]:
+    """
+    Retrieve the source version and branch.
+
+    Args:
+        gitops: Git operations handler.
+        config: Configuration object.
+        from_tag: Optional tag to promote from.
+        from_branch: Optional branch to promote from.
+
+    Returns:
+        tuple[Version, str]: The version and the source branch name.
+
+    Raises:
+        ValueError: If version cannot be determined or source branch cannot be inferred.
+    """
+    if from_tag:
+        logger.info(f"Using specified tag: {from_tag}")
+        version = gitops.get_lock_version_from_tag(tag_name=from_tag)
+        if not version:
+            raise ValueError(f"No version found for tag '{from_tag}'.")
+
+        suffix = version.suffix or ""
+        # Find branch that matches the version's suffix
+        from_branch = None
+        for branch, s in config.data.suffixes.items():
+            if s == suffix:
+                from_branch = branch
+                break
+
+        if not from_branch:
+            raise ValueError(
+                f"Could not determine source branch from version suffix '{suffix}' "
+                f"in tag '{from_tag}'."
+            )
+        logger.info(f"Inferred source branch '{from_branch}' from tag '{from_tag}'")
+        return version, from_branch
+
+    if from_branch:
+        logger.info(f"Using latest version from branch: {from_branch}")
         version = gitops.get_lock_version_from_branch(branch_name=from_branch)
         if not version:
             raise ValueError(
                 f"No version found for branch '{from_branch}'. Ensure the branch is tagged."
             )
-    except Exception as e:
-        raise ValueError(f"Failed to get version from branch '{from_branch}': {e}") from e
+        return version, from_branch
 
-    logger.info(f"Found version {version} on branch '{from_branch}'")
+    raise ValueError("Either --from-branch or --from-tag must be provided.")
 
-    # Create promotion PR
-    pr_title = f"🚀 Promote {version} from {from_branch} to {to_branch}"
-    pr_body = (
-        f"This is a manual promotion PR to promote version `{version}` "
-        f"from `{from_branch}` to `{to_branch}`.\n\n"
-        f"**Promotion**: `{from_branch}` → `{to_branch}`\n"
-        f"**Version**: `{version}`\n"
-        f"**Created by**: Manual promotion command\n"
-        f"**Auto-promotion enabled**: {promotion_rule.auto_promote}\n\n"
-        "Merging this PR will trigger the semver workflow to create a release "
-        f"PR with the appropriate suffix for the `{to_branch}` branch."
-    )
 
+def _validate_target_version(gitops: GitOps, to_branch: str, source_version: Version) -> None:
+    """
+    Ensure the source version is greater than the target branch version.
+
+    Args:
+        gitops: Git operations handler.
+        to_branch: Target branch name.
+        source_version: The version being promoted.
+
+    Raises:
+        ValueError: If source version is not greater than target version.
+    """
     try:
-        gitops.create_pr(
-            title=pr_title,
-            body=pr_body,
-            source=from_branch,
-            target=to_branch,
-            github_token=github_token,
-            labels=["manual-promotion", "semver"],
-        )
-
-        logger.info(f"✅ Promotion PR created successfully: {from_branch} → {to_branch}")
-        logger.info(f"This will promote version {version} to {to_branch}")
-
+        target_version = gitops.get_lock_version_from_branch(branch_name=to_branch)
+        if target_version:
+            logger.info(f"Current version on {to_branch}: {target_version}")
+            if source_version <= target_version:
+                raise ValueError(
+                    f"Cannot promote version {source_version} to {to_branch} because it is not greater "
+                    f"than the current version {target_version}."
+                )
+        else:
+            logger.info(f"No existing version found on {to_branch}. Proceeding.")
     except Exception as e:
-        raise ValueError(f"Failed to create promotion PR: {e}") from e
+        if isinstance(e, ValueError) and "Cannot promote" in str(e):
+            raise
+        logger.warning(f"Could not verify target branch version: {e}. Proceeding with caution.")
