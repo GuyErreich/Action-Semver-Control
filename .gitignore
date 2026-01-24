@@ -9,4 +9,5 @@ __pycache__
 
 coverage.xml
 .coverage
+.coverage.*
 htmlcov
