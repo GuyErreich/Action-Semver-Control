@@ -1,0 +1,44 @@
+name: 'GH Release'
+description: 'Creates a GitHub Release based on the current tag'
+inputs:
+  github_token:
+    description: 'GitHub Token for creating releases'
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Required to fetch tags
+
+    - name: Determine Release Details
+      id: details
+      shell: bash
+      run: |
+        # Get the exact tag for the current commit. Fails if no tag.
+        TAG=$(git describe --tags --exact-match)
+        echo "Found tag: $TAG"
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        
+        if [[ "${{ github.ref_name }}" == "staging" ]]; then
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          echo "make_latest=false" >> $GITHUB_OUTPUT
+        else
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          echo "make_latest=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create GitHub Release
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+        TAG: ${{ steps.details.outputs.tag }}
+        PRERELEASE: ${{ steps.details.outputs.is_prerelease }}
+        LATEST: ${{ steps.details.outputs.make_latest }}
+      run: |
+        gh release create "$TAG" \
+          --generate-notes \
+          --prerelease="$PRERELEASE" \
+          --latest="$LATEST" \
+          --title "$TAG"

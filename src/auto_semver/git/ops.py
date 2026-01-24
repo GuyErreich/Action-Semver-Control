@@ -369,7 +369,13 @@ class GitOps:
             raise
 
     def merge(
-        self, *, source_ref: str, message: str, no_ff: bool = True, remote_name: str = "origin"
+        self,
+        *,
+        source_ref: str,
+        message: str,
+        no_ff: bool = True,
+        remote_name: str = "origin",
+        is_tag: bool = False,
     ) -> None:
         """
         Merge a source ref into the current branch.
@@ -379,11 +385,16 @@ class GitOps:
             message (str): Merge commit message.
             no_ff (bool): If True, create a merge commit even if fast-forward is possible.
             remote_name (str): Remote name to prefix to source_ref (default: 'origin').
+            is_tag (bool): If True, treat source_ref as a tag (do not prepend remote).
 
         Raises:
             RuntimeError: If merge fails due to conflicts or other errors.
         """
-        full_source_ref = f"{remote_name}/{source_ref}"
+        if is_tag:
+            full_source_ref = source_ref
+        else:
+            full_source_ref = f"{remote_name}/{source_ref}"
+
         logger.info(f"Merging '{full_source_ref}' into current branch (no-ff={no_ff})")
 
         try:
@@ -416,6 +427,7 @@ class GitOps:
         version: str,
         source_version: str | None = None,
         remote_name: str = "origin",
+        is_source_tag: bool = False,
     ) -> str:
         """
         Automatically promote changes from source branch to target branch.
@@ -429,11 +441,12 @@ class GitOps:
         6. Pushes target branch and tags to remote
 
         Args:
-            source_branch (str): Source branch name (e.g., 'dev').
+            source_branch (str): Source branch name (e.g., 'dev') or tag name.
             target_branch (str): Target branch name (e.g., 'staging').
             version (str): Version tag to create on the target branch.
             source_version (str | None): Original version tag from source branch.
             remote_name (str): Remote name (default: 'origin').
+            is_source_tag (bool): If True, treat source_branch as a tag.
 
         Returns:
             str: The version tag that was created.
@@ -469,7 +482,12 @@ class GitOps:
                     f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
                 )
 
-            self.merge(source_ref=source_branch, message=merge_message, remote_name=remote_name)
+            self.merge(
+                source_ref=source_branch,
+                message=merge_message,
+                remote_name=remote_name,
+                is_tag=is_source_tag,
+            )
 
             # 5. Create tag on target branch
             logger.info(f"Creating tag '{version}' on '{target_branch}'")
