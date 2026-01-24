@@ -129,7 +129,7 @@ class GitOps:
 
             patterns = [
                 r"git@github\.com:([^/]+)/(.+?)(?:\.git)?$",  # SSH format
-                r"https://github\.com/([^/]+)/(.+?)(?:\.git)?$",  # HTTPS format
+                r"https://(?:.*?@)?github\.com/([^/]+)/(.+?)(?:\.git)?$",  # HTTPS format (supports auth)
             ]
 
             for pattern in patterns:
