@@ -23,10 +23,23 @@ jobs:
       with:
         fetch-depth: 0  # Important! Needed for git history
 
+    - name: Get GitHub App Token
+      uses: ./.github/actions/app-authentication
+      id: app-token
+      with:
+        app-id: ${{ secrets.GH_APP_INSTALLATION_ID }}
+        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+    - name: Configure Git for App
+      run: |
+        git config user.name "${{ steps.app-token.outputs.user-name }}"
+        git config user.email "${{ steps.app-token.outputs.user-email }}"
+        git remote set-url origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git
+
     - name: Run Auto Semver Action
       uses: ./  # Local Docker action
       with:
         # target-branch: ${{ github.ref_name }}
-        github-token: ${{ secrets.GH_TOKEN }}
+        github-token: ${{ steps.app-token.outputs.token }}
         # repo-full-name: ${{ github.repository }}
         debug: true
