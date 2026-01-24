@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 
 import yaml
-from git import Commit, GitCommandError, Head, Repo
+from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import Remote
 from github import Github
 from github.GithubException import GithubException
@@ -220,7 +220,15 @@ class GitOps:
         logger.debug(f"Staged changes: {self.repo.index.diff('HEAD')}")
 
         try:
-            self.repo.index.commit(message=message)
+            # Explicitly set author and committer to ensure consistency (e.g., prevent "GitHub" as committer)
+            reader = self.repo.config_reader()
+            author = Actor(
+                name=str(reader.get_value("user", "name")),
+                email=str(reader.get_value("user", "email")),
+            )
+            reader.release()
+
+            self.repo.index.commit(message=message, author=author, committer=author)
 
             logger.info("Committed changes.")
 
