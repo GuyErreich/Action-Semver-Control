@@ -34,6 +34,19 @@ jobs:
       with:
         fetch-depth: 0  # Need full history for git operations
 
+    - name: Get GitHub App Token
+      uses: ./.github/actions/app-authentication
+      id: app-token
+      with:
+        app-id: ${{ secrets.GH_APP_INSTALLATION_ID }}
+        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+    - name: Configure Git for App
+      run: |
+        git config user.name "${{ steps.app-token.outputs.user-name }}"
+        git config user.email "${{ steps.app-token.outputs.user-email }}"
+        git remote set-url origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git
+
     - name: List recent tags
       run: |
         echo "📋 Recent tags (for reference):"
@@ -47,7 +60,7 @@ jobs:
         to_branch: ${{ inputs.to_branch }}
         from_tag: ${{ inputs.from_tag }}
         dry_run: true
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ steps.app-token.outputs.token }}
         debug: true
 
     - name: Execute Promotion
@@ -57,7 +70,7 @@ jobs:
         action: promote
         to_branch: ${{ inputs.to_branch }}
         from_tag: ${{ inputs.from_tag }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ steps.app-token.outputs.token }}
         debug: true
 
     - name: Summary
