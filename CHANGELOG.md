@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.3.1-dev] - 24-01-2026
+## [1.3.2-dev] - 24-01-2026
 
 ### ✨ Features & Enhancements
 - Add `.wtp.yml` configuration file.
@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes & Resolutions
 - Resolve issue where HTTPS URLs with credentials (e.g.,
 ### 📝 Other Changes
+- ** 1.3.1-dev
+- ** 24-01-2026
 - ** 1.3.0-dev
 - ** 24-01-2026
 - Release 1.2.5-dev
@@ -48,7 +50,7 @@ All notable changes to this project will be documented in this file.
 - [x] Integration tests pass
 - [ ] Manual testing completed
 - [x] Edge cases covered
-- //github\.com/([^/]+)/(.+?)(?:\.git)?$",  # HTTPS format
+- \.git)?$",  # HTTPS format
 - [x] Code comments and docstrings updated
 - [ ] README updated if needed
 - [ ] API documentation updated
@@ -59,6 +61,10 @@ All notable changes to this project will be documented in this file.
 - [x] Documentation updated
 - [x] No merge conflicts
 - [x] Branch is up-to-date with base branch
+- Explicitly set author and committer using GitPython's Actor
+- Prevent "GitHub" as committer by using user config values
+- Enhances commit consistency across different environments
+- Improves traceability of commit authorship
 
 ## License
 This project is licensed under the MIT License.
