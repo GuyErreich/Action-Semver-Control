@@ -7,9 +7,6 @@ inputs:
   private-key:
     description: 'The GitHub App Private Key'
     required: true
-  installation-id:
-    description: 'The GitHub App Installation ID'
-    required: false
 outputs:
   token:
     description: "The installation access token"
@@ -29,7 +26,6 @@ runs:
       with:
         app-id: ${{ inputs.app-id }}
         private-key: ${{ inputs.private-key }}
-        installation-id: ${{ inputs.installation-id }}
     - name: Get GitHub App User Info
       id: get-user-info
       shell: bash
