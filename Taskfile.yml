@@ -1,5 +1,6 @@
 version: '3'
 
+set: [errexit, pipefail]
 
 tasks:
   init:
