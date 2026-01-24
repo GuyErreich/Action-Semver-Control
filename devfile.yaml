@@ -1,0 +1,28 @@
+schemaVersion: 2.0.0
+metadata:
+  name: dev-environment
+  version: 1.0.0
+components:
+  - name: dev
+    container:
+      image: public.ecr.aws/aws-mde/universal-image:latest
+projects:
+  - name: autosemver
+    git:
+      remotes:
+        origin: 'https://github.com/GuyErreich/Action-Semver-Control'
+      checkoutFrom:
+        revision: dev
+commands:
+  - id: install
+    exec:
+      component: dev
+      commandLine: "pip install -r requirements.txt && pip install -r requirements-dev.txt"
+  - id: build
+    exec:
+      component: dev
+      commandLine: "pip install -e ."
+  - id: test
+    exec:
+      component: dev
+      commandLine: "pytest tests/"

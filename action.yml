@@ -1,0 +1,35 @@
+name: 'Auto Semver Bumper'
+description: 'Automatically bumps semver and opens a PR.'
+
+inputs:
+  action:
+    required: false
+    description: 'Action to perform: bump (default), promote'
+    default: 'bump'
+  to_branch:
+    required: false
+    description: 'Target branch (for promote)'
+  from_tag:
+    required: false
+    description: 'Source tag (for promote)'
+  dry_run:
+    required: false
+    description: 'Dry run mode'
+    default: 'false'
+  github-token:
+    required: true
+    description: 'GitHub Token (secrets.GITHUB_TOKEN or PAT)'
+  debug:
+    required: false
+    description: 'Enable debug mode'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.action == 'promote' && 'promote' || '' }}
+    - ${{ inputs.action == 'promote' && inputs.to_branch != '' && format('--to-branch={0}', inputs.to_branch) || '' }}
+    - ${{ inputs.action == 'promote' && inputs.from_tag != '' && format('--from-tag={0}', inputs.from_tag) || '' }}
+    - ${{ inputs.action == 'promote' && inputs.dry_run == 'true' && '--dry-run' || '' }}
+    - --github-token=${{ inputs.github-token }}
+    - ${{ inputs.debug == 'true' && '--debug' || '' }}
