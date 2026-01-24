@@ -223,8 +223,8 @@ class GitOps:
             # Explicitly set author and committer to ensure consistency (e.g., prevent "GitHub" as committer)
             reader = self.repo.config_reader()
             author = Actor(
-                name=str(reader.get_value("user", "name")), 
-                email=str(reader.get_value("user", "email"))
+                name=str(reader.get_value("user", "name")),
+                email=str(reader.get_value("user", "email")),
             )
             reader.release()
 
