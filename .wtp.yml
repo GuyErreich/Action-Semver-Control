@@ -1,0 +1,24 @@
+# Worktree Plus Configuration
+version: "1.0"
+
+# Default settings for worktrees
+defaults:
+  # Base directory for worktrees (relative to repository root)
+  base_dir: ~/Development/worktrees/Github Actions/action-semver-by-branch
+
+# Hooks that run after creating a worktree
+hooks:
+  post_create:
+    # Example: Copy gitignored files from MAIN worktree to new worktree
+    # Note: 'from' is relative to main worktree, 'to' is relative to new worktree
+    # - type: copy
+    #   from: .env        # Copy actual .env file (gitignored)
+    #   to: .env
+
+    # Example: Run a command to show all worktrees
+    - type: command
+      command: wtp list
+
+    - type: copy
+      from: ..github/copilot/    # Cursor IDE settings
+      to: .github/copilot/

@@ -1,6 +1,6 @@
 ---
 description: Create a commit for existing changes without modifying code or files.
-mode: agent
+agent: agent
 tools: ['codebase', 'runCommands', 'think', 'changes', 'todos', 'github', 'memory']
 ---
 
