@@ -80,6 +80,7 @@ def run(
             target_branch=to_branch,
             version=str(promoted_version),
             source_version=str(version),
+            is_source_tag=bool(from_tag),
         )
 
         logger.info(f"✅ Promotion completed successfully: {source_branch} → {to_branch}")
