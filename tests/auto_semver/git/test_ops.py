@@ -182,17 +182,36 @@ class TestGitOps:
         mock_repo = mocker.MagicMock()
         # Mock index.diff() to return some changes
         mock_repo.index.diff.return_value = ["some_change"]
+        
+        # Mock config reader
+        mock_config_reader = mocker.MagicMock()
+        mock_repo.config_reader.return_value = mock_config_reader
+        mock_config_reader.get_value.side_effect = ["Test User", "test@example.com"]
 
-        # Patch the Repo constructor
+        # Patch the Repo constructor and Actor
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        mock_actor = mocker.patch("auto_semver.git.ops.Actor")
 
         # Create GitOps instance and call commit
         gitops = GitOps()
         message = "Test commit message"
         gitops.commit(message=message)
 
-        # Check that index.commit was called with the message
-        mock_repo.index.commit.assert_called_once_with(message=message)
+        # Check config reader was used
+        assert mock_config_reader.get_value.call_count == 2
+        mock_config_reader.get_value.assert_any_call("user", "name")
+        mock_config_reader.get_value.assert_any_call("user", "email")
+        mock_config_reader.release.assert_called_once()
+        
+        # Check that Actor was initialized
+        mock_actor.assert_called_once_with(name="Test User", email="test@example.com")
+
+        # Check that index.commit was called with the message and author/committer
+        mock_repo.index.commit.assert_called_once_with(
+            message=message, 
+            author=mock_actor.return_value, 
+            committer=mock_actor.return_value
+        )
 
     @pytest.mark.unit
     def test_push(self, mocker: MockerFixture) -> None:
