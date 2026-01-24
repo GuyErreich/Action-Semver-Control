@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.3.2-dev] - 24-01-2026
+## [1.3.3-dev] - 24-01-2026
 
 ### ✨ Features & Enhancements
 - Add `.wtp.yml` configuration file.
@@ -17,9 +17,12 @@ All notable changes to this project will be documented in this file.
 - Update `auto-semver.yml` and `promote.yml` to use the new
 - Update project dependencies in `uv.lock`.
 - Update regex pattern in `src/auto_semver/git/ops.py` to handle
+- Update tag patterns to support semantic versioning formats
 ### 🐛 Bug Fixes & Resolutions
 - Resolve issue where HTTPS URLs with credentials (e.g.,
 ### 📝 Other Changes
+- ** 1.3.2-dev
+- ** 24-01-2026
 - ** 1.3.1-dev
 - ** 24-01-2026
 - ** 1.3.0-dev
@@ -65,6 +68,9 @@ All notable changes to this project will be documented in this file.
 - Prevent "GitHub" as committer by using user config values
 - Enhances commit consistency across different environments
 - Improves traceability of commit authorship
+- Remove specific branch restrictions for tag pushes
+- Allows for more flexible tagging and release management
+- Simplifies the workflow for versioned releases
 
 ## License
 This project is licensed under the MIT License.
