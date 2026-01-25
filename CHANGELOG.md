@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.3.3-dev] - 24-01-2026
+## [1.3.4-dev] - 25-01-2026
 
 ### ✨ Features & Enhancements
 - Add `.wtp.yml` configuration file.
@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes & Resolutions
 - Resolve issue where HTTPS URLs with credentials (e.g.,
 ### 📝 Other Changes
+- ** 1.3.3-dev
+- ** 24-01-2026
 - ** 1.3.2-dev
 - ** 24-01-2026
 - ** 1.3.1-dev
@@ -71,6 +73,8 @@ All notable changes to this project will be documented in this file.
 - Remove specific branch restrictions for tag pushes
 - Allows for more flexible tagging and release management
 - Simplifies the workflow for versioned releases
+- Replace installation ID with app ID in app authentication step
+- Ensures correct authentication for GitHub App usage
 
 ## License
 This project is licensed under the MIT License.
