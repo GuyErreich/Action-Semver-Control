@@ -2,9 +2,9 @@ name: Publish Release
 
 on:
   push:
-    tags: 
-      - '*.*.*'
-      - '*.*.*-*'
+    tags:
+      - '[0-9*].[0-9*].[0-9*]'
+      - '[0-9*].[0-9*].[0-9*]-rc'
   workflow_dispatch: #for testing
 
 
