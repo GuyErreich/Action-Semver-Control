@@ -1,15 +1,30 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.3.5-dev] - 25-01-2026
+## [1.3.6-dev] - 26-01-2026
 
 ### ✨ Features & Enhancements
 - Add `.wtp.yml` configuration file.
 - Add `.github/actions/app-authentication` composite action to
 - Add proper validation for various URL formats
 - Add comprehensive test suite
+- Implement `promote` functionality foundation in the CLI and git
+- Enhanced git operations to support tag promotion logic.
+- Better reliability and security by using GitHub App tokens with
+- Enhances commit consistency across different environments
+- Improves traceability of commit authorship
+- Improves accuracy in version detection for releases
+- Improves clarity in release process by distinguishing between release
+- Add new patterns for features and enhancements
+- Improves accuracy of changelog generation
+- Enhances clarity and organization of commit messages
 ### ♻️ Refactoring & Code Quality
 - Refactor the release publishing logic from the workflow file into a
+- Extracted release logic into a composite action to separate concerns
+- Centralized authentication logic in a reusable composite action.
+- Explicitly set author and committer using GitPython's Actor
+- Simplifies the workflow for versioned releases
+- Aligns with semantic versioning best practices
 ### 🔧 Infrastructure & Tooling
 - Update `.github/workflows/publish-release.yml` to utilize the new
 - Update `Taskfile.yml` to include new tasks.
@@ -18,24 +33,13 @@ All notable changes to this project will be documented in this file.
 - Update project dependencies in `uv.lock`.
 - Update regex pattern in `src/auto_semver/git/ops.py` to handle
 - Update tag patterns to support semantic versioning formats
+- Update documentation patterns for better matching
 ### 🐛 Bug Fixes & Resolutions
 - Resolve issue where HTTPS URLs with credentials (e.g.,
 ### 📝 Other Changes
-- ** 1.3.4-dev
+- ** 1.3.5-dev
 - ** 25-01-2026
-- ** 1.3.3-dev
-- ** 24-01-2026
-- ** 1.3.2-dev
-- ** 24-01-2026
-- ** 1.3.1-dev
-- ** 24-01-2026
-- ** 1.3.0-dev
-- ** 24-01-2026
-- Release 1.2.5-dev
-- Implement `promote` functionality foundation in the CLI and git
 - [x] Unit tests added/updated
-- Extracted release logic into a composite action to separate concerns
-- Enhanced git operations to support tag promotion logic.
 - Minor - new feature logic added.
 - `feature/support-tag-promotion`
 - [x] Code follows project style guidelines
@@ -45,9 +49,7 @@ All notable changes to this project will be documented in this file.
 - [x] No merge conflicts
 - [x] Branch is up-to-date with base branch
 - Migrate from `secrets.GH_TOKEN`/`GITHUB_TOKEN` to a dedicated GitHub
-- Better reliability and security by using GitHub App tokens with
 - Consistent git author identity for automated commits (using the App's
-- Centralized authentication logic in a reusable composite action.
 - [x] Infrastructure changes tested
 - [x] Compatibility verified
 - Describe only the changes that are already committed and
@@ -68,19 +70,20 @@ All notable changes to this project will be documented in this file.
 - [x] Documentation updated
 - [x] No merge conflicts
 - [x] Branch is up-to-date with base branch
-- Explicitly set author and committer using GitPython's Actor
 - Prevent "GitHub" as committer by using user config values
-- Enhances commit consistency across different environments
-- Improves traceability of commit authorship
 - Remove specific branch restrictions for tag pushes
 - Allows for more flexible tagging and release management
-- Simplifies the workflow for versioned releases
 - Replace installation ID with app ID in app authentication step
 - Ensures correct authentication for GitHub App usage
 - Modify tag patterns to use semantic versioning format
 - Ensure compatibility with release triggers for versioning
-- Improves accuracy in version detection for releases
-- Aligns with semantic versioning best practices
+- Modify tag detection logic to identify pre-release tags
+- Adjust conditions for setting release flags based on tag type
+- Ensures correct handling of release types for staging and production
+- Include additional patterns for code refactoring
+- Expand testing patterns to cover unit and integration tests
+- Introduce ignore patterns for release commits and version numbers
+- Ensure ignored commits do not appear in changelog
 
 ## License
 This project is licensed under the MIT License.
