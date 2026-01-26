@@ -21,7 +21,7 @@ runs:
         echo "Found tag: $TAG"
         echo "tag=$TAG" >> $GITHUB_OUTPUT
         
-        if [[ "${{ github.ref_name }}" == "staging" ]]; then
+        if [[ "$TAG" == *"-rc"* ]] || [[ "$TAG" == *"-dev"* ]]; then
           echo "is_prerelease=true" >> $GITHUB_OUTPUT
           echo "make_latest=false" >> $GITHUB_OUTPUT
         else
