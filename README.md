@@ -38,8 +38,6 @@ suffixes:
   staging: "-rc"
   main: ""
 
-branch_strategy: "single"  # "single" or "multi"
-
 files_to_update:
   - "version.txt"
   - "README.md"

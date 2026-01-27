@@ -131,7 +131,6 @@ Validation must be automated:
 - Use `GitOps` class for all Git operations - never call git commands directly
 - Always use `GitOps(ensure_safe=True)` in CI environments - marks repo as safe in Git config to avoid permission issues
 - Always use lockfiles (`.semver.lock`) to track release state and prevent version regressions
-- Support both `single` and `multi` branch strategies for different workflow types
 - Handle GitHub API operations through `GitOps._get_github_repo()` method
 - `SemverLock` class prevents race conditions by checking for existing release branches
 
@@ -142,8 +141,6 @@ Validation must be automated:
     dev: "-dev"      # Development releases
     staging: "-rc"   # Release candidates  
     master: ""       # Production releases
-  
-  branch_strategy: "single"  # Controls PR closure behavior
   ```
 - All configuration uses Pydantic v2+ with strict validation
 - Jinja2 templates in config must be validated at load time

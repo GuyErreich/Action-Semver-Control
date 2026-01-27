@@ -29,7 +29,6 @@ class ConfigData(BaseModel):
         suffixes (dict[str, str]): Mapping of target branches to version suffixes
             (e.g., {"main": "", "dev": "-dev"}).
         version_files (list[str]): List of files to update with the new version string.
-        branch_strategy (str): Strategy for PR generation ("single" or "multi").
         pull_request (PullRequestConfig): Configuration for the pull request title, body, and labels.
         changelog (_ChangelogConfig): Changelog file behavior and formatting templates.
 
@@ -44,9 +43,6 @@ class ConfigData(BaseModel):
     )
     version_files: list[str] = Field(
         default=["version.txt"], description="Optional files that hold version format to update."
-    )
-    branch_strategy: Literal["single", "multi"] = Field(
-        default="single", description="Strategy for branch management ('single' or 'multi')"
     )
     commit_groups: list[CommitGroupConfig] = Field(
         default_factory=list, description="Optional commit grouping configuration for templates"

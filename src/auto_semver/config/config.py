@@ -10,7 +10,6 @@ Typical usage::
     version_files = config.get_files_to_update()
     start_version = config.get_start_version()
     suffix = config.get_suffix("main")
-    branch_strategy = config.get_branch_strategy()
     label = config.get_pr_labels()
     changelog_file = config.get_changelog_file()
     should_truncate_changelog = config.should_truncate_changelog()
@@ -41,7 +40,6 @@ type ConfigValue = (
     | dict[str, str]
     | list[PromotionRule]
     | list[str]
-    | Literal["single", "multi"]
     | list[CommitGroupConfig]
     | PullRequestConfig
     | ChangelogConfig
