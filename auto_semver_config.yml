@@ -4,7 +4,6 @@ suffixes:
   dev: "-dev"
   staging: "-rc"
   master: ""  # Production releases
-  support/v1: "" # LTS V1 maintenance
 
 promotions:
   - from_branch: dev
