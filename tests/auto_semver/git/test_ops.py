@@ -182,7 +182,7 @@ class TestGitOps:
         mock_repo = mocker.MagicMock()
         # Mock index.diff() to return some changes
         mock_repo.index.diff.return_value = ["some_change"]
-        
+
         # Mock config reader
         mock_config_reader = mocker.MagicMock()
         mock_repo.config_reader.return_value = mock_config_reader
@@ -202,15 +202,13 @@ class TestGitOps:
         mock_config_reader.get_value.assert_any_call("user", "name")
         mock_config_reader.get_value.assert_any_call("user", "email")
         mock_config_reader.release.assert_called_once()
-        
+
         # Check that Actor was initialized
         mock_actor.assert_called_once_with(name="Test User", email="test@example.com")
 
         # Check that index.commit was called with the message and author/committer
         mock_repo.index.commit.assert_called_once_with(
-            message=message, 
-            author=mock_actor.return_value, 
-            committer=mock_actor.return_value
+            message=message, author=mock_actor.return_value, committer=mock_actor.return_value
         )
 
     @pytest.mark.unit

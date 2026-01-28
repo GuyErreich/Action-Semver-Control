@@ -52,7 +52,6 @@ class TestBump:
         mock.data.suffixes = {"main": "", "develop": "-dev"}
         mock.data.start_version = Version.parse("0.1.0")
         mock.data.version_files = ["version.txt"]
-        mock.data.branch_strategy = "single"
         # Add empty promotions list for tag promotion logic
         mock.data.promotions = []
         # Add empty commit_groups list for commit grouping
