@@ -1,7 +1,11 @@
 name: Publish Release
 
 on:
-  deployment
+  push:
+    tags:
+      - '*.*.*'
+      - '*.*.*-rc'
+      - '!*.*.*-dev'
 
 
 jobs:
