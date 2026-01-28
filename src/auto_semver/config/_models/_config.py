@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
 
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 

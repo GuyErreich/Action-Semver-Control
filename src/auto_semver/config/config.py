@@ -21,7 +21,7 @@ Typical usage::
 import logging
 import os
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 import yaml
 from pydantic import ValidationError

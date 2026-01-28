@@ -23,9 +23,7 @@ class TestConfig:
     @pytest.mark.unit
     def test_config_loading_basic(self, config_fixture: ConfigFixture) -> None:
         """Test basic config loading through Config class."""
-        config_fixture.create(
-            start_version="1.0.0", suffixes={"main": "", "dev": "-dev"}
-        )
+        config_fixture.create(start_version="1.0.0", suffixes={"main": "", "dev": "-dev"})
 
         config = Config(config_fixture.config_path)
 
