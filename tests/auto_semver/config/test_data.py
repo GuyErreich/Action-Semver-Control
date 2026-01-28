@@ -195,7 +195,6 @@ class TestConfigData:
             start_version="0.1.0",
             suffixes={"dev": "-dev", "staging": "-rc", "main": ""},
             version_files=["version.txt", "pyproject.toml"],
-            branch_strategy="single",
             promotions=[
                 {"from_branch": "dev", "to_branch": "staging"},
                 {"from_branch": "staging", "to_branch": "main"},
@@ -220,7 +219,6 @@ class TestConfigData:
         assert data.start_version.patch == 0
         assert data.suffixes == {"dev": "-dev", "staging": "-rc", "main": ""}
         assert data.version_files == ["version.txt", "pyproject.toml"]
-        assert data.branch_strategy == "single"
         assert len(data.promotions) == 2
 
     @pytest.mark.unit
@@ -230,7 +228,6 @@ class TestConfigData:
             start_version="0.1.0",
             suffixes={"dev": "-dev", "staging": "-rc", "main": ""},
             version_files=["version.txt"],
-            branch_strategy="multi",
             promotions=[
                 {"from_branch": "dev", "to_branch": "staging"},
                 {"from_branch": "staging", "to_branch": "main"},
@@ -247,22 +244,6 @@ class TestConfigData:
         assert data.promotions[1].to_branch == "main"
 
     @pytest.mark.unit
-    def test_invalid_branch_strategy(self, config_fixture: ConfigFixture) -> None:
-        """Test validation catches invalid branch strategy."""
-        with pytest.raises(ValidationError, match="Input should be 'single' or 'multi'"):
-            config_fixture.create(
-                start_version="0.1.0",
-                suffixes={"dev": "-dev", "staging": "-rc", "main": ""},
-                version_files=["version.txt"],
-                branch_strategy="invalid",  # Invalid strategy
-                promotions=[
-                    {"from_branch": "dev", "to_branch": "staging"},
-                    {"from_branch": "staging", "to_branch": "main"},
-                ],
-            )
-            Config(path=config_fixture.config_path)  # Should fail during validation
-
-    @pytest.mark.unit
     def test_missing_suffix_for_branch(self, config_fixture: ConfigFixture) -> None:
         """Test validation catches branch without defined suffix."""
         with pytest.raises(ValueError, match="missing suffix definitions"):
@@ -270,7 +251,6 @@ class TestConfigData:
                 start_version="0.1.0",
                 suffixes={"dev": "-dev", "staging": "-rc"},  # Missing "main"
                 version_files=["version.txt"],
-                branch_strategy="multi",
                 promotions=[
                     {"from_branch": "dev", "to_branch": "staging"},
                     {"from_branch": "staging", "to_branch": "main"},  # "main" not in suffixes
@@ -286,7 +266,6 @@ class TestConfigData:
                 start_version="0.1.0",
                 suffixes={"dev": "-dev", "staging": "-rc"},
                 version_files=["version.txt"],
-                branch_strategy="multi",
                 promotions=[
                     {"from_branch": "dev", "to_branch": "staging"},
                     {"from_branch": "staging", "to_branch": "dev"},  # Creates a loop!

@@ -162,7 +162,6 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
         VersionFileUpdater(file_path=path, version=version).update()
 
     release_branch_name = f"release/{new_version}"
-    branch_strategy = config.data.branch_strategy
 
     # Update the lockfile with the new version
     try:
@@ -184,22 +183,21 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     lockfile.target_base_sha = event.get_merged_commit_sha()
     lockfile.save_to_file()
 
-    gitops.create_branch(branch_name=release_branch_name, force=(branch_strategy == "single"))
+    gitops.create_branch(branch_name=release_branch_name, force=True)
     gitops.add(files_to_update)
     gitops.add([lockfile.path])
     gitops.add([changelog.path])
     gitops.commit(f"Release {new_version}")
-    gitops.push(branch_name=release_branch_name, force=(branch_strategy == "single"))
+    gitops.push(branch_name=release_branch_name, force=True)
 
     # Get commits for changelog
 
-    if branch_strategy == "single":
-        logger.info("Closing old release PRs (branch_strategy=single)...")
-        gitops.close_old_release_prs(
-            github_token=github_token,
-            target_branch=target_branch,
-            labels=config.data.pull_request.labels,
-        )
+    logger.info("Closing old release PRs...")
+    gitops.close_old_release_prs(
+        github_token=github_token,
+        target_branch=target_branch,
+        labels=config.data.pull_request.labels,
+    )
 
     release_date = datetime.date.today().strftime("%d-%m-%Y")
 

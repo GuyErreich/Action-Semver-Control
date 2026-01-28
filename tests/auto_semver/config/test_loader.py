@@ -23,9 +23,7 @@ class TestConfig:
     @pytest.mark.unit
     def test_config_loading_basic(self, config_fixture: ConfigFixture) -> None:
         """Test basic config loading through Config class."""
-        config_fixture.create(
-            start_version="1.0.0", branch_strategy="single", suffixes={"main": "", "dev": "-dev"}
-        )
+        config_fixture.create(start_version="1.0.0", suffixes={"main": "", "dev": "-dev"})
 
         config = Config(config_fixture.config_path)
 
@@ -33,7 +31,6 @@ class TestConfig:
         assert config.data.start_version.major == 1
         assert config.data.start_version.minor == 0
         assert config.data.start_version.patch == 0
-        assert config.data.branch_strategy == "single"
         assert config.data.suffixes == {"main": "", "dev": "-dev"}
 
     @pytest.mark.unit
@@ -43,7 +40,6 @@ class TestConfig:
         config_file = tmp_path / "custom_config.yml"
         config_file.write_text("""
 start_version: "2.0.0"
-branch_strategy: "multi"
 suffixes:
   main: ""
   dev: "-dev"
@@ -65,7 +61,6 @@ changelog:
 
         # Verify the config was loaded correctly from the custom path
         assert config.data.start_version.major == 2
-        assert config.data.branch_strategy == "multi"
 
     @pytest.mark.unit
     def test_config_missing_file_error(self) -> None:
@@ -91,7 +86,6 @@ changelog:
         incomplete_yaml_file.write_text("""
         # Missing required fields like suffixes and promotions
         start_version: "0.1.0"
-        branch_strategy: "single"
         """)
 
         with pytest.raises(ValueError, match="validation error"):
