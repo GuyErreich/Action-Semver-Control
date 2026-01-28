@@ -26,7 +26,7 @@ from pathlib import Path
 
 import yaml
 from git import Actor, Commit, GitCommandError, Head, Repo
-from git.remote import Remote
+from git.remote import PushInfo, Remote
 from github import Github
 from github.GithubException import GithubException
 from github.PullRequest import PullRequest
@@ -251,9 +251,23 @@ class GitOps:
 
         try:
             remote: Remote = self.repo.remote(name=remote_name)
-            push_info = remote.push(refspec=branch_name, force=force)
+            push_infos = remote.push(refspec=branch_name, force=force)
 
-            logger.debug(f"Push result: {push_info}")
+            for info in push_infos:
+                if info.flags & (
+                    PushInfo.ERROR
+                    | PushInfo.REJECTED
+                    | PushInfo.REMOTE_REJECTED
+                    | PushInfo.REMOTE_FAILURE
+                ):
+                    error_msg = f"Push failed for {branch_name}: {info.summary}"
+                    if info.flags & PushInfo.REJECTED:
+                        error_msg += ". Check if remote has diverged or if 'force' is required."
+
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg)
+
+            logger.debug(f"Push result: {push_infos}")
 
         except GitCommandError as err:
             logger.error(f"Failed to push branch '{branch_name}' to remote '{remote_name}': {err}")

@@ -26,7 +26,6 @@ runs:
       with:
         app-id: ${{ inputs.app-id }}
         private-key: ${{ inputs.private-key }}
-
     - name: Get GitHub App User Info
       id: get-user-info
       shell: bash

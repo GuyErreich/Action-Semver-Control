@@ -13,8 +13,6 @@ promotions:
     to_branch: master
     auto_promote: false # Manual promotion only for production
 
-branch_strategy: "single"  # "single" or "multi"
-
 version_files:
   - "version.txt"
   - "pyproject.toml"
@@ -39,6 +37,11 @@ commit_groups:
       - "^Enhance "  # Matches "Enhance changelog template"
       - "^add(\\([^)]*\\))?:"
       - "^enhance(\\([^)]*\\))?:"
+      - "^Implement "
+      - "^Enhanced "
+      - "^Enhances "
+      - "^Improves "
+      - "^Better "
     priority: 2
     
   # Code refactoring and quality improvements
@@ -51,6 +54,11 @@ commit_groups:
       - "^format(\\([^)]*\\))?:"
       - "^lint(\\([^)]*\\))?:"
       - "^Clean "    # Matches "Clean test output"
+      - "^Extracted "
+      - "^Centralized "
+      - "^Simplifies "
+      - "^Aligns "
+      - "^Explicitly "
     priority: 3
     
   # Infrastructure, tooling, and maintenance
@@ -85,6 +93,8 @@ commit_groups:
       - "^test(\\([^)]*\\))?:"
       - "^tests?(\\([^)]*\\))?:"
       - "^testing(\\([^)]*\\))?:"
+      - "^Unit test[s]?"
+      - "^Integration test[s]?"
     priority: 6
     
   # Documentation updates
@@ -93,6 +103,10 @@ commit_groups:
       - "^docs?(\\([^)]*\\))?:"
       - "^documentation(\\([^)]*\\))?:"
       - "^readme(\\([^)]*\\))?:"
+      - "^Documentation "
+      - "^README "
+      - "^API "
+      - "^Code comments "
     priority: 7
     
   # Performance improvements
@@ -102,6 +116,14 @@ commit_groups:
       - "^performance(\\([^)]*\\))?:"
       - "^optimize(\\([^)]*\\))?:"
     priority: 8
+
+  # Internal Use - Ignored in Changelog
+  - title: "Ignore"
+    patterns:
+      - "^Release [0-9]+\\.[0-9]+\\.[0-9]+.*"       # Release commits
+      - "^\\*\\* [0-9].*"                           # Artifacts like "** 25-01-2026" or "** 1.3.5-dev"
+      - "^[0-9]+\\.[0-9]+\\.[0-9]+.*"               # Version numbers only
+    priority: 90
     
   # Catch-all for unmatched commits
   - title: "📝 Other Changes"
@@ -119,7 +141,7 @@ pull_request:
     **Date:** {{date}}
     
     {% for group in commit_groups -%}
-    {% if group.commits -%}
+    {% if group.title != "Ignore" and group.commits -%}
     ### {{ group.title }}
     {% for commit in group.commits -%}
     - {{ commit.title }}
@@ -135,7 +157,7 @@ changelog:
     ## [{{version}}] - {{date}}
     
     {% for group in grouped_messages -%}
-    {% if group.commits -%}
+    {% if group.title != "Ignore" and group.commits -%}
     ### {{ group.title }}
     {% for commit in group.commits -%}
     - {{ commit.title }}

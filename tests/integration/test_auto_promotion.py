@@ -277,7 +277,6 @@ promotions:
     to_branch: master
     auto_promote: false  # Should NOT auto-create PR
 
-branch_strategy: "single"
 version_files: ["version.txt"]
 
 commit_groups:
@@ -398,7 +397,6 @@ promotions:
     to_branch: staging
     auto_promote: true
 
-branch_strategy: "single"
 version_files: ["version.txt"]
 
 commit_groups:

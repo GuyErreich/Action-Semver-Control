@@ -201,7 +201,6 @@ class TestPromotionWorkflow:
                 PromotionRule(from_branch="staging", to_branch="master"),
             ],
             version_files=["version.txt"],
-            branch_strategy="single",
             commit_groups=[],  # Empty list for minimal setup
             pull_request=PullRequestConfig(
                 title="Release {{version}}", body="Promotion notes", labels=["semver-bump"]

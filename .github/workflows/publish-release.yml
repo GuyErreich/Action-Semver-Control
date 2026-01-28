@@ -1,15 +1,12 @@
 name: Publish Release
 
 on:
-  push:
-    tags: 
-      - '*.*.*'
-      - '*.*.*-*'
-  workflow_dispatch: #for testing
+  deployment
 
 
 jobs:
   production-release:
+    if: "!contains(github.ref, '-rc')"
     name: Create Release
     runs-on: ubuntu-latest
     permissions:
@@ -22,6 +19,7 @@ jobs:
         uses: ./.github/actions/gh-release
 
   staging-release:
+    if: "contains(github.ref, '-rc')"
     name: Create Release
     runs-on: ubuntu-latest
     permissions:
