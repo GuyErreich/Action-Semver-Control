@@ -1,12 +1,7 @@
 name: Publish Release
 
 on:
-  push:
-    tags:
-      - '*.*.*'
-      - '*.*.*-rc'
-      - '!*.*.*-dev'
-  workflow_dispatch: #for testing
+  deployment
 
 
 jobs:
