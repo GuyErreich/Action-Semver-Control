@@ -5,6 +5,8 @@ Defines SemverLock, a utility class for reading and writing .semver.lock metadat
 These lockfiles live on release branches and track bump state to avoid version regressions.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -47,8 +49,17 @@ class SemverLock:
     path: str = FILE_NAME
 
     @classmethod
-    def load_from_file(cls) -> "SemverLock":
-        """Load and parse a .semver.lock file from disk."""
+    def load_from_file(cls) -> SemverLock:
+        """
+        Load and parse the lockfile from disk.
+
+        Returns:
+            SemverLock: An instance populated from the lockfile.
+
+        Raises:
+            FileNotFoundError: If the lockfile does not exist.
+            yaml.YAMLError: If the lockfile content is invalid.
+        """
         logger.info(f"Loading lockfile from: {FILE_NAME}")
 
         try:
@@ -56,14 +67,44 @@ class SemverLock:
                 raw = yaml.safe_load(f)
             return cls.from_dict(raw)
         except FileNotFoundError:
-            logger.error(f"Lockfile not found at: {FILE_NAME}")
+            logger.debug(f"Lockfile not found at: {FILE_NAME}")
             raise
         except Exception as err:
             logger.error(f"Failed to load lockfile at {FILE_NAME}: {err}")
             raise
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SemverLock":
+    def get_or_create(
+        cls,
+        version: Version,
+        source_branch: str,
+        target_branch: str,
+    ) -> SemverLock:
+        """
+        Retrieve existing lockfile or create a new instance if missing.
+
+        This method acts as a safe factory that handles FileNotFoundError internally.
+
+        Args:
+            version: The version to initialize with if creating new.
+            source_branch: Source branch name.
+            target_branch: Target branch name.
+
+        Returns:
+            SemverLock: The loaded or newly created lock object.
+        """
+        try:
+            return cls.load_from_file()
+        except FileNotFoundError:
+            logger.info("No lockfile found. Creating a new one.")
+            return cls(
+                version=version,
+                source_branch=source_branch,
+                target_branch=target_branch,
+            )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SemverLock:
         """Build a SemverLock instance from a parsed dict."""
         return cls(
             version=Version.parse(data["version"]),

@@ -769,6 +769,25 @@ class GitOps:
             logger.error(f"Failed to get lock version from branch {branch_name}: {err}")
             return None
 
+    def get_file_content_at_commit(self, commit_sha: str, file_path: str) -> str | None:
+        """
+        Retrieve file content from a specific commit SHA.
+
+        Args:
+            commit_sha (str): The git commit SHA to read from.
+            file_path (str): Relative path to the file in the repository.
+
+        Returns:
+            str | None: The file content as a string, or None if the file/commit is missing
+                        or cannot be read.
+        """
+        try:
+            logger.debug(f"Reading {file_path} at {commit_sha}")
+            return str(self.repo.git.show(f"{commit_sha}:{file_path}"))
+        except GitCommandError as e:
+            logger.warning(f"Failed to read {file_path} at {commit_sha}: {e}")
+            return None
+
     def get_lock_version_from_tag(self, tag_name: str) -> Version | None:
         """
         Get the version from the lockfile at a specific tag.

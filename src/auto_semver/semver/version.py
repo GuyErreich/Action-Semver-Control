@@ -12,6 +12,8 @@ Typical usage example::
     print(str(version))  # "1.2.4-dev"
 """
 
+from __future__ import annotations
+
 import logging
 import re
 
@@ -133,7 +135,7 @@ class Version:
         self.trailer = trailer
 
     @staticmethod
-    def parse(version_line: str) -> "Version":
+    def parse(version_line: str) -> Version:
         """
         Parse a version line and returns a Version object.
 
@@ -312,7 +314,7 @@ class Version:
             f"{title}{quote}{prefix}{self.major}.{self.minor}.{self.patch}{suffix}{quote}{trailer}"
         )
 
-    def merge_from(self, other: "Version") -> None:
+    def merge_from(self, other: Version) -> None:
         """
         Merge version components (major, minor, patch, suffix) from another Version instance.
 
