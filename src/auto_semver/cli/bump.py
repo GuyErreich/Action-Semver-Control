@@ -3,6 +3,8 @@
 import datetime
 import logging
 
+import yaml
+
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
 from auto_semver.config._models._commit_group import CommitGroupConfig
@@ -164,12 +166,30 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     release_branch_name = f"release/{new_version}"
 
     # Update the lockfile with the new version
+    lockfile = SemverLock.get_or_create(
+        version=version,
+        source_branch=current_branch,
+        target_branch=target_branch,
+    )
+    lockfile.version = version
+
+    # Check if the lockfile has changed since the previous commit (HEAD~1)
+    # If it has changed, it implies a Release PR was merged previously, updating the baseline.
+    # This signals a fresh start for the changelog.
     try:
-        lockfile = SemverLock.load_from_file()
-        lockfile.version = version
-    except FileNotFoundError:
-        lockfile = SemverLock(
-            version=version, source_branch=current_branch, target_branch=target_branch
+        previous_lock_content = gitops.get_file_content_at_commit("HEAD~1", SemverLock.path)
+        if previous_lock_content:
+            previous_lock = SemverLock.from_dict(yaml.safe_load(previous_lock_content))
+            if previous_lock.target_base_sha != lockfile.target_base_sha:
+                logger.info(
+                    "Baseline SHA changed in previous commit. "
+                    "Detected potential Release PR match. Starting fresh changelog."
+                )
+                changelog.truncate = True
+    except Exception as e:
+        logger.warning(
+            f"Failed to compare lockfile with previous commit (HEAD~1). "
+            f"Skipping baseline check. Details: {e}"
         )
 
     # TODO: maybe find away to catch correct base sha of the PR rather then using current one
