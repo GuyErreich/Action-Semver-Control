@@ -1,5 +1,5 @@
 ---
-tools: ['runCommands', 'runTasks', 'editFiles', 'runNotebooks', 'search', 'new', 'extensions', 'usages', 'vscodeAPI', 'think', 'problems', 'changes', 'testFailure', 'openSimpleBrowser', 'fetch', 'githubRepo', 'todos', 'runTests', 'pylance mcp server', 'sequentialthinking', 'memory', 'getPythonEnvironmentInfo', 'getPythonExecutableCommand', 'installPythonPackage', 'configurePythonEnvironment']
+tools: ['vscode', 'execute', 'read', 'edit/createJupyterNotebook', 'edit/editFiles', 'search', 'web', 'agent', 'memory/*', 'sequentialthinking/*', 'pylance-mcp-server/*', 'ms-python.python/getPythonEnvironmentInfo', 'ms-python.python/getPythonExecutableCommand', 'ms-python.python/installPythonPackage', 'ms-python.python/configurePythonEnvironment', 'ms-toolsai.jupyter/configureNotebook', 'ms-toolsai.jupyter/listNotebookPackages', 'ms-toolsai.jupyter/installNotebookPackages', 'todo']
 ---
 
 Validate that the entire project CI pipeline works correctly.

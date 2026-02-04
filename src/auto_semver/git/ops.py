@@ -715,11 +715,10 @@ class GitOps:
                     logger.debug(f"Filtered out {filtered_count} release-related commits")
                 else:
                     logger.debug("No release-related commits found to filter out.")
-            else:
-                if not filter_release_commits:
-                    logger.debug("Filtering of release commits is disabled.")
-                if not config:
-                    logger.debug("No config provided, skipping release commit filtering.")
+            elif not filter_release_commits:
+                logger.debug("Filtering of release commits is disabled.")
+            elif not config:
+                logger.warning("No config provided, skipping release commit filtering.")
 
             for message in messages:
                 logger.debug(f"Commit message: {message}")
@@ -823,17 +822,25 @@ class GitOps:
 
         # Get the release commit prefix from config
         release_prefix = config.data.pull_request.get_release_commit_prefix()
-        if not release_prefix:
-            logger.debug("No release prefix found in config title template")
-            return messages
 
-        logger.debug(f"Using config-based release prefix: '{release_prefix}'")
+        # Robust fallback: strict "Release " check if config extraction fails
+        if not release_prefix:
+            logger.warning(
+                "No release prefix found in config title template. Falling back to default 'Release '."
+            )
+            # Default fallback for most common case
+            release_prefix = "Release "
+        else:
+            logger.debug(f"Using config-based release prefix: '{release_prefix}'")
 
         filtered_messages = []
 
         for message in messages:
-            if message.startswith(release_prefix):
-                logger.debug(f"Filtering out release commit: {message}")
+            # Normalize message for checking - only check the first line (title)
+            first_line = message.splitlines()[0].strip() if message else ""
+
+            if release_prefix and first_line.startswith(release_prefix):
+                logger.debug(f"Filtering out release commit: {first_line}")
             else:
                 filtered_messages.append(message)
 
