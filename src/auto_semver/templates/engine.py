@@ -437,12 +437,17 @@ class TemplateEngine:
 
             # Check if the first node is a simple text node
             if ast.body and len(ast.body) > 0:
-                first_node = ast.body[0]
+                node = ast.body[0]
 
-                # If the first node is a TemplateData (static text), return it
-                if hasattr(first_node, "data"):
-                    static_text = first_node.data.strip()
-                    return static_text if static_text else None
+                # Handle Output node which wraps content (Jinja2 AST structure)
+                if isinstance(node, nodes.Output):
+                    if node.nodes:
+                        node = node.nodes[0]
+
+                # If the node is TemplateData (static text), return it
+                if hasattr(node, "data"):
+                    static_text = node.data
+                    return static_text if static_text and static_text.strip() else None
 
             # If no static prefix found or template starts with a variable
             return None

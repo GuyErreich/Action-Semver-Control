@@ -1,7 +1,7 @@
 ---
 description: Create a commit for existing changes without modifying code or files.
 agent: agent
-tools: ['codebase', 'runCommands', 'think', 'changes', 'todos', 'github', 'memory']
+tools: ['execute/getTerminalOutput', 'execute/runInTerminal', 'read', 'search', 'web', 'gitkraken/*', 'agent', 'github/*', 'memory/*', 'sequentialthinking/*', 'todo']
 ---
 
 # Create Proper Commit Message
