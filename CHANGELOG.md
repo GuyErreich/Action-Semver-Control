@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.3.8-dev] - 28-01-2026
+## [1.3.9-dev] - 04-02-2026
 
 ### ✨ Features & Enhancements
 - Add `.wtp.yml` configuration file.
@@ -19,7 +19,8 @@ All notable changes to this project will be documented in this file.
 - Improves accuracy of changelog generation
 - Enhances clarity and organization of commit messages
 - Add unit tests for push failure scenarios
-- false' to promote workflowto make we use the
+- Add logic to reset changelog when a Release PR is detected
+- Enhance SemverLock class with get_or_create method for lockfile
 ### ♻️ Refactoring & Code Quality
 - Refactor the release publishing logic from the workflow file into a
 - Extracted release logic into a composite action to separate concerns
@@ -40,11 +41,14 @@ All notable changes to this project will be documented in this file.
 - Update documentation patterns for better matching
 - Update tests to reflect removal of branch strategy
 - Update push method to handle multiple PushInfo results
+- Update publish-release workflow trigger to use push events (#190)
+- Update method docstrings for clarity and completeness
 ### 🐛 Bug Fixes & Resolutions
 - Resolve issue where HTTPS URLs with credentials (e.g.,
 ### 📝 Other Changes
-- ** 1.3.7-dev
+- ** 1.3.8-dev
 - ** 28-01-2026
+- false' to promote workflowto make we use the
 - [x] Unit tests added/updated
 - Minor - new feature logic added.
 - `feature/support-tag-promotion`
@@ -96,6 +100,10 @@ All notable changes to this project will be documented in this file.
 - Raise RuntimeError with specific messages for rejected and error flags
 - Mock Git repository and PushInfo for reliable testing
 - Change publish-release trigger from tag push to deployment for
+- Introduce method to retrieve file content at a specific commit
+- Improve error handling and logging for file operations
+- Ensures accurate changelog generation on release branches
+- Facilitates better version management and tracking
 
 ## License
 This project is licensed under the MIT License.
