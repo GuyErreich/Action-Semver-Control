@@ -1,7 +1,7 @@
 ---
 description: Create a GitHub Pull Request for existing changes without modifying code or files.
 agent: agent
-tools: ['edit/createFile', 'search/codebase', 'runCommands', 'github/*', 'memory/*', 'changes', 'fetch', 'githubRepo', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'todos']
+tools: ['execute/getTerminalOutput', 'execute/runInTerminal', 'read', 'edit/createFile', 'edit/editFiles', 'search', 'web', 'gitkraken/*', 'agent', 'github/*', 'memory/*', 'sequentialthinking/*', 'github.vscode-pull-request-github/copilotCodingAgent', 'github.vscode-pull-request-github/issue_fetch', 'github.vscode-pull-request-github/suggest-fix', 'github.vscode-pull-request-github/searchSyntax', 'github.vscode-pull-request-github/doSearch', 'github.vscode-pull-request-github/renderIssues', 'github.vscode-pull-request-github/activePullRequest', 'github.vscode-pull-request-github/openPullRequest', 'todo']
 ---
 
 # Create GitHub Pull Request

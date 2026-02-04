@@ -1,7 +1,8 @@
 """Tests for release commit filtering logic in GitOps."""
 
-from unittest.mock import MagicMock
 from typing import cast
+from unittest.mock import MagicMock
+
 import pytest
 from pytest_mock import MockerFixture
 
