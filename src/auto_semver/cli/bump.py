@@ -7,9 +7,9 @@ import yaml
 
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
-from auto_semver.config._models._commit_group import CommitGroupConfig
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
+from auto_semver.git.grouper import CommitGrouper
 from auto_semver.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 from auto_semver.semver import Version
 from auto_semver.semver.lock import SemverLock
@@ -224,7 +224,7 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     # Process commit groups if configured
     commit_groups_data = None
     if config.data.commit_groups:
-        commit_groups_data = CommitGroupConfig.group_messages(
+        commit_groups_data = CommitGrouper.group_messages(
             commit_messages, config.data.commit_groups
         )
 

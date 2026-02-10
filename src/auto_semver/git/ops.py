@@ -20,20 +20,27 @@ Typical usage example::
     )
 """
 
+from __future__ import annotations
+
 import logging
 import re
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 from github import Github
 from github.GithubException import GithubException
-from github.PullRequest import PullRequest
-from github.Repository import Repository
 
-from auto_semver.config import Config
 from auto_semver.semver import SemverLock, Version
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from github.PullRequest import PullRequest
+    from github.Repository import Repository
+
+    from auto_semver.config import Config
 
 logger = logging.getLogger(__package__)
 

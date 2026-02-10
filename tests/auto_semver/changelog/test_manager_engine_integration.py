@@ -7,6 +7,7 @@ import pytest
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config._models._changelog import ChangelogConfig, ChangelogTemplateVars
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.git.grouper import CommitGrouper
 from auto_semver.templates.engine import reset_template_engine
 
 
@@ -34,7 +35,7 @@ def test_manager_uses_engine_functions(tmp_path: Path) -> None:
 
     msgs = ["feat: add feature", "fix: bug"]
     groups = [CommitGroupConfig(title="Features", patterns=["^feat:"], priority=1)]
-    grouped = CommitGroupConfig.group_messages(msgs, groups)
+    grouped = CommitGrouper.group_messages(msgs, groups)
     vars_obj = ChangelogTemplateVars(
         version="1.2.3",
         date="2025-10-04",

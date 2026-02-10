@@ -1,6 +1,8 @@
 """Test commit bullet point extraction for grouping."""
 
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.git.grouper import CommitGrouper
+from auto_semver.git.parser import CommitParser
 
 
 def test_extract_individual_items_with_bullets() -> None:
@@ -17,7 +19,14 @@ Template System Improvements:
 - Add comprehensive template function registry
 - Implement custom Jinja2 filters for PR/changelog generation"""
 
-    items = CommitGroupConfig._extract_individual_items([commit_with_bullets])
+    parser = CommitParser()
+    parsed = parser.parse(commit_with_bullets)
+
+    # New structure: flattened list for verification
+    items = []
+    items.extend(parsed.bullet_points)
+    for section_items in parsed.sectioned_changes.values():
+        items.extend(section_items)
 
     # Should extract 6 bullet points
     assert len(items) == 6
@@ -33,34 +42,53 @@ def test_extract_individual_items_without_bullets() -> None:
     """Test that commits without bullets are kept as-is."""
     simple_commit = "feat: add user authentication system"
 
-    items = CommitGroupConfig._extract_individual_items([simple_commit])
+    parser = CommitParser()
+    parsed = parser.parse(simple_commit)
 
-    assert len(items) == 1
-    assert items[0] == simple_commit
+    # Simple commit has no items, just header/body
+    assert not parsed.bullet_points
+    assert not parsed.sectioned_changes
+    assert parsed.header == simple_commit
 
 
 def test_extract_individual_items_mixed() -> None:
     """Test extraction with mix of simple and multi-line commits."""
-    messages = [
-        "fix: resolve login bug",
-        """Refactor configuration system
+    # This was testing an implementation detail of flattening a list of messages.
+    # The new parser processes one message at a time.
+    # We will test that we can parse each message correctly.
+
+    msg1 = "fix: resolve login bug"
+    msg2 = """Refactor configuration system
 
 Core Changes:
 - Split monolithic config/data.py into focused modules
 - Create centralized Jinja2 template engine
-- Add typed template variable dataclasses""",
-        "docs: update README",
-    ]
+- Add typed template variable dataclasses"""
+    msg3 = "docs: update README"
 
-    items = CommitGroupConfig._extract_individual_items(messages)
+    parser = CommitParser()
 
-    # Should have: 1 simple + 3 bullets + 1 simple = 5 items
-    assert len(items) == 5
-    assert "fix: resolve login bug" in items
-    assert "Split monolithic config/data.py into focused modules" in items
-    assert "Create centralized Jinja2 template engine" in items
-    assert "Add typed template variable dataclasses" in items
-    assert "docs: update README" in items
+    # Msg 1
+    p1 = parser.parse(msg1)
+    assert not p1.bullet_points
+    assert not p1.sectioned_changes
+    assert p1.header == msg1
+
+    # Msg 2
+    p2 = parser.parse(msg2)
+    # Check sections
+    assert "Core Changes" in p2.sectioned_changes
+    descriptions = p2.sectioned_changes["Core Changes"]
+    assert len(descriptions) == 3
+    assert "Split monolithic config/data.py into focused modules" in descriptions
+    assert "Create centralized Jinja2 template engine" in descriptions
+    assert "Add typed template variable dataclasses" in descriptions
+
+    # Msg 3
+    p3 = parser.parse(msg3)
+    assert not p3.bullet_points
+    assert not p3.sectioned_changes
+    assert p3.header == msg3
 
 
 def test_group_messages_with_bullet_extraction() -> None:
@@ -82,7 +110,7 @@ Features:
         CommitGroupConfig(title="🧪 Testing", patterns=["^Create ", "fixtures"], priority=2),
     ]
 
-    grouped = CommitGroupConfig.group_messages(messages, commit_groups)
+    grouped = CommitGrouper.group_messages(messages, commit_groups)
 
     # Should have 2 groups
     assert len(grouped) == 2
@@ -116,7 +144,7 @@ def test_group_messages_simple_commits_without_body() -> None:
         CommitGroupConfig(title="📚 Documentation", patterns=["^docs:"], priority=3),
     ]
 
-    grouped = CommitGroupConfig.group_messages(messages, commit_groups)
+    grouped = CommitGrouper.group_messages(messages, commit_groups)
 
     # Should have 3 groups
     assert len(grouped) == 3
@@ -168,7 +196,7 @@ Testing:
         CommitGroupConfig(title="📝 Other", patterns=["^Add typed"], priority=5),
     ]
 
-    grouped = CommitGroupConfig.group_messages(messages, commit_groups)
+    grouped = CommitGrouper.group_messages(messages, commit_groups)
 
     # Check that simple commits are preserved
     fixes = next(g for g in grouped if g.title == "🐛 Bug Fixes")

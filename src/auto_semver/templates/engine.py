@@ -37,15 +37,17 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from jinja2 import DictLoader, Environment, Template, TemplateSyntaxError, nodes
 
-from .types import (
-    FunctionDict,
-    TemplateFunction,
-    TemplateValue,
-    TemplateVariables,
-)
+if TYPE_CHECKING:
+    from .types import (
+        FunctionDict,
+        TemplateFunction,
+        TemplateValue,
+        TemplateVariables,
+    )
 
 # Use a module-level logger for template engine warnings
 logger = logging.getLogger(__name__)

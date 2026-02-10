@@ -7,16 +7,19 @@ Provider-specific builders should inherit from this class and implement the buil
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from auto_semver.config._models._commit_group import CommitGroup, CommitGroups
 from auto_semver.templates.engine import get_template_engine
-from auto_semver.templates.types import TemplateFunction
 from auto_semver.templates.utils import (
     capitalize_first_letter,
     extract_prefix_before_delimiter,
     format_date_iso_to_custom,
     truncate_text,
 )
+
+if TYPE_CHECKING:
+    from auto_semver.templates.types import TemplateFunction
 
 
 # Base template variables for PR builders
