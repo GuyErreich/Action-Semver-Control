@@ -17,6 +17,7 @@ from pathlib import Path
 
 from auto_semver.config import Config
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.git.grouper import CommitGrouper
 from auto_semver.templates.engine import get_template_engine
 from auto_semver.templates.utils import format_date_iso_to_custom
 
@@ -165,7 +166,7 @@ class ChangelogManager:
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
         grouped_data = (
-            CommitGroupConfig.group_messages(messages, commit_groups) if commit_groups else None
+            CommitGrouper.group_messages(messages, commit_groups) if commit_groups else None
         )
 
         # Manager handles all template rendering

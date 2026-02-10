@@ -7,7 +7,7 @@ which handles version bumping, changelog updating, and PR creation.
 
 import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pytest
 
@@ -17,10 +17,6 @@ from pytest_mock import MockerFixture
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.cli.bump import run
 from auto_semver.config import Config, ConfigData
-
-if TYPE_CHECKING:
-    pass
-
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version

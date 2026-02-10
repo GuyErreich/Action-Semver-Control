@@ -361,7 +361,7 @@ class TestTemplateEngineWithCommitGroups:
                 )
             ]
 
-        engine.register_function("group_commits", cast(Any, mock_group_function))
+        engine.register_function("group_commits", cast("Any", mock_group_function))
 
         # This should work without type errors
         template_str = (
@@ -392,7 +392,7 @@ class TestTemplateEngineWithCommitGroups:
                 }
             )
 
-        engine.register_function("group_messages", cast(Any, mock_grouped_function))
+        engine.register_function("group_messages", cast("Any", mock_grouped_function))
 
         # This should work without type errors
         result = engine.render_template(

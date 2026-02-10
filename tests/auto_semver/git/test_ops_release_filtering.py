@@ -1,13 +1,15 @@
 """Tests for release commit filtering logic in GitOps."""
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_mock import MockerFixture
 
 from auto_semver.config import Config
 from auto_semver.git import GitOps
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 
 class TestGitOpsReleaseFiltering:
@@ -33,7 +35,7 @@ class TestGitOpsReleaseFiltering:
 
         # Patch the Repo class to return our mock instance
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
-        return cast(MagicMock, mock_repo)
+        return cast("MagicMock", mock_repo)
 
     @pytest.mark.unit
     def test_filter_release_commits_with_config_prefix(self, mock_repo: MagicMock) -> None:
