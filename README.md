@@ -41,3 +41,75 @@ suffixes:
 files_to_update:
   - "version.txt"
   - "README.md"
+```
+
+### Commit Parsing & Grouping
+
+The action supports three intelligent parsing strategies to organize your changelogs and release notes effectively. Grouping is configured via the `commit_groups` section in your config file.
+
+#### 1. Sectioned Changes (Type 3 - Highest Priority)
+Best for large commits covering multiple areas. Use Markdown headers in your commit body.
+
+**Commit Message:**
+```text
+feat: major overhaul of auth system
+
+### ✨ Features
+- Added OIDC provider support
+- Implemented refresh token rotation
+
+### 🐛 Bug Fixes
+- Fixed race condition in login flow
+- Resolved session timeout issue
+```
+
+**Result:**
+- The bullet points under `### ✨ Features` will appear in the "Features" group.
+- The bullet points under `### 🐛 Bug Fixes` will appear in the "Bug Fixes" group.
+
+#### 2. Bullet Points (Type 2)
+Great for listing multiple related changes without specific sections.
+
+**Commit Message:**
+```text
+fix: update dependency handling
+
+- Upgrade pydantic to v2
+- Remove deprecated validation logic
+- Fix circular import in config module
+```
+
+**Result:**
+- Each bullet point is treated as an individual change.
+- Each point is matched against your `auto_semver_config.yml` patterns independently.
+
+#### 3. Header Only (Type 1 - Default)
+Standard conventional commit format.
+
+**Commit Message:**
+```text
+fix(api): handle missing auth header gracefully
+```
+
+**Result:**
+- The entire header is matched against config patterns.
+- Grouped based on the prefix (e.g., `fix:` goes to "Bug Fixes").
+
+### Configuration Example
+
+Define how regex patterns map to groups in `auto_semver_config.yml`:
+
+```yaml
+commit_groups:
+  - title: "✨ Features"
+    patterns:
+      - "^feat:"
+      - "^add:"
+    priority: 1
+
+  - title: "🐛 Bug Fixes"
+    patterns:
+      - "^fix:"
+      - "^resolve:"
+    priority: 2
+```

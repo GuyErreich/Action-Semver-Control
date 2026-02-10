@@ -21,6 +21,8 @@ version_files:
 commit_groups:
   # Major infrastructure and breaking changes
   - title: "🔥 Breaking Changes"
+    match_groups:
+      - "Breaking Changes"
     patterns:
       - "^(BREAKING CHANGE|breaking):"
       - "^(major):"
@@ -30,47 +32,83 @@ commit_groups:
     
   # New features and enhancements
   - title: "✨ Features & Enhancements"
+    match_groups:
+      - "Features"
+      - "New Features"
+      - "Enhancements"
     patterns:
       - "^feat(\\([^)]*\\))?:"
       - "^feature(\\([^)]*\\))?:"
       - "^Add "      # Matches "Add console script entry point"
+      - "^Added "
       - "^Enhance "  # Matches "Enhance changelog template"
+      - "^Enhanced "
       - "^add(\\([^)]*\\))?:"
       - "^enhance(\\([^)]*\\))?:"
+      - "^Implementation of "
       - "^Implement "
-      - "^Enhanced "
+      - "^Implemented "
       - "^Enhances "
+      - "^Improve "
       - "^Improves "
+      - "^Improved "
       - "^Better "
+      - "^Support "
+      - "^Supports "
+      - "^Supported "
     priority: 2
     
   # Code refactoring and quality improvements
   - title: "♻️ Refactoring & Code Quality"
+    match_groups:
+      - "Code Refactoring"
+      - "Refactoring"
+      - "Style"
     patterns:
       - "^refactor(\\([^)]*\\))?:"
       - "^Refactor " # Matches "Refactor pull request template"
+      - "^Refactored "
       - "^Refine "   # Matches "Refine GitHub Copilot PR prompt"
+      - "^Refined "
       - "^style(\\([^)]*\\))?:"
       - "^format(\\([^)]*\\))?:"
       - "^lint(\\([^)]*\\))?:"
       - "^Clean "    # Matches "Clean test output"
+      - "^Cleaned "
       - "^Extracted "
       - "^Centralized "
       - "^Simplifies "
+      - "^Simplified "
       - "^Aligns "
+      - "^Aligned "
       - "^Explicitly "
+      - "^Ensure "
+      - "^Ensured "
     priority: 3
     
   # Infrastructure, tooling, and maintenance
   - title: "🔧 Infrastructure & Tooling"
+    match_groups:
+      - "Infrastructure"
+      - "Chores"
+      - "Build"
+      - "CI"
     patterns:
       - "^chore(\\([^)]*\\))?:"
       - "^ci(\\([^)]*\\))?:"
       - "^build(\\([^)]*\\))?:"
       - "^Update "   # Matches "Update commit and PR prompts"
+      - "^Updated "
       - "^Use "      # Matches "Use repository-level git"
+      - "^Used "
       - "^Switch "   # Matches "Switch Docker installation"
+      - "^Switched "
       - "^Install "  # Matches "Install dependencies in Dockerfile"
+      - "^Installed "
+      - "^Remove "
+      - "^Removed "
+      - "^Delete "
+      - "^Deleted "
       - "^devops(\\([^)]*\\))?:"
       - "^deps?(\\([^)]*\\))?:"
       - "^docker(\\([^)]*\\))?:"
@@ -78,10 +116,16 @@ commit_groups:
     
   # Bug fixes and resolutions
   - title: "🐛 Bug Fixes & Resolutions"
+    match_groups:
+      - "Bug Fixes"
+      - "Fixes"
     patterns:
       - "^fix(\\([^)]*\\))?:"
+      - "^Fix "
       - "^Resolve "  # Matches "Resolve Git safe directory"
+      - "^Resolved "
       - "^fixing "   # Matches "fixing suffix to match"
+      - "^Fixed "
       - "^bug(\\([^)]*\\))?:"
       - "^hotfix(\\([^)]*\\))?:"
       - "^patch(\\([^)]*\\))?:"
@@ -89,16 +133,23 @@ commit_groups:
     
   # Testing improvements
   - title: "🧪 Testing"
+    match_groups:
+      - "Tests"
+      - "Testing"
     patterns:
       - "^test(\\([^)]*\\))?:"
       - "^tests?(\\([^)]*\\))?:"
       - "^testing(\\([^)]*\\))?:"
+      - "^Testing"
       - "^Unit test[s]?"
       - "^Integration test[s]?"
     priority: 6
     
   # Documentation updates
   - title: "📚 Documentation"
+    match_groups:
+      - "Documentation"
+      - "Docs"
     patterns:
       - "^docs?(\\([^)]*\\))?:"
       - "^documentation(\\([^)]*\\))?:"
@@ -111,10 +162,15 @@ commit_groups:
     
   # Performance improvements
   - title: "⚡ Performance"
+    match_groups:
+      - "Performance"
+      - "Performance Improvements"
     patterns:
       - "^perf(\\([^)]*\\))?:"
       - "^performance(\\([^)]*\\))?:"
       - "^optimize(\\([^)]*\\))?:"
+      - "^Optimize "
+      - "^Optimized "
     priority: 8
 
   # Internal Use - Ignored in Changelog

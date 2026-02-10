@@ -6,6 +6,7 @@ from auto_semver.config import Config
 
 # Import private model for testing purposes only
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.git.grouper import CommitGrouper
 from tests.fixtures.config_fixture import ConfigFixture
 
 # For backward compatibility with old test names
@@ -56,7 +57,7 @@ def test_group_commit_messages_basic(
     config_with_simple_groups: Config, sample_commit_messages: list[str]
 ) -> None:
     """Test basic commit grouping functionality."""
-    grouped = CommitGroupModel.group_messages(
+    grouped = CommitGrouper.group_messages(
         sample_commit_messages, config_with_simple_groups.data.commit_groups
     )
 
@@ -77,7 +78,7 @@ def test_group_commit_messages_content(
     config_with_simple_groups: Config, sample_commit_messages: list[str]
 ) -> None:
     """Test that commits are properly grouped by content."""
-    grouped = CommitGroupModel.group_messages(
+    grouped = CommitGrouper.group_messages(
         sample_commit_messages, config_with_simple_groups.data.commit_groups
     )
 
@@ -103,7 +104,7 @@ def test_group_commit_messages_content(
 
 def test_group_commit_messages_empty_commits(config_with_simple_groups: Config) -> None:
     """Test grouping with no commits."""
-    result = CommitGroupConfig.group_messages([], config_with_simple_groups.data.commit_groups)
+    result = CommitGrouper.group_messages([], config_with_simple_groups.data.commit_groups)
     assert len(result) == 0
 
 
@@ -111,7 +112,7 @@ def test_group_commit_messages_no_groups(config_with_no_groups: Config) -> None:
     """Test grouping with no commit groups defined."""
     messages = ["feat: test commit"]
 
-    result = CommitGroupConfig.group_messages(messages, config_with_no_groups.data.commit_groups)
+    result = CommitGrouper.group_messages(messages, config_with_no_groups.data.commit_groups)
     assert len(result) == 1
     assert result[0].title == "📝 Changes"
     assert len(result[0].commits) == 1
@@ -121,9 +122,7 @@ def test_group_commit_messages_all_unmatched(config_with_simple_groups: Config) 
     """Test when no commits match any group patterns."""
     messages = ["chore: update", "style: format", "ci: build"]
 
-    result = CommitGroupConfig.group_messages(
-        messages, config_with_simple_groups.data.commit_groups
-    )
+    result = CommitGrouper.group_messages(messages, config_with_simple_groups.data.commit_groups)
 
     # Should have just the "Other Changes" group with all commits
     assert len(result) == 1
@@ -135,7 +134,7 @@ def test_group_commit_messages_commit_format() -> None:
     """Test that commit dictionaries have the correct format."""
     messages = ["feat: test feature"]
     groups = [CommitGroupConfig(title="Features", patterns=["feat"], priority=1)]
-    result = CommitGroupConfig.group_messages(messages, groups)
+    result = CommitGrouper.group_messages(messages, groups)
 
     # result is now a list[CommitGroup] (CommitGroups)
     assert len(result) == 1
@@ -157,9 +156,7 @@ def test_group_commit_messages_pattern_matching(config_with_regex_groups: Config
         "bugfix: should not match",  # This WILL match simple "fix" pattern but NOT "^fix" pattern
     ]
 
-    grouped = CommitGroupConfig.group_messages(
-        messages, config_with_regex_groups.data.commit_groups
-    )
+    grouped = CommitGrouper.group_messages(messages, config_with_regex_groups.data.commit_groups)
 
     # With ^feat and ^fix regex patterns, only exact matches at start should work
     # But "feature" still matches "^feat" since feature starts with feat
@@ -188,9 +185,7 @@ def test_group_commit_messages_exact_patterns(config_with_complex_groups: Config
         "bugfix: should not match",
     ]
 
-    grouped = CommitGroupConfig.group_messages(
-        messages, config_with_complex_groups.data.commit_groups
-    )
+    grouped = CommitGrouper.group_messages(messages, config_with_complex_groups.data.commit_groups)
 
     # Breaking Changes should have feat! (highest priority match)
     breaking_group = next(g for g in grouped if g.title == "Breaking Changes")

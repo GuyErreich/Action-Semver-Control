@@ -2,14 +2,17 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from jinja2 import TemplateSyntaxError
 from pydantic import BaseModel, Field, field_validator
 
 from ...templates.engine import get_template_engine
-from ...templates.types import FunctionDict, TemplateVariables
 from ..constants import PR_HIDDEN_MARKER
 from ._commit_group import CommitGroups
+
+if TYPE_CHECKING:
+    from ...templates.types import FunctionDict, TemplateVariables
 
 # Constants
 MIN_LABELS_COUNT = 1
