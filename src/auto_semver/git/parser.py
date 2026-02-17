@@ -109,10 +109,10 @@ class CommitParser:
                     bullet_points.append(description)
                 continue
 
-            # If line is text but not a header or list item,
-            # and we are inside a group or list context, it could be a continuation?
-            # For now, we only extract explicit list items.
-            # If the body is just prose (Type 2), we might return empty items list,
-            # which is correct as there are no distinct "items".
+            # If line is text but not a header or list item, it's a continuation of the previous item
+            if current_group and sectioned_changes[current_group]:
+                sectioned_changes[current_group][-1] += f" {line}"
+            elif bullet_points:
+                bullet_points[-1] += f" {line}"
 
         return bullet_points, sectioned_changes

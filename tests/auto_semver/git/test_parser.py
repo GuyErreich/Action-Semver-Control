@@ -118,3 +118,67 @@ API:
         assert result.bullet_points[1] == "Click button"
         assert result.bullet_points[2] == "Crash"
         assert result.sectioned_changes == {}
+
+    def test_parse_multiline_bullets(self) -> None:
+        """Test parsing bullet points that span multiple lines."""
+        message = """Fixed parsing issue
+- Previously, it might have been falling back to default GITHUB_TOKEN
+  when the token was not provided explicitly.
+- Another point
+  that also spans
+  multiple lines."""
+
+        result = self.parser.parse(message)
+
+        assert result.header == "Fixed parsing issue"
+        assert len(result.bullet_points) == 2
+        assert (
+            result.bullet_points[0]
+            == "Previously, it might have been falling back to default GITHUB_TOKEN "
+            "when the token was not provided explicitly."
+        )
+        assert result.bullet_points[1] == "Another point that also spans multiple lines."
+
+    def test_parse_multiline_groups_complex(self) -> None:
+        """Test parsing complex structure with sections and multiline bullets."""
+        message = """Pass GitHub token to release action
+
+Workflows:
+- Update publish-staging.yml
+  to pass github_token
+- Update publish-production.yml
+  to pass github_token
+
+Bug Fix:
+- Fixes HTTP 403 Forbidden error when creating releases
+  - Ensures gh-release action has correct permissions via App token"""
+
+        result = self.parser.parse(message)
+
+        assert result.header == "Pass GitHub token to release action"
+
+        # Check Workflows section
+        assert "Workflows" in result.sectioned_changes
+        assert len(result.sectioned_changes["Workflows"]) == 2
+        assert (
+            result.sectioned_changes["Workflows"][0]
+            == "Update publish-staging.yml to pass github_token"
+        )
+        assert (
+            result.sectioned_changes["Workflows"][1]
+            == "Update publish-production.yml to pass github_token"
+        )
+
+        # Check Bug Fix section
+        assert "Bug Fix" in result.sectioned_changes
+        # Since the second line starts with '-', it currently gets treated as a new list item by the regex
+        # even if indented. The parser is simple and sees `- ...`.
+        assert len(result.sectioned_changes["Bug Fix"]) == 2
+        assert (
+            result.sectioned_changes["Bug Fix"][0]
+            == "Fixes HTTP 403 Forbidden error when creating releases"
+        )
+        assert (
+            result.sectioned_changes["Bug Fix"][1]
+            == "Ensures gh-release action has correct permissions via App token"
+        )
