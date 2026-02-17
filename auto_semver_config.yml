@@ -120,6 +120,7 @@ commit_groups:
   - title: "🐛 Bug Fixes & Resolutions"
     match_groups:
       - "Bug Fixes"
+      - "Bug Fix"
       - "Fixes"
     patterns:
       - "^fix(\\([^)]*\\))?:"
