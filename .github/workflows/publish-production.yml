@@ -4,8 +4,8 @@ on:
   push:
     tags:
       - '*.*.*'
-      - '!-rc'
-      - '!-dev'
+      - '!*.*.*-rc'
+      - '!*.*.*-dev'
 
 jobs:
   release:

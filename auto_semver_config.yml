@@ -93,6 +93,8 @@ commit_groups:
       - "Chores"
       - "Build"
       - "CI"
+      - "CI/CD"
+      - "Workflows"
     patterns:
       - "^chore(\\([^)]*\\))?:"
       - "^ci(\\([^)]*\\))?:"
