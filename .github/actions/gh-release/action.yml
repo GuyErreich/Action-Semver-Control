@@ -24,6 +24,21 @@ runs:
           echo "make_latest=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Prepare Release Notes
+      shell: bash
+      run: |
+        if [ -f "CHANGELOG.md" ]; then
+          # Extract content starting from the first version header
+          # and stop before the License section if it exists
+          # Use sed to print from the first version header line until the License section or end of file
+          sed -n '/^## \[/,$p' CHANGELOG.md | sed '/^## License/Q' > RELEASE_NOTES.md
+          echo "notes_file=RELEASE_NOTES.md" >> $GITHUB_OUTPUT
+        else
+          echo "CHANGELOG.md not found, falling back to auto-generated notes"
+          echo "notes_file=" >> $GITHUB_OUTPUT
+        fi
+      id: notes
+
     - name: Create GitHub Release
       shell: bash
       env:
@@ -31,9 +46,19 @@ runs:
         TAG: ${{ steps.details.outputs.tag }}
         PRERELEASE: ${{ steps.details.outputs.is_prerelease }}
         LATEST: ${{ steps.details.outputs.make_latest }}
+        NOTES_FILE: ${{ steps.notes.outputs.notes_file }}
       run: |
+        NOTES_ARG=""
+        if [ -n "$NOTES_FILE" ] && [ -f "$NOTES_FILE" ]; then
+          echo "Using release notes from $NOTES_FILE"
+          NOTES_ARG="--notes-file $NOTES_FILE"
+        else
+          echo "Using auto-generated release notes"
+          NOTES_ARG="--generate-notes"
+        fi
+        
         gh release create "$TAG" \
-          --generate-notes \
+          $NOTES_ARG \
           --prerelease="$PRERELEASE" \
           --latest="$LATEST" \
           --title "$TAG"
