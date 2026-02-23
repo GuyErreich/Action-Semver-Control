@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import yaml
@@ -457,6 +458,7 @@ class GitOps:
         source_version: str | None = None,
         remote_name: str = "origin",
         is_source_tag: bool = False,
+        post_merge_hook: Callable[[str, str], None] | None = None,
     ) -> str:
         """
         Automatically promote changes from source branch to target branch.
@@ -476,6 +478,9 @@ class GitOps:
             source_version (str | None): Original version tag from source branch.
             remote_name (str): Remote name (default: 'origin').
             is_source_tag (bool): If True, treat source_branch as a tag.
+            post_merge_hook (Callable[[str, str], None] | None): Optional hook function to execute after merge 
+            but before commit/tag.
+            Receives (source_version_str, target_version_str).
 
         Returns:
             str: The version tag that was created.
@@ -517,6 +522,23 @@ class GitOps:
                 remote_name=remote_name,
                 is_tag=is_source_tag,
             )
+
+            # Executing post-merge hook if provided
+            if post_merge_hook:
+                logger.info("Executing post-merge hook")
+                # Fallback to source_branch if version not explicit
+                src_v = source_version if source_version else source_branch
+
+                try:
+                    post_merge_hook(src_v, version)
+
+                    if self.repo.is_dirty(untracked_files=False):
+                        logger.info("Changes detected after post-merge hook. Committing.")
+                        self.repo.git.add(update=True)  # Stage modified tracked files
+                        self.repo.index.commit(f"chore: update version metadata for {version}")
+                except Exception as e:
+                    logger.error(f"Post-merge hook failed: {e}")
+                    raise RuntimeError(f"Post-merge hook failed: {e}") from e
 
             # 5. Create tag on target branch
             logger.info(f"Creating tag '{version}' on '{target_branch}'")
