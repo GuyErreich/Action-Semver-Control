@@ -478,7 +478,7 @@ class GitOps:
             source_version (str | None): Original version tag from source branch.
             remote_name (str): Remote name (default: 'origin').
             is_source_tag (bool): If True, treat source_branch as a tag.
-            post_merge_hook (Callable[[str, str], None] | None): Optional hook function to execute after merge 
+            post_merge_hook (Callable[[str, str], None] | None): Optional hook function to execute after merge
             but before commit/tag.
             Receives (source_version_str, target_version_str).
 

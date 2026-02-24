@@ -44,7 +44,15 @@ class CommitParser:
 
     # Regex for identifying section headers in the body (e.g., "Bug Fixes:")
     # multiline mode is handled by processing line by line
-    _SECTION_HEADER_PATTERN = re.compile(r"^([A-Z][\w\s]+):$")
+    # Supports optional Markdown header prefix (e.g., "### Bug Fixes:")
+    # Logic:
+    # 1. Starts with # -> treated as header (colon optional)
+    # 2. Starts with Capital letter -> must end with colon to be a header
+    _SECTION_HEADER_PATTERN = re.compile(r"^(?:#+\s+(.*?)(?::)?|([A-Z].*?):)\s*$")
+
+    # Regex for finding embedded headers (e.g. "text... ### Header:")
+    # We look for " ## " or " ### " followed by text, to split lines.
+    _EMBEDDED_HEADER_SPLIT = re.compile(r"(\s+)(#{2,}\s+[A-Z].*?)(?:\s|$)")
 
     def parse(self, message: str) -> ParsedCommit:
         """
@@ -83,6 +91,10 @@ class CommitParser:
         sectioned_changes: dict[str, list[str]] = {}
         current_group: str | None = None
 
+        # Pre-process body to split embedded headers onto new lines
+        # This handles cases like: "Added feature. ### Testing:"
+        body = self._EMBEDDED_HEADER_SPLIT.sub(r"\n\2\n", body)
+
         # Split body into lines and process
         lines = body.splitlines()
 
@@ -94,9 +106,19 @@ class CommitParser:
             # Check for section header
             section_match = self._SECTION_HEADER_PATTERN.match(line)
             if section_match:
-                current_group = section_match.group(1).strip()
+                # If group 1 matched (Markdown style), use it.
+                # If group 2 matched (Legacy style without #), use it.
+                header_text = section_match.group(1) or section_match.group(2)
+                current_group = header_text.strip()
                 if current_group not in sectioned_changes:
                     sectioned_changes[current_group] = []
+                continue
+
+            # Check for generic markdown headers (structural break)
+            # If a line starts with '#' but wasn't matched as a section header,
+            # it's a structural break (e.g., "## 🧪 Testing").
+            if line.startswith("#"):
+                current_group = None
                 continue
 
             # Check for list item
