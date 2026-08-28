@@ -1,7 +1,7 @@
 [project]
 name = "auto_semver"
 version = "1.3.14-dev"
-description = ""
+description = "Automatically bump semver, update changelogs, and open release PRs on merge."
 authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,6 +25,9 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"auto_semver.setup.templates" = ["*.yml"]
 
 [tool.pytest.ini_options]
 minversion  = "6.0"
