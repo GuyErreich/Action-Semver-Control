@@ -22,6 +22,10 @@ inputs:
   debug:
     required: false
     description: 'Enable debug mode'
+  signed-commits:
+    required: false
+    description: 'Create verified commits via the GitHub API (requires App installation token)'
+    default: 'false'
 
 runs:
   using: 'docker'
@@ -32,4 +36,5 @@ runs:
     - ${{ inputs.action == 'promote' && inputs.from_tag != '' && format('--from-tag={0}', inputs.from_tag) || '' }}
     - ${{ inputs.action == 'promote' && inputs.dry_run == 'true' && '--dry-run' || '' }}
     - --github-token=${{ inputs.github-token }}
+    - ${{ inputs.signed-commits == 'true' && '--signed-commits' || '' }}
     - ${{ inputs.debug == 'true' && '--debug' || '' }}

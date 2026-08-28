@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
@@ -32,6 +33,7 @@ from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 from github import Github
 from github.GithubException import GithubException
+from github.InputGitTreeElement import InputGitTreeElement
 
 from auto_semver.semver import SemverLock, Version
 
@@ -55,18 +57,32 @@ class GitOps:
 
     """
 
-    def __init__(self, *, repo_path: str = ".", ensure_safe: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        repo_path: str = ".",
+        ensure_safe: bool = False,
+        signed_commits: bool = False,
+        github_token: str | None = None,
+    ) -> None:
         """
         Initialize GitOps for the given repository path.
 
         Args:
             repo_path (str): Path to the local Git repository (default: current directory).
             ensure_safe (bool): If True, ensures the repository is marked as a safe directory in Git config.
+            signed_commits (bool): When True, create commits/merges/tags via the GitHub API so
+                GitHub signs them as verified (requires ``github_token``).
+            github_token (str | None): Token for API-backed commits (App installation token).
 
         """
 
         self.repo = Repo(path=repo_path)
         self._repo_full_name: str = self._parse_repository_name()  # Cache repository name on init
+        self.signed_commits = signed_commits
+        self.github_token = github_token
+        if signed_commits and not github_token:
+            raise ValueError("github_token is required when signed_commits=True")
         if ensure_safe:
             self.__ensure_git_safe_directory()
         self.__ensure_git_identity()
@@ -113,6 +129,102 @@ class GitOps:
 
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:
         return Github(github_token).get_repo(repo_full_name)
+
+    def _gh_repo(self) -> Repository:
+        if not self.github_token:
+            raise ValueError("github_token is required for API git operations")
+        return self._get_github_repo(
+            github_token=self.github_token,
+            repo_full_name=self._repo_full_name,
+        )
+
+    def _collect_staged_paths(self) -> list[str]:
+        """Return repository-relative paths staged for the next commit."""
+        output = self.repo.git.diff("--cached", "--name-only")
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
+    def _collect_dirty_tracked_paths(self) -> list[str]:
+        """Return tracked paths with unstaged modifications."""
+        output = self.repo.git.diff("--name-only")
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
+    def _api_commit_files_on_branch(
+        self,
+        *,
+        branch_name: str,
+        message: str,
+        file_paths: list[str],
+        force: bool = False,
+    ) -> str:
+        """Create a verified commit on a branch via the GitHub Git Data API."""
+        if not file_paths:
+            raise ValueError("file_paths must not be empty for API commit")
+
+        gh_repo = self._gh_repo()
+        repo_root = Path(self.repo.working_tree_dir or ".")
+
+        parent_sha: str | None = None
+        base_tree = None
+        try:
+            ref = gh_repo.get_git_ref(f"heads/{branch_name}")
+            parent_sha = ref.object.sha
+            base_tree = gh_repo.get_git_commit(parent_sha).tree
+        except GithubException:
+            parent_sha = self.repo.head.commit.hexsha
+            base_tree = gh_repo.get_git_commit(parent_sha).tree
+
+        elements = []
+        for rel_path in file_paths:
+            full_path = repo_root / rel_path
+            mode = "100755" if full_path.exists() and full_path.stat().st_mode & 0o111 else "100644"
+            content = full_path.read_bytes()
+            encoding = "utf-8" if mode == "100644" else "base64"
+            payload = content.decode("utf-8") if encoding == "utf-8" else content
+            blob = gh_repo.create_git_blob(payload, encoding)
+            elements.append(
+                InputGitTreeElement(
+                    path=rel_path.replace("\\", "/"),
+                    mode=mode,
+                    type="blob",
+                    sha=blob.sha,
+                )
+            )
+
+        tree = gh_repo.create_git_tree(elements, base_tree)
+        parents = [gh_repo.get_git_commit(parent_sha)] if parent_sha else []
+        commit = gh_repo.create_git_commit(message, tree, parents)
+
+        ref_name = f"heads/{branch_name}"
+        try:
+            ref = gh_repo.get_git_ref(ref_name)
+            ref.edit(sha=commit.sha, force=force)
+        except GithubException:
+            gh_repo.create_git_ref(f"refs/{ref_name}", commit.sha)
+
+        self.fetch()
+        logger.info("Verified API commit %s on %s", commit.sha, branch_name)
+        return commit.sha
+
+    def _api_merge(self, *, base: str, head: str, message: str) -> str:
+        """Merge ``head`` into ``base`` via the GitHub REST API (verified merge commit)."""
+        gh_repo = self._gh_repo()
+        result = gh_repo.merge(base=base, head=head, commit_message=message)
+        if result is None or not getattr(result, "sha", None):
+            raise RuntimeError(f"Merge API returned no commit for {head} -> {base}")
+        logger.info("Verified API merge %s into %s (%s)", head, base, result.sha)
+        return str(result.sha)
+
+    def _api_create_lightweight_tag(self, *, tag: str, sha: str) -> str:
+        """Create a lightweight tag ref via the GitHub API."""
+        gh_repo = self._gh_repo()
+        ref_name = f"tags/{tag}"
+        try:
+            ref = gh_repo.get_git_ref(ref_name)
+            ref.edit(sha=sha, force=True)
+        except GithubException:
+            gh_repo.create_git_ref(f"refs/{ref_name}", sha)
+        logger.info("Verified API tag %s -> %s", tag, sha)
+        return tag
 
     def _parse_repository_name(self, *, remote_name: str = "origin") -> str:
         """
@@ -215,17 +327,32 @@ class GitOps:
                 logger.error(f"Failed to add {file_path} to git: {err}")
                 raise
 
-    def commit(self, message: str) -> None:
+    def commit(self, message: str, *, force: bool = False) -> None:
         """
         Commit staged changes with the provided message.
 
         Args:
             message (str): Commit message.
+            force (bool): When using signed commits, force-update the branch ref.
 
         """
 
         logger.info(f"Committing changes with message: {message}")
         logger.debug(f"Staged changes: {self.repo.index.diff('HEAD')}")
+
+        if self.signed_commits:
+            branch_name = self.repo.active_branch.name
+            file_paths = self._collect_staged_paths()
+            if not file_paths:
+                logger.warning("No staged files for signed commit")
+                return
+            self._api_commit_files_on_branch(
+                branch_name=branch_name,
+                message=message,
+                file_paths=file_paths,
+                force=force,
+            )
+            return
 
         try:
             # Explicitly set author and committer to ensure consistency (e.g., prevent "GitHub" as committer)
@@ -256,6 +383,13 @@ class GitOps:
         """
 
         logger.info(f"Pushing branch '{branch_name}' to remote '{remote_name}' with force={force}.")
+
+        if self.signed_commits:
+            logger.info(
+                "Signed commit path: branch/tag refs updated via GitHub API; syncing local clone"
+            )
+            self.fetch(remote_name=remote_name)
+            return
 
         try:
             remote: Remote = self.repo.remote(name=remote_name)
@@ -290,6 +424,11 @@ class GitOps:
             branch (str): Branch name.
 
         """
+        if self.signed_commits:
+            gh_repo = self._gh_repo()
+            branch_ref = gh_repo.get_git_ref(f"heads/{branch}")
+            return self._api_create_lightweight_tag(tag=tag, sha=branch_ref.object.sha)
+
         return self.repo.create_tag(path=tag, ref=branch, message="").name
 
     def fetch(self, *, remote_name: str = "origin") -> None:
@@ -490,6 +629,27 @@ class GitOps:
         """
         logger.info(f"Starting auto-promotion: {source_branch} → {target_branch}")
 
+        if source_version:
+            merge_message = (
+                f"chore: auto-promote {source_version} from {source_branch} "
+                f"to {target_branch} as {version}"
+            )
+        else:
+            merge_message = (
+                f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
+            )
+
+        if self.signed_commits:
+            return self._auto_promote_api(
+                source_branch=source_branch,
+                target_branch=target_branch,
+                version=version,
+                source_version=source_version,
+                merge_message=merge_message,
+                is_source_tag=is_source_tag,
+                post_merge_hook=post_merge_hook,
+            )
+
         try:
             # 1. Fetch latest changes
             self.fetch(remote_name=remote_name)
@@ -506,16 +666,6 @@ class GitOps:
             self.pull(branch_name=target_branch, remote_name=remote_name)
 
             # 4. Merge source into target
-            if source_version:
-                merge_message = (
-                    f"chore: auto-promote {source_version} from {source_branch} "
-                    f"to {target_branch} as {version}"
-                )
-            else:
-                merge_message = (
-                    f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
-                )
-
             self.merge(
                 source_ref=source_branch,
                 message=merge_message,
@@ -564,6 +714,55 @@ class GitOps:
         except Exception as err:
             logger.error(f"Unexpected error during auto-promotion: {err}")
             raise RuntimeError(f"Auto-promotion failed unexpectedly: {err}") from err
+
+    def _auto_promote_api(
+        self,
+        *,
+        source_branch: str,
+        target_branch: str,
+        version: str,
+        source_version: str | None,
+        merge_message: str,
+        is_source_tag: bool,
+        post_merge_hook: Callable[[str, str], None] | None,
+    ) -> str:
+        """Promote via verified GitHub merge/tag APIs."""
+        merge_sha = self._api_merge(
+            base=target_branch, head=source_branch, message=merge_message
+        )
+
+        if post_merge_hook:
+            logger.info("Executing post-merge hook")
+            src_v = source_version if source_version else source_branch
+            try:
+                self.fetch()
+                self.checkout(branch_name=target_branch)
+                self.repo.git.reset("--hard", merge_sha)
+                post_merge_hook(src_v, version)
+                dirty_paths = self._collect_dirty_tracked_paths()
+                if dirty_paths:
+                    logger.info("Changes detected after post-merge hook; creating verified commit")
+                    self._api_commit_files_on_branch(
+                        branch_name=target_branch,
+                        message=f"chore: update version metadata for {version}",
+                        file_paths=dirty_paths,
+                        force=False,
+                    )
+                    branch_ref = self._gh_repo().get_git_ref(f"heads/{target_branch}")
+                    merge_sha = branch_ref.object.sha
+            except Exception as exc:
+                logger.error(f"Post-merge hook failed: {exc}")
+                raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
+
+        self._api_create_lightweight_tag(tag=version, sha=merge_sha)
+        self.fetch()
+        logger.info(
+            "✅ Verified auto-promotion complete: %s → %s (tagged: %s)",
+            source_branch,
+            target_branch,
+            version,
+        )
+        return version
 
     def close_old_release_prs(
         self,

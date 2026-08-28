@@ -53,6 +53,11 @@ def main() -> None:
         parent_parser = argparse.ArgumentParser(add_help=False)
         parent_parser.add_argument("--github-token", type=str, help="GitHub token")
         parent_parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+        parent_parser.add_argument(
+            "--signed-commits",
+            action="store_true",
+            help="Create verified commits via the GitHub API (requires App installation token)",
+        )
 
         parser = argparse.ArgumentParser(parents=[parent_parser])
         subparsers = parser.add_subparsers(dest="command")
@@ -77,7 +82,11 @@ def main() -> None:
 
         setup_logger(args.debug)
         config = Config()
-        gitops = GitOps(ensure_safe=True)
+        gitops = GitOps(
+            ensure_safe=True,
+            signed_commits=args.signed_commits,
+            github_token=args.github_token,
+        )
 
         if args.command == "promote":
             promote.run(
