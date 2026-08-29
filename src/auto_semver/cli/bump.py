@@ -207,7 +207,7 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     gitops.add(files_to_update)
     gitops.add([lockfile.path])
     gitops.add([changelog.path])
-    gitops.commit(f"Release {new_version}")
+    gitops.commit(f"Release {new_version}", force=True)
     gitops.push(branch_name=release_branch_name, force=True)
 
     # Get commits for changelog
