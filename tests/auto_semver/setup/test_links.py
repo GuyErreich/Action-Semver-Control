@@ -8,7 +8,9 @@ from auto_semver.setup.links import (
     app_registration_url,
     load_template,
     new_file_pr_url,
+    org_app_registration_url,
     workflow_bump_deep_link,
+    workflow_promote_deep_link,
 )
 
 
@@ -57,3 +59,19 @@ def test_load_template_auto_semver_config() -> None:
     content = load_template("auto_semver_config.yml")
     assert "start_version:" in content
     assert "suffixes:" in content
+
+
+@pytest.mark.unit
+def test_org_app_registration_url() -> None:
+    """Org registration URL targets the organization settings path."""
+    url = org_app_registration_url(org="my-org")
+    assert "/organizations/my-org/settings/apps/new" in url
+    assert "contents=write" in url
+
+
+@pytest.mark.unit
+def test_workflow_promote_deep_link_uses_template() -> None:
+    """Promote deep link references the reusable promote workflow."""
+    url = workflow_promote_deep_link(owner="acme", repo="demo", branch="staging")
+    assert "semver-promote.reusable.yml" in url
+    assert "acme/demo/new/staging" in url
