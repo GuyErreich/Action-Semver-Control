@@ -79,12 +79,12 @@ class TestSignedGitOps:
     def test_api_merge_promotion(self, mocker: MockerFixture, mock_repo: Any) -> None:
         """Signed auto-promote should merge and tag via the GitHub API."""
         gitops = GitOps(signed_commits=True, github_token="token")
-        mocker.patch.object(
+        mock_merge = mocker.patch.object(
             gitops,
             "_api_merge",
             return_value="merge-sha",
         )
-        mocker.patch.object(
+        mock_tag = mocker.patch.object(
             gitops,
             "_api_create_lightweight_tag",
             return_value="1.0.0-rc",
@@ -102,9 +102,7 @@ class TestSignedGitOps:
         )
 
         assert result == "1.0.0-rc"
-        gitops._api_merge.assert_called_once_with(
+        mock_merge.assert_called_once_with(
             base="staging", head="dev", message="chore: promote"
         )
-        gitops._api_create_lightweight_tag.assert_called_once_with(
-            tag="1.0.0-rc", sha="merge-sha"
-        )
+        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="merge-sha")

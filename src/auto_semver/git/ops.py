@@ -22,6 +22,7 @@ Typical usage example::
 
 from __future__ import annotations
 
+import base64
 import logging
 import re
 from collections.abc import Callable
@@ -179,7 +180,11 @@ class GitOps:
             mode = "100755" if full_path.exists() and full_path.stat().st_mode & 0o111 else "100644"
             content = full_path.read_bytes()
             encoding = "utf-8" if mode == "100644" else "base64"
-            payload = content.decode("utf-8") if encoding == "utf-8" else content
+            payload = (
+                content.decode("utf-8")
+                if encoding == "utf-8"
+                else base64.b64encode(content).decode("ascii")
+            )
             blob = gh_repo.create_git_blob(payload, encoding)
             elements.append(
                 InputGitTreeElement(
