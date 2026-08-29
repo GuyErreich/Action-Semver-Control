@@ -1,5 +1,8 @@
 name: 'Auto Semver Bumper'
-description: 'Automatically bumps semver and opens a PR.'
+description: 'Automatically bump semver, update changelogs, and open release PRs on merge.'
+branding:
+  icon: tag
+  color: blue
 
 inputs:
   action:
@@ -18,7 +21,7 @@ inputs:
     default: 'false'
   github-token:
     required: true
-    description: 'GitHub Token (secrets.GITHUB_TOKEN or PAT)'
+    description: 'GitHub Token (GitHub App installation token recommended)'
   debug:
     required: false
     description: 'Enable debug mode'

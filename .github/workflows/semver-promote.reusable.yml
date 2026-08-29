@@ -1,0 +1,106 @@
+name: Semver Promote (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      from_tag:
+        description: Specific tag to promote
+        required: true
+        type: string
+      to_branch:
+        description: Target branch to promote to
+        required: true
+        type: string
+      dry_run:
+        description: Validate promotion without performing changes
+        required: false
+        type: boolean
+        default: false
+      debug:
+        description: Enable debug logging in the semver action
+        required: false
+        type: boolean
+        default: false
+      runs-on:
+        description: Runner label
+        required: false
+        type: string
+        default: ubuntu-latest
+      action-ref:
+        description: Action-Semver-Control ref (tag, branch, or SHA)
+        required: false
+        type: string
+        default: v1
+      setup-url:
+        description: Setup documentation URL for preflight errors
+        required: false
+        type: string
+        default: https://github.com/GuyErreich/Action-Semver-Control/blob/dev/docs/SETUP.md
+    secrets:
+      app-id:
+        description: GitHub App ID (GH_APP_ID)
+        required: true
+      app-private-key:
+        description: GitHub App private key PEM (GH_APP_PRIVATE_KEY)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Preflight GitHub App secrets
+        uses: GuyErreich/Action-Semver-Control/.github/actions/preflight-app-secrets@${{ inputs.action-ref }}
+        with:
+          app-id: ${{ secrets.app-id }}
+          app-private-key: ${{ secrets.app-private-key }}
+          setup-url: ${{ inputs.setup-url }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get GitHub App Token
+        uses: GuyErreich/Action-Semver-Control/.github/actions/app-authentication@${{ inputs.action-ref }}
+        id: app-token
+        with:
+          app-id: ${{ secrets.app-id }}
+          private-key: ${{ secrets.app-private-key }}
+
+      - name: Configure Git for App
+        shell: bash
+        run: |
+          git config user.name "${{ steps.app-token.outputs.user-name }}"
+          git config user.email "${{ steps.app-token.outputs.user-email }}"
+          git remote set-url origin "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
+
+      - name: List recent tags
+        shell: bash
+        run: |
+          echo "Recent tags (for reference):"
+          git tag -l | sort -V | tail -n 10
+
+      - name: Validate promotion (dry run)
+        if: inputs.dry_run
+        uses: GuyErreich/Action-Semver-Control@${{ inputs.action-ref }}
+        with:
+          action: promote
+          to_branch: ${{ inputs.to_branch }}
+          from_tag: ${{ inputs.from_tag }}
+          dry_run: true
+          github-token: ${{ steps.app-token.outputs.token }}
+          debug: ${{ inputs.debug }}
+
+      - name: Execute promotion
+        if: ${{ !inputs.dry_run }}
+        uses: GuyErreich/Action-Semver-Control@${{ inputs.action-ref }}
+        with:
+          action: promote
+          to_branch: ${{ inputs.to_branch }}
+          from_tag: ${{ inputs.from_tag }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          debug: ${{ inputs.debug }}

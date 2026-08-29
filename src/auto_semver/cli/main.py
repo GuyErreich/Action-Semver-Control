@@ -8,8 +8,9 @@ based on CI/CD context and branch strategy (e.g., single-branch release workflow
 import argparse
 import logging
 import sys
+from pathlib import Path
 
-from auto_semver.cli import bump, finalize, promote
+from auto_semver.cli import bump, finalize, promote, setup
 from auto_semver.cli.utils import is_finalized
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
@@ -75,7 +76,47 @@ def main() -> None:
         promote_parser.add_argument("--from-tag", required=True, help="Specific tag to promote")
         promote_parser.add_argument("--to-branch", required=True, help="Target branch")
 
+        setup_parser = subparsers.add_parser(
+            "setup",
+            help="Configure GitHub App secrets and scaffold consumer workflows",
+        )
+        setup_parser.add_argument("--owner", type=str, help="Repository owner")
+        setup_parser.add_argument("--repo", type=str, help="Repository name")
+        setup_parser.add_argument("--default-branch", type=str, help="Default/base branch")
+        setup_parser.add_argument("--app-id", type=str, help="GitHub App ID")
+        setup_parser.add_argument("--private-key", type=Path, help="Path to App private key PEM")
+        setup_parser.add_argument("--dry-run", action="store_true", help="Print plan only")
+        setup_parser.add_argument(
+            "--open-browser",
+            action="store_true",
+            help="Open prefilled GitHub App registration URL",
+        )
+        setup_parser.add_argument(
+            "--skip-secrets",
+            action="store_true",
+            help="Skip writing GH_APP_ID and GH_APP_PRIVATE_KEY",
+        )
+        setup_parser.add_argument(
+            "--skip-scaffold",
+            action="store_true",
+            help="Skip writing auto_semver_config.yml and workflow files",
+        )
+
         args = parser.parse_args()
+
+        if args.command == "setup":
+            setup.run(
+                owner=args.owner,
+                repo=args.repo,
+                default_branch=args.default_branch,
+                app_id=args.app_id,
+                private_key_path=args.private_key,
+                dry_run=args.dry_run,
+                open_browser=args.open_browser,
+                skip_secrets=args.skip_secrets,
+                skip_scaffold=args.skip_scaffold,
+            )
+            return
 
         if args.command != "promote" and not args.github_token:
             parser.error("the following arguments are required: --github-token")

@@ -1,0 +1,18 @@
+name: Auto Semver Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev, staging, master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    if: github.event.pull_request.merged == true
+    uses: GuyErreich/Action-Semver-Control/.github/workflows/semver-bump.reusable.yml@v1
+    secrets:
+      app-id: ${{ secrets.GH_APP_ID }}
+      app-private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
