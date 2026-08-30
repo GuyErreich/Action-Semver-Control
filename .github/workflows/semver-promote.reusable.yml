@@ -51,8 +51,15 @@ jobs:
   promote:
     runs-on: ${{ inputs.runs-on }}
     steps:
+      - name: Checkout Action-Semver-Control
+        uses: actions/checkout@v4
+        with:
+          repository: GuyErreich/Action-Semver-Control
+          ref: ${{ inputs.action-ref }}
+          path: _auto-semver-action
+
       - name: Preflight GitHub App secrets
-        uses: GuyErreich/Action-Semver-Control/.github/actions/preflight-app-secrets@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action/.github/actions/preflight-app-secrets
         with:
           app-id: ${{ secrets.app-id }}
           app-private-key: ${{ secrets.app-private-key }}
@@ -65,7 +72,7 @@ jobs:
           persist-credentials: false
 
       - name: Get GitHub App Token
-        uses: GuyErreich/Action-Semver-Control/.github/actions/app-authentication@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action/.github/actions/app-authentication
         id: app-token
         with:
           app-id: ${{ secrets.app-id }}
@@ -86,7 +93,7 @@ jobs:
 
       - name: Validate promotion (dry run)
         if: inputs.dry_run
-        uses: GuyErreich/Action-Semver-Control@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action
         with:
           action: promote
           to_branch: ${{ inputs.to_branch }}
@@ -97,7 +104,7 @@ jobs:
 
       - name: Execute promotion
         if: ${{ !inputs.dry_run }}
-        uses: GuyErreich/Action-Semver-Control@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action
         with:
           action: promote
           to_branch: ${{ inputs.to_branch }}

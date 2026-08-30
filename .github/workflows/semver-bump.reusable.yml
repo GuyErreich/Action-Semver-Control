@@ -44,8 +44,15 @@ jobs:
   bump-version:
     runs-on: ${{ inputs.runs-on }}
     steps:
+      - name: Checkout Action-Semver-Control
+        uses: actions/checkout@v4
+        with:
+          repository: GuyErreich/Action-Semver-Control
+          ref: ${{ inputs.action-ref }}
+          path: _auto-semver-action
+
       - name: Preflight GitHub App secrets
-        uses: GuyErreich/Action-Semver-Control/.github/actions/preflight-app-secrets@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action/.github/actions/preflight-app-secrets
         with:
           app-id: ${{ secrets.app-id }}
           app-private-key: ${{ secrets.app-private-key }}
@@ -58,7 +65,7 @@ jobs:
           persist-credentials: false
 
       - name: Get GitHub App Token
-        uses: GuyErreich/Action-Semver-Control/.github/actions/app-authentication@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action/.github/actions/app-authentication
         id: app-token
         with:
           app-id: ${{ secrets.app-id }}
@@ -72,7 +79,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
 
       - name: Run Auto Semver Action
-        uses: GuyErreich/Action-Semver-Control@${{ inputs.action-ref }}
+        uses: ./_auto-semver-action
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           debug: ${{ inputs.debug }}
