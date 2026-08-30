@@ -17,10 +17,25 @@ version_files:
   - "version.txt"
   - "pyproject.toml"
 
+release:
+  strategy: single
+  branch_prefix: auto-semver/release/
+  cleanup_merged: true
+
+bump:
+  mode: classic
+
 # Commit grouping configuration for PR and changelog templates
 commit_groups:
-  # Major infrastructure and breaking changes
-  - title: "🔥 Breaking Changes"
+  summary_mode: header_only
+  ignore_line_patterns:
+    - '^\[[ xX]\]'
+    - '^Co-authored-by:'
+    - '^Made with \[Cursor\]'
+    - '^---------'
+  groups:
+    # Major infrastructure and breaking changes
+    - title: "🔥 Breaking Changes"
     match_groups:
       - "Breaking Changes"
     patterns:

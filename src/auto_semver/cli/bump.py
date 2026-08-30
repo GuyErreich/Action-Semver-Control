@@ -14,6 +14,7 @@ from auto_semver.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVaria
 from auto_semver.semver import Version
 from auto_semver.semver.lock import SemverLock
 from auto_semver.semver.updater import VersionFileUpdater
+from auto_semver.semver.version import BumpCounts
 
 logger = logging.getLogger(__package__)
 
@@ -32,10 +33,8 @@ def _detect_tag_source_branch(*, version: Version, config: Config) -> str | None
     Returns:
         The branch name that corresponds to the version's suffix, or None if not found
     """
-    # Normalize suffix - treat None as empty string for comparison
     target_suffix = version.suffix or ""
 
-    # Find branch that matches the version's suffix
     for branch, suffix in config.data.suffixes.items():
         if suffix == target_suffix:
             return branch
@@ -63,12 +62,9 @@ def _is_tag_promotion_scenario(*, version: Version, target_branch: str, config: 
     Raises:
         ValueError: If the version has a suffix that doesn't match any configured branch
     """
-    # Detect which branch this version tag currently belongs to
     source_branch = _detect_tag_source_branch(version=version, config=config)
 
     if source_branch is None:
-        # If we can't find the source branch, the version's suffix doesn't match
-        # any configured branch suffix - this is always a configuration error
         suffix_display = f"'{version.suffix}'" if version.suffix else "None (empty)"
         error_msg = (
             f"Version {version} has suffix {suffix_display} that doesn't match any "
@@ -77,7 +73,6 @@ def _is_tag_promotion_scenario(*, version: Version, target_branch: str, config: 
         logger.error(error_msg)
         raise ValueError(error_msg)
 
-    # Check if there's a promotion rule from source to target
     for rule in config.data.promotions:
         if rule.from_branch == source_branch and rule.to_branch == target_branch:
             logger.info(f"Tag promotion detected: {version} from {source_branch} → {target_branch}")
@@ -85,6 +80,97 @@ def _is_tag_promotion_scenario(*, version: Version, target_branch: str, config: 
 
     logger.debug(f"No promotion rule found from {source_branch} → {target_branch}")
     return False
+
+
+def _resolve_baseline_version(
+    *,
+    gitops: GitOps,
+    config: Config,
+    target_branch: str,
+    github_token: str,
+) -> Version:
+    """Resolve starting version from dev lock and open release PR (single mode)."""
+    gitops.fetch()
+    dev_version = gitops.get_lock_version_from_branch(target_branch)
+
+    if not dev_version:
+        try:
+            with open("version.txt") as f:
+                dev_version = Version.parse(f.read().strip())
+        except FileNotFoundError:
+            dev_version = config.data.start_version
+
+    baseline = dev_version
+    release_cfg = config.data.release
+
+    if release_cfg.strategy == "single":
+        open_release = gitops.get_open_release_version(
+            github_token=github_token,
+            target_branch=target_branch,
+            branch_prefix=release_cfg.branch_prefix,
+            labels=config.data.pull_request.labels,
+        )
+        if open_release and open_release > baseline:
+            logger.info(
+                "Using open release version %s as baseline (dev lock: %s)",
+                open_release,
+                baseline,
+            )
+            baseline = open_release
+
+    return Version(
+        major=baseline.major,
+        minor=baseline.minor,
+        patch=baseline.patch,
+        suffix=baseline.suffix,
+    )
+
+
+def _apply_version_bump(
+    *,
+    version: Version,
+    config: Config,
+    current_branch: str,
+    gitops: GitOps,
+    target_branch: str,
+    baseline_sha: str | None,
+    github_token: str,
+) -> BumpCounts | None:
+    """Apply classic or cumulative bump rules."""
+    if config.data.bump.mode == "cumulative":
+        base_sha = baseline_sha or ""
+        if not base_sha:
+            logger.warning("No baseline SHA for cumulative bump; using current branch only")
+            branch_names = [current_branch]
+        else:
+            branch_names = gitops.get_merged_source_branches_since(
+                base_sha=base_sha,
+                target_branch=target_branch,
+                github_token=github_token,
+            )
+            if current_branch not in branch_names:
+                branch_names.append(current_branch)
+        return version.bump_cumulative(branch_names=branch_names)
+
+    version.bump(branch_name=current_branch)
+    return None
+
+
+def _push_release_branch(
+    *,
+    gitops: GitOps,
+    release_branch_name: str,
+    force: bool = True,
+) -> None:
+    """Push release branch with one retry after re-fetch on rejection."""
+    try:
+        gitops.push(branch_name=release_branch_name, force=force)
+    except RuntimeError as err:
+        if "REJECTED" not in str(err).upper() and "rejected" not in str(err).lower():
+            raise
+        logger.warning("Push rejected; re-fetching and retrying once: %s", err)
+        gitops.fetch()
+        gitops.push(branch_name=release_branch_name, force=force)
 
 
 def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str) -> None:
@@ -100,21 +186,10 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     """
     changelog = ChangelogManager.from_config(config)
 
-    # current_branch: str = args.branch_name
-    # current_commit_sha: str = ""
-    # target_branch: str = args.target_branch
-
-    # Fallback to GitHub event context if no branch is passed
-    # if not current_branch:
-    # logger.info("Branch name not provided. Extracting from GITHUB_EVENT_PATH...")
     current_branch: str = event.get_source_branch_name()
-    # current_commit_sha: str = event.get_source_commit_sha()
-
-    # if not target_branch:
-    # logger.info("Target branch not provided. Extracting from GITHUB_EVENT_PATH...")
     target_branch: str = event.get_target_branch_name()
+    release_cfg = config.data.release
 
-    # Get repository name from GitOps (will be cached)
     repo_full_name: str = gitops.get_repository_name()
 
     if target_branch not in config.data.suffixes:
@@ -123,18 +198,15 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
 
     logger.info(f"Branch name: {current_branch}")
 
-    # Get current version first to check for tag promotion
-    version = gitops.get_lock_version_from_branch(target_branch)
+    gitops.fetch()
+    version = _resolve_baseline_version(
+        gitops=gitops,
+        config=config,
+        target_branch=target_branch,
+        github_token=github_token,
+    )
+    previous_version_str = str(version)
 
-    if not version:
-        try:
-            with open("version.txt") as f:
-                current_version_line = f.read().strip()
-                version = Version.parse(current_version_line)
-        except FileNotFoundError:
-            version = config.data.start_version
-
-    # Check if this is a tag promotion scenario
     is_tag_promotion = _is_tag_promotion_scenario(
         version=version, target_branch=target_branch, config=config
     )
@@ -146,9 +218,25 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
 
     logger.info(f"Current version: {version}")
 
-    # Only bump version if this is NOT a tag promotion
+    bump_counts: BumpCounts | None = None
+
+    lockfile = SemverLock.get_or_create(
+        version=version,
+        source_branch=current_branch,
+        target_branch=target_branch,
+    )
+    baseline_sha = lockfile.target_base_sha
+
     if not is_tag_promotion:
-        version.bump(branch_name=current_branch)
+        bump_counts = _apply_version_bump(
+            version=version,
+            config=config,
+            current_branch=current_branch,
+            gitops=gitops,
+            target_branch=target_branch,
+            baseline_sha=baseline_sha,
+            github_token=github_token,
+        )
     else:
         logger.info("Skipping version bump for tag promotion - preserving version numbers")
 
@@ -163,19 +251,11 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     for path in files_to_update:
         VersionFileUpdater(file_path=path, version=version).update()
 
-    release_branch_name = f"release/{new_version}"
+    release_branch_name = f"{release_cfg.branch_prefix.rstrip('/')}/{new_version}"
 
-    # Update the lockfile with the new version
-    lockfile = SemverLock.get_or_create(
-        version=version,
-        source_branch=current_branch,
-        target_branch=target_branch,
-    )
     lockfile.version = version
+    lockfile.as_release_branch_lock()
 
-    # Check if the lockfile has changed since the previous commit (HEAD~1)
-    # If it has changed, it implies a Release PR was merged previously, updating the baseline.
-    # This signals a fresh start for the changelog.
     try:
         previous_lock_content = gitops.get_file_content_at_commit("HEAD~1", SemverLock.path)
         if previous_lock_content:
@@ -192,12 +272,13 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
             f"Skipping baseline check. Details: {e}"
         )
 
-    # TODO: maybe find away to catch correct base sha of the PR rather then using current one
     latest_commit_sha = lockfile.target_base_sha or event.get_merged_commit_sha()
 
     commit_messages = gitops.get_recent_commits(latest_commit_sha, config=config)
     changelog.update(
-        version=new_version, messages=commit_messages, commit_groups=config.data.commit_groups
+        version=new_version,
+        messages=commit_messages,
+        commit_groups=config.data.commit_groups.groups,
     )
 
     lockfile.target_base_sha = event.get_merged_commit_sha()
@@ -208,33 +289,33 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     gitops.add([lockfile.path])
     gitops.add([changelog.path])
     gitops.commit(f"Release {new_version}", force=True)
-    gitops.push(branch_name=release_branch_name, force=True)
+    _push_release_branch(gitops=gitops, release_branch_name=release_branch_name)
 
-    # Get commits for changelog
-
-    logger.info("Closing old release PRs...")
-    gitops.close_old_release_prs(
-        github_token=github_token,
-        target_branch=target_branch,
-        labels=config.data.pull_request.labels,
-    )
+    if release_cfg.strategy == "single":
+        logger.info("Closing old release PRs...")
+        gitops.close_old_release_prs(
+            github_token=github_token,
+            target_branch=target_branch,
+            labels=config.data.pull_request.labels,
+            branch_prefix=release_cfg.branch_prefix,
+            exclude_branch=release_branch_name,
+        )
+    else:
+        logger.info("release.strategy=multi — keeping existing open release PRs")
 
     release_date = datetime.date.today().strftime("%d-%m-%Y")
 
-    # Process commit groups if configured
     commit_groups_data = None
-    if config.data.commit_groups:
+    if config.data.commit_groups.groups:
         commit_groups_data = CommitGrouper.group_messages(
             commit_messages, config.data.commit_groups
         )
 
-    # Build template variables for PR builder
     pr_variables = GitHubPRTemplateVariables(
         version=new_version,
-        previous_version=str(version),
+        previous_version=previous_version_str,
         commit_groups=commit_groups_data or [],
-        breaking_changes=[],  # TODO: Extract from commit_groups_data if needed
-        # TODO: Add author support - should tag as auto-semver
+        breaking_changes=[],
         author=event.get_actor() if hasattr(event, "get_actor") else "auto-semver",
         repository=repo_full_name,
         date=release_date,
@@ -242,9 +323,9 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
         base_branch=target_branch,
         labels=config.data.pull_request.labels,
         groups=commit_groups_data,
+        feature_count=bump_counts.feature_count if bump_counts else 0,
+        fix_count=bump_counts.fix_count if bump_counts else 0,
     )
-
-    # Use PR builder to generate title and body
 
     pr_builder = GitHubPRBuilder(
         data=pr_variables,

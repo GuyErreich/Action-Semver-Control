@@ -8,6 +8,8 @@ A custom GitHub Action written in Python to automatically bump semantic versioni
 
 **New to this action?** Follow [docs/SETUP.md](docs/SETUP.md) end-to-end (GitHub App, secrets, workflows).
 
+**Required:** Caller workflows must include a [concurrency queue](docs/SETUP.md#concurrent-merges--bump-queue) when merging multiple PRs to the same branch.
+
 ### One-command setup (recommended)
 
 From your consumer repository:

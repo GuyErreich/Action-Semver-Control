@@ -88,6 +88,7 @@ ignore = [
 "tests/*" = ["PLR2004", "S101", "ARG", "FBT"]
 # CLI orchestration functions can have more statements for workflow clarity
 "src/auto_semver/cli/bump.py" = ["PLR0915"]
+"src/auto_semver/cli/main.py" = ["PLR0915"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

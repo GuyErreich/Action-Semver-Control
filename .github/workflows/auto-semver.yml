@@ -8,6 +8,12 @@ on:
       - master
       - dev
 
+# Queue bump runs per target branch — required when multiple PRs merge close together.
+# cancel-in-progress must be false so in-flight bumps are not lost.
+concurrency:
+  group: auto-semver-bump-${{ github.repository }}-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write   # Allow push, create branches, modify files
   pull-requests: write  # Allow create/close PRs

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 
 logger = logging.getLogger(__package__)
 
@@ -80,6 +81,15 @@ _VERSION_PATTERN = re.compile(
 _MAJOR_PREFIXES = ("breaking/", "major/")
 _MINOR_PREFIXES = ("feature/",)
 _PATCH_PREFIXES = ("fix/", "bug/", "hotfix/", "chore/", "devops/")
+
+
+@dataclass(frozen=True)
+class BumpCounts:
+    """Aggregated branch-driven bump counts for cumulative mode."""
+
+    feature_count: int = 0
+    fix_count: int = 0
+    has_major: bool = False
 
 
 class Version:
@@ -216,6 +226,55 @@ class Version:
         logger.debug(f"Bump type detected: {bump_type}")
 
         return bump_type
+
+    @staticmethod
+    def count_branch_bumps(branch_names: list[str]) -> BumpCounts:
+        """Count feature, fix, and major signals from merged branch names."""
+        feature_count = 0
+        fix_count = 0
+        has_major = False
+
+        for branch_name in branch_names:
+            if any(branch_name.startswith(prefix) for prefix in _MAJOR_PREFIXES):
+                has_major = True
+            elif any(branch_name.startswith(prefix) for prefix in _MINOR_PREFIXES):
+                feature_count += 1
+            elif any(branch_name.startswith(prefix) for prefix in _PATCH_PREFIXES):
+                fix_count += 1
+            else:
+                fix_count += 1
+
+        return BumpCounts(
+            feature_count=feature_count,
+            fix_count=fix_count,
+            has_major=has_major,
+        )
+
+    def bump_cumulative(self, *, branch_names: list[str]) -> BumpCounts:
+        """
+        Apply cumulative bump rules from merged branch names.
+
+        Major bumps reset minor/patch. Otherwise minor += features and patch += fixes
+        without resetting patch on minor increments.
+        """
+        counts = self.count_branch_bumps(branch_names)
+
+        if counts.has_major:
+            self.bump_major()
+            return counts
+
+        if counts.feature_count:
+            self.minor += counts.feature_count
+        if counts.fix_count:
+            self.patch += counts.fix_count
+
+        logger.info(
+            "Cumulative bump applied: +%s minor, +%s patch from %s branches",
+            counts.feature_count,
+            counts.fix_count,
+            len(branch_names),
+        )
+        return counts
 
     def bump_major(self) -> None:
         """Increments the major version and resets minor and patch to 0."""
