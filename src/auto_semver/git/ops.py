@@ -967,6 +967,44 @@ class GitOps:
 
         return ""
 
+    def _is_closeable_release_pr(
+        self,
+        *,
+        branch_name: str,
+        github_token: str,
+        branch_prefix: str,
+        labels: list[str] | None,
+    ) -> tuple[bool, str]:
+        """
+        Decide whether an open release PR can be superseded in single mode.
+
+        Accepts pre-ownership locks (no managed_by metadata) on candidate release
+        branches so legacy release/* PRs are closed when a new release opens.
+        """
+        owned, reason = self.is_auto_semver_release_branch(
+            branch_name=branch_name,
+            github_token=github_token,
+            branch_prefix=branch_prefix,
+            labels=labels,
+            skip_pr_check=True,
+        )
+        if owned:
+            return True, ""
+
+        lock = self.get_lock_at_ref(f"origin/{branch_name}")
+        if lock is None:
+            return False, reason or "no lockfile at branch tip"
+
+        if lock.finalized:
+            return False, "lock already finalized"
+
+        if lock.is_preownership_release_lock() and self._is_candidate_release_branch(
+            branch_name, branch_prefix
+        ):
+            return True, ""
+
+        return False, reason or "lock is not auto-semver managed"
+
     def close_old_release_prs(
         self,
         *,
@@ -1020,12 +1058,11 @@ class GitOps:
                 if PR_HIDDEN_MARKER not in (pr.body or ""):
                     continue
 
-                owned, reason = self.is_auto_semver_release_branch(
+                owned, reason = self._is_closeable_release_pr(
                     branch_name=head_ref,
                     github_token=github_token,
                     branch_prefix=branch_prefix,
                     labels=labels,
-                    skip_pr_check=True,
                 )
                 if not owned:
                     logger.info("Skipping PR #%s (%s): %s", pr.number, head_ref, reason)

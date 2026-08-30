@@ -341,7 +341,7 @@ class TestGitOps:
         mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
         mocker.patch.object(
             gitops,
-            "is_auto_semver_release_branch",
+            "_is_closeable_release_pr",
             return_value=(True, ""),
         )
 
