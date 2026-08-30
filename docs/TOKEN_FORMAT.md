@@ -30,7 +30,7 @@ Do **not** add this header to production [`app-authentication`](../.github/actio
 
 ### Run the validation workflow
 
-1. Configure `GH_APP_ID` and `GH_APP_PRIVATE_KEY` repository secrets (see README).
+1. Configure `GH_APP_CLIENT_ID` (repository variable) and `GH_APP_PRIVATE_KEY` (secret) — see README / SETUP.md.
 2. Open **Actions → Validate Stateless App Token → Run workflow**.
 3. Run with `mode=enabled`, then `mode=disabled`. Both must pass.
 
@@ -38,7 +38,7 @@ Or locally (requires App credentials and `gh` CLI):
 
 ```bash
 uv sync
-export GH_APP_ID=...
+export GH_APP_CLIENT_ID=Iv1.xxxxxxxx
 export GH_APP_PRIVATE_KEY='-----BEGIN RSA PRIVATE KEY-----...'
 uv run python scripts/validate_stateless_token.py \
   --mode enabled \

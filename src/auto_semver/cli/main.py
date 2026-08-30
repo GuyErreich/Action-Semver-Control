@@ -84,7 +84,16 @@ def main() -> None:
         setup_parser.add_argument("--owner", type=str, help="Repository owner")
         setup_parser.add_argument("--repo", type=str, help="Repository name")
         setup_parser.add_argument("--default-branch", type=str, help="Default/base branch")
-        setup_parser.add_argument("--app-id", type=str, help="GitHub App ID")
+        setup_parser.add_argument(
+            "--client-id",
+            type=str,
+            help="GitHub App Client ID (preferred)",
+        )
+        setup_parser.add_argument(
+            "--app-id",
+            type=str,
+            help="Deprecated alias for --client-id",
+        )
         setup_parser.add_argument("--private-key", type=Path, help="Path to App private key PEM")
         setup_parser.add_argument("--dry-run", action="store_true", help="Print plan only")
         setup_parser.add_argument(
@@ -95,7 +104,7 @@ def main() -> None:
         setup_parser.add_argument(
             "--skip-secrets",
             action="store_true",
-            help="Skip writing GH_APP_ID and GH_APP_PRIVATE_KEY",
+            help="Skip writing GH_APP_CLIENT_ID and GH_APP_PRIVATE_KEY",
         )
         setup_parser.add_argument(
             "--skip-scaffold",
@@ -118,6 +127,7 @@ def main() -> None:
                 repo=args.repo,
                 default_branch=args.default_branch,
                 app_id=args.app_id,
+                client_id=getattr(args, "client_id", None),
                 private_key_path=args.private_key,
                 dry_run=args.dry_run,
                 open_browser=args.open_browser,

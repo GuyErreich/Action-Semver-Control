@@ -15,10 +15,11 @@ def test_setup_run_full_flow_with_explicit_owner(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """setup.run scaffolds files and sets secrets when fully configured."""
+    """setup.run scaffolds files and sets credentials when fully configured."""
     mocker.patch("auto_semver.cli.setup.webbrowser.open")
     mocker.patch("auto_semver.cli.setup.verify_gh_authenticated")
     mock_secret = mocker.patch("auto_semver.cli.setup.set_repo_secret")
+    mock_variable = mocker.patch("auto_semver.cli.setup.set_repo_variable")
     key_file = tmp_path / "key.pem"
     key_file.write_text("-----BEGIN KEY-----\n", encoding="utf-8")
     mocker.patch(
@@ -30,14 +31,17 @@ def test_setup_run_full_flow_with_explicit_owner(
         owner="acme",
         repo="demo",
         default_branch="dev",
-        app_id="999",
+        client_id="Iv1.test",
         private_key_path=key_file,
         dry_run=False,
         skip_scaffold=False,
         skip_secrets=False,
     )
 
-    assert mock_secret.call_count == 2
+    mock_variable.assert_called_once()
+    assert mock_variable.call_args.kwargs["name"] == "GH_APP_CLIENT_ID"
+    mock_secret.assert_called_once()
+    assert mock_secret.call_args.kwargs["name"] == "GH_APP_PRIVATE_KEY"
     out = capsys.readouterr().out
     assert "Action-Semver-Control setup" in out
     assert "acme/demo" in out
@@ -63,7 +67,7 @@ def test_setup_run_skip_secrets_and_scaffold(mocker: MockerFixture, capsys: pyte
     mock_secret.assert_not_called()
     mock_scaffold.assert_not_called()
     out = capsys.readouterr().out
-    assert "Skipped secret configuration" in out
+    assert "Skipped credential configuration" in out
     assert "Skipped file scaffolding" in out
 
 
@@ -73,6 +77,7 @@ def test_setup_run_opens_browser(mocker: MockerFixture, tmp_path: Path) -> None:
     mock_browser = mocker.patch("auto_semver.cli.setup.webbrowser.open")
     mocker.patch("auto_semver.cli.setup.verify_gh_authenticated")
     mocker.patch("auto_semver.cli.setup.set_repo_secret")
+    mocker.patch("auto_semver.cli.setup.set_repo_variable")
     mocker.patch("auto_semver.cli.setup.scaffold_files", return_value=[])
     key_file = tmp_path / "key.pem"
     key_file.write_text("pem", encoding="utf-8")
@@ -83,7 +88,7 @@ def test_setup_run_opens_browser(mocker: MockerFixture, tmp_path: Path) -> None:
         open_browser=True,
         skip_secrets=False,
         skip_scaffold=True,
-        app_id="1",
+        client_id="Iv1.test",
         private_key_path=key_file,
     )
 
