@@ -10,9 +10,10 @@ description = "GitHub Actions secret references (not values)"
 regexTarget = "line"
 regexes = [
   '''\$\{\{\s*secrets\.[A-Z0-9_]+''',
-  '''\$\{\{\s*inputs\.(app-private-key|private-key)''',
+  '''\$\{\{\s*inputs\.(app-private-key|private-key|client-id)''',
+  '''\$\{\{\s*vars\.GH_APP_CLIENT_ID''',
+  '''GH_APP_(ID|CLIENT_ID|PRIVATE_KEY)''',
   '''GITLEAKS_(CONFIG|VERSION|ENABLE_|LICENSE)''',
-  '''GH_APP_(ID|PRIVATE_KEY)''',
 ]
 
 [[allowlists]]

@@ -31,6 +31,6 @@ jobs:
       from_tag: ${{ inputs.from_tag }}
       to_branch: ${{ inputs.to_branch }}
       dry_run: ${{ inputs.dry_run }}
+      client-id: ${{ vars.GH_APP_CLIENT_ID }}
     secrets:
-      app-id: ${{ secrets.GH_APP_ID }}
       app-private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}

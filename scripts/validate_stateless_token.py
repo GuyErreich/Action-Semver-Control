@@ -153,7 +153,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--owner", required=True, help="Repository owner")
     parser.add_argument("--repo", required=True, help="Repository name")
-    parser.add_argument("--app-id", default=os.environ.get("GH_APP_ID"), help="GitHub App ID")
+    parser.add_argument(
+        "--app-id",
+        default=None,
+        help="GitHub App ID or Client ID (defaults to GH_APP_CLIENT_ID or GH_APP_ID)",
+    )
     parser.add_argument(
         "--private-key",
         default=os.environ.get("GH_APP_PRIVATE_KEY"),
@@ -165,14 +169,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     """Mint, validate shape, and exercise consumer paths for one token mode."""
     args = parse_args(argv)
-    if not args.app_id or not args.private_key:
-        print("GH_APP_ID and GH_APP_PRIVATE_KEY are required", file=sys.stderr)
+    app_id = (
+        args.app_id
+        or os.environ.get("GH_APP_CLIENT_ID")
+        or os.environ.get("GH_APP_ID")
+    )
+    if not app_id or not args.private_key:
+        print(
+            "GH_APP_CLIENT_ID (or GH_APP_ID) and GH_APP_PRIVATE_KEY are required",
+            file=sys.stderr,
+        )
         return 1
 
     mode: StatelessMode = args.mode
     print(f"Minting installation token with X-GitHub-Stateless-S2S-Token: {mode}")
 
-    app_jwt = create_app_jwt(app_id=str(args.app_id), private_key=args.private_key)
+    app_jwt = create_app_jwt(app_id=str(app_id), private_key=args.private_key)
     installation_id = get_installation_id(app_jwt=app_jwt, owner=args.owner, repo=args.repo)
     token = mint_installation_token(app_jwt=app_jwt, installation_id=installation_id, mode=mode)
 

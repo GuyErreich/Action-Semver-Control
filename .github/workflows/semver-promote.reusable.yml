@@ -36,10 +36,11 @@ on:
         required: false
         type: string
         default: https://github.com/GuyErreich/Action-Semver-Control/blob/dev/docs/SETUP.md
-    secrets:
-      app-id:
-        description: GitHub App ID (GH_APP_ID)
+      client-id:
+        description: GitHub App Client ID (vars.GH_APP_CLIENT_ID)
         required: true
+        type: string
+    secrets:
       app-private-key:
         description: GitHub App private key PEM (GH_APP_PRIVATE_KEY)
         required: true
@@ -52,21 +53,21 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     steps:
       - name: Checkout Action-Semver-Control
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: GuyErreich/Action-Semver-Control
           ref: ${{ inputs.action-ref }}
           path: _auto-semver-action
 
-      - name: Preflight GitHub App secrets
+      - name: Preflight GitHub App credentials
         uses: ./_auto-semver-action/.github/actions/preflight-app-secrets
         with:
-          app-id: ${{ secrets.app-id }}
+          client-id: ${{ inputs.client-id }}
           app-private-key: ${{ secrets.app-private-key }}
           setup-url: ${{ inputs.setup-url }}
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -75,7 +76,7 @@ jobs:
         uses: ./_auto-semver-action/.github/actions/app-authentication
         id: app-token
         with:
-          app-id: ${{ secrets.app-id }}
+          client-id: ${{ inputs.client-id }}
           private-key: ${{ secrets.app-private-key }}
 
       - name: Configure Git for App

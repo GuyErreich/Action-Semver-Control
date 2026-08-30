@@ -19,6 +19,7 @@ jobs:
   bump:
     if: github.event.pull_request.merged == true
     uses: GuyErreich/Action-Semver-Control/.github/workflows/semver-bump.reusable.yml@v1
+    with:
+      client-id: ${{ vars.GH_APP_CLIENT_ID }}
     secrets:
-      app-id: ${{ secrets.GH_APP_ID }}
       app-private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
