@@ -22,8 +22,11 @@ Typical usage example::
 
 from __future__ import annotations
 
+import base64
 import logging
 import re
+from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
@@ -31,7 +34,9 @@ from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 from github import Github
 from github.GithubException import GithubException
+from github.InputGitTreeElement import InputGitTreeElement
 
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.semver import SemverLock, Version
 
 if TYPE_CHECKING:
@@ -44,6 +49,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__package__)
 
+LEGACY_RELEASE_PREFIX = "release/"
+DEFAULT_RELEASE_PREFIX = "auto-semver/release/"
+
 
 class GitOps:
     """
@@ -54,18 +62,32 @@ class GitOps:
 
     """
 
-    def __init__(self, *, repo_path: str = ".", ensure_safe: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        repo_path: str = ".",
+        ensure_safe: bool = False,
+        signed_commits: bool = False,
+        github_token: str | None = None,
+    ) -> None:
         """
         Initialize GitOps for the given repository path.
 
         Args:
             repo_path (str): Path to the local Git repository (default: current directory).
             ensure_safe (bool): If True, ensures the repository is marked as a safe directory in Git config.
+            signed_commits (bool): When True, create commits/merges/tags via the GitHub API so
+                GitHub signs them as verified (requires ``github_token``).
+            github_token (str | None): Token for API-backed commits (App installation token).
 
         """
 
         self.repo = Repo(path=repo_path)
         self._repo_full_name: str = self._parse_repository_name()  # Cache repository name on init
+        self.signed_commits = signed_commits
+        self.github_token = github_token
+        if signed_commits and not github_token:
+            raise ValueError("github_token is required when signed_commits=True")
         if ensure_safe:
             self.__ensure_git_safe_directory()
         self.__ensure_git_identity()
@@ -112,6 +134,106 @@ class GitOps:
 
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:
         return Github(github_token).get_repo(repo_full_name)
+
+    def _gh_repo(self) -> Repository:
+        if not self.github_token:
+            raise ValueError("github_token is required for API git operations")
+        return self._get_github_repo(
+            github_token=self.github_token,
+            repo_full_name=self._repo_full_name,
+        )
+
+    def _collect_staged_paths(self) -> list[str]:
+        """Return repository-relative paths staged for the next commit."""
+        output = self.repo.git.diff("--cached", "--name-only")
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
+    def _collect_dirty_tracked_paths(self) -> list[str]:
+        """Return tracked paths with unstaged modifications."""
+        output = self.repo.git.diff("--name-only")
+        return [line.strip() for line in output.splitlines() if line.strip()]
+
+    def _api_commit_files_on_branch(
+        self,
+        *,
+        branch_name: str,
+        message: str,
+        file_paths: list[str],
+        force: bool = False,
+    ) -> str:
+        """Create a verified commit on a branch via the GitHub Git Data API."""
+        if not file_paths:
+            raise ValueError("file_paths must not be empty for API commit")
+
+        gh_repo = self._gh_repo()
+        repo_root = Path(self.repo.working_tree_dir or ".")
+
+        parent_sha: str | None = None
+        base_tree = None
+        try:
+            ref = gh_repo.get_git_ref(f"heads/{branch_name}")
+            parent_sha = ref.object.sha
+            base_tree = gh_repo.get_git_commit(parent_sha).tree
+        except GithubException:
+            parent_sha = self.repo.head.commit.hexsha
+            base_tree = gh_repo.get_git_commit(parent_sha).tree
+
+        elements = []
+        for rel_path in file_paths:
+            full_path = repo_root / rel_path
+            mode = "100755" if full_path.exists() and full_path.stat().st_mode & 0o111 else "100644"
+            content = full_path.read_bytes()
+            encoding = "utf-8" if mode == "100644" else "base64"
+            payload = (
+                content.decode("utf-8")
+                if encoding == "utf-8"
+                else base64.b64encode(content).decode("ascii")
+            )
+            blob = gh_repo.create_git_blob(payload, encoding)
+            elements.append(
+                InputGitTreeElement(
+                    path=rel_path.replace("\\", "/"),
+                    mode=mode,
+                    type="blob",
+                    sha=blob.sha,
+                )
+            )
+
+        tree = gh_repo.create_git_tree(elements, base_tree)
+        parents = [gh_repo.get_git_commit(parent_sha)] if parent_sha else []
+        commit = gh_repo.create_git_commit(message, tree, parents)
+
+        ref_name = f"heads/{branch_name}"
+        try:
+            ref = gh_repo.get_git_ref(ref_name)
+            ref.edit(sha=commit.sha, force=force)
+        except GithubException:
+            gh_repo.create_git_ref(f"refs/{ref_name}", commit.sha)
+
+        self.fetch()
+        logger.info("Verified API commit %s on %s", commit.sha, branch_name)
+        return commit.sha
+
+    def _api_merge(self, *, base: str, head: str, message: str) -> str:
+        """Merge ``head`` into ``base`` via the GitHub REST API (verified merge commit)."""
+        gh_repo = self._gh_repo()
+        result = gh_repo.merge(base=base, head=head, commit_message=message)
+        if result is None or not getattr(result, "sha", None):
+            raise RuntimeError(f"Merge API returned no commit for {head} -> {base}")
+        logger.info("Verified API merge %s into %s (%s)", head, base, result.sha)
+        return str(result.sha)
+
+    def _api_create_lightweight_tag(self, *, tag: str, sha: str) -> str:
+        """Create a lightweight tag ref via the GitHub API."""
+        gh_repo = self._gh_repo()
+        ref_name = f"tags/{tag}"
+        try:
+            ref = gh_repo.get_git_ref(ref_name)
+            ref.edit(sha=sha, force=True)
+        except GithubException:
+            gh_repo.create_git_ref(f"refs/{ref_name}", sha)
+        logger.info("Verified API tag %s -> %s", tag, sha)
+        return tag
 
     def _parse_repository_name(self, *, remote_name: str = "origin") -> str:
         """
@@ -214,17 +336,32 @@ class GitOps:
                 logger.error(f"Failed to add {file_path} to git: {err}")
                 raise
 
-    def commit(self, message: str) -> None:
+    def commit(self, message: str, *, force: bool = False) -> None:
         """
         Commit staged changes with the provided message.
 
         Args:
             message (str): Commit message.
+            force (bool): When using signed commits, force-update the branch ref.
 
         """
 
         logger.info(f"Committing changes with message: {message}")
         logger.debug(f"Staged changes: {self.repo.index.diff('HEAD')}")
+
+        if self.signed_commits:
+            branch_name = self.repo.active_branch.name
+            file_paths = self._collect_staged_paths()
+            if not file_paths:
+                logger.warning("No staged files for signed commit")
+                return
+            self._api_commit_files_on_branch(
+                branch_name=branch_name,
+                message=message,
+                file_paths=file_paths,
+                force=force,
+            )
+            return
 
         try:
             # Explicitly set author and committer to ensure consistency (e.g., prevent "GitHub" as committer)
@@ -255,6 +392,13 @@ class GitOps:
         """
 
         logger.info(f"Pushing branch '{branch_name}' to remote '{remote_name}' with force={force}.")
+
+        if self.signed_commits:
+            logger.info(
+                "Signed commit path: branch/tag refs updated via GitHub API; syncing local clone"
+            )
+            self.fetch(remote_name=remote_name)
+            return
 
         try:
             remote: Remote = self.repo.remote(name=remote_name)
@@ -289,6 +433,11 @@ class GitOps:
             branch (str): Branch name.
 
         """
+        if self.signed_commits:
+            gh_repo = self._gh_repo()
+            branch_ref = gh_repo.get_git_ref(f"heads/{branch}")
+            return self._api_create_lightweight_tag(tag=tag, sha=branch_ref.object.sha)
+
         return self.repo.create_tag(path=tag, ref=branch, message="").name
 
     def fetch(self, *, remote_name: str = "origin") -> None:
@@ -457,6 +606,7 @@ class GitOps:
         source_version: str | None = None,
         remote_name: str = "origin",
         is_source_tag: bool = False,
+        post_merge_hook: Callable[[str, str], None] | None = None,
     ) -> str:
         """
         Automatically promote changes from source branch to target branch.
@@ -476,6 +626,9 @@ class GitOps:
             source_version (str | None): Original version tag from source branch.
             remote_name (str): Remote name (default: 'origin').
             is_source_tag (bool): If True, treat source_branch as a tag.
+            post_merge_hook (Callable[[str, str], None] | None): Optional hook function to execute after merge
+            but before commit/tag.
+            Receives (source_version_str, target_version_str).
 
         Returns:
             str: The version tag that was created.
@@ -484,6 +637,27 @@ class GitOps:
             RuntimeError: If any operation fails (fetch, merge, push, etc.).
         """
         logger.info(f"Starting auto-promotion: {source_branch} → {target_branch}")
+
+        if source_version:
+            merge_message = (
+                f"chore: auto-promote {source_version} from {source_branch} "
+                f"to {target_branch} as {version}"
+            )
+        else:
+            merge_message = (
+                f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
+            )
+
+        if self.signed_commits:
+            return self._auto_promote_api(
+                source_branch=source_branch,
+                target_branch=target_branch,
+                version=version,
+                source_version=source_version,
+                merge_message=merge_message,
+                is_source_tag=is_source_tag,
+                post_merge_hook=post_merge_hook,
+            )
 
         try:
             # 1. Fetch latest changes
@@ -501,22 +675,29 @@ class GitOps:
             self.pull(branch_name=target_branch, remote_name=remote_name)
 
             # 4. Merge source into target
-            if source_version:
-                merge_message = (
-                    f"chore: auto-promote {source_version} from {source_branch} "
-                    f"to {target_branch} as {version}"
-                )
-            else:
-                merge_message = (
-                    f"chore: auto-promote from {source_branch} to {target_branch} as {version}"
-                )
-
             self.merge(
                 source_ref=source_branch,
                 message=merge_message,
                 remote_name=remote_name,
                 is_tag=is_source_tag,
             )
+
+            # Executing post-merge hook if provided
+            if post_merge_hook:
+                logger.info("Executing post-merge hook")
+                # Fallback to source_branch if version not explicit
+                src_v = source_version if source_version else source_branch
+
+                try:
+                    post_merge_hook(src_v, version)
+
+                    if self.repo.is_dirty(untracked_files=False):
+                        logger.info("Changes detected after post-merge hook. Committing.")
+                        self.repo.git.add(update=True)  # Stage modified tracked files
+                        self.repo.index.commit(f"chore: update version metadata for {version}")
+                except Exception as e:
+                    logger.error(f"Post-merge hook failed: {e}")
+                    raise RuntimeError(f"Post-merge hook failed: {e}") from e
 
             # 5. Create tag on target branch
             logger.info(f"Creating tag '{version}' on '{target_branch}'")
@@ -543,33 +724,312 @@ class GitOps:
             logger.error(f"Unexpected error during auto-promotion: {err}")
             raise RuntimeError(f"Auto-promotion failed unexpectedly: {err}") from err
 
+    def _auto_promote_api(
+        self,
+        *,
+        source_branch: str,
+        target_branch: str,
+        version: str,
+        source_version: str | None,
+        merge_message: str,
+        is_source_tag: bool,
+        post_merge_hook: Callable[[str, str], None] | None,
+    ) -> str:
+        """Promote via verified GitHub merge/tag APIs."""
+        merge_sha = self._api_merge(base=target_branch, head=source_branch, message=merge_message)
+
+        if post_merge_hook:
+            logger.info("Executing post-merge hook")
+            src_v = source_version if source_version else source_branch
+            try:
+                self.fetch()
+                self.checkout(branch_name=target_branch)
+                self.repo.git.reset("--hard", merge_sha)
+                post_merge_hook(src_v, version)
+                dirty_paths = self._collect_dirty_tracked_paths()
+                if dirty_paths:
+                    logger.info("Changes detected after post-merge hook; creating verified commit")
+                    self._api_commit_files_on_branch(
+                        branch_name=target_branch,
+                        message=f"chore: update version metadata for {version}",
+                        file_paths=dirty_paths,
+                        force=False,
+                    )
+                    branch_ref = self._gh_repo().get_git_ref(f"heads/{target_branch}")
+                    merge_sha = branch_ref.object.sha
+            except Exception as exc:
+                logger.error(f"Post-merge hook failed: {exc}")
+                raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
+
+        self._api_create_lightweight_tag(tag=version, sha=merge_sha)
+        self.fetch()
+        logger.info(
+            "✅ Verified auto-promotion complete: %s → %s (tagged: %s)",
+            source_branch,
+            target_branch,
+            version,
+        )
+        return version
+
+    def get_lock_at_ref(self, ref: str) -> SemverLock | None:
+        """Load `.semver.lock` from a branch or tag ref."""
+        try:
+            blob = self.repo.git.show(f"{ref}:{SemverLock.path}")
+            return SemverLock.from_dict(yaml.safe_load(blob))
+        except GitCommandError as err:
+            logger.debug("No lockfile at ref %s: %s", ref, err)
+            return None
+
+    def delete_branch(self, *, branch_name: str, remote_name: str = "origin") -> None:
+        """Delete a remote branch ref."""
+        logger.info("Deleting remote branch '%s' on '%s'", branch_name, remote_name)
+        if self.signed_commits:
+            gh_repo = self._gh_repo()
+            ref_name = f"heads/{branch_name}"
+            ref = gh_repo.get_git_ref(ref_name)
+            ref.delete()
+            self.fetch(remote_name=remote_name)
+            return
+
+        remote: Remote = self.repo.remote(name=remote_name)
+        push_infos = remote.push(refspec=f":{branch_name}")
+        for info in push_infos:
+            if info.flags & (PushInfo.ERROR | PushInfo.REJECTED | PushInfo.REMOTE_FAILURE):
+                raise RuntimeError(f"Failed to delete branch {branch_name}: {info.summary}")
+
+    @staticmethod
+    def _normalize_branch_name(ref: str) -> str:
+        """Strip remote prefix from a git ref name."""
+        for prefix in ("origin/", "refs/heads/"):
+            if ref.startswith(prefix):
+                return ref.removeprefix(prefix)
+        return ref
+
+    @staticmethod
+    def _branch_matches_prefix(branch_name: str, branch_prefix: str) -> bool:
+        """Return True when branch_name matches `{prefix}{semver}`."""
+        prefix = branch_prefix if branch_prefix.endswith("/") else f"{branch_prefix}/"
+        pattern = re.compile(re.escape(prefix) + r"\d+\.\d+\.\d+(?:-[\w.]+)?$")
+        return bool(pattern.match(branch_name))
+
+    def get_merged_source_branches_since(
+        self,
+        *,
+        base_sha: str,
+        target_branch: str,
+        github_token: str,
+    ) -> list[str]:
+        """List merged PR head branch names on target_branch since base_sha."""
+        repo_full_name = self._repo_full_name
+        gh = Github(login_or_token=github_token)
+        repo: Repository = gh.get_repo(full_name_or_id=repo_full_name)
+        branches: list[str] = []
+
+        for pr in repo.get_pulls(
+            state="closed", base=target_branch, sort="updated", direction="desc"
+        ):
+            if not pr.merged or not pr.merge_commit_sha:
+                continue
+            merge_sha = pr.merge_commit_sha
+            try:
+                self.repo.git.merge_base("--is-ancestor", base_sha, merge_sha)
+                self.repo.git.merge_base("--is-ancestor", merge_sha, f"origin/{target_branch}")
+            except GitCommandError:
+                continue
+            branches.append(pr.head.ref)
+
+        return list(reversed(branches))
+
+    def get_open_release_version(
+        self,
+        *,
+        github_token: str,
+        target_branch: str,
+        branch_prefix: str,
+        labels: list[str] | None = None,
+    ) -> Version | None:
+        """Return the highest version from open owned release PRs targeting target_branch."""
+        repo_full_name = self._repo_full_name
+        gh = Github(login_or_token=github_token)
+        repo: Repository = gh.get_repo(full_name_or_id=repo_full_name)
+        highest: Version | None = None
+
+        for pr in repo.get_pulls(state="open"):
+            head_ref = pr.head.ref
+            if pr.base.ref != target_branch:
+                continue
+            if not self._is_candidate_release_branch(head_ref, branch_prefix):
+                continue
+            pr_labels = [label.name for label in pr.labels]
+            if labels and not any(label in pr_labels for label in labels):
+                continue
+            if PR_HIDDEN_MARKER not in (pr.body or ""):
+                continue
+
+            lock = self.get_lock_at_ref(f"origin/{head_ref}")
+            if lock is None:
+                continue
+
+            if highest is None or lock.version > highest:
+                highest = lock.version
+
+        return highest
+
+    def _is_candidate_release_branch(self, branch_name: str, branch_prefix: str) -> bool:
+        """Return True for configured or legacy release branch names."""
+        return self._branch_matches_prefix(branch_name, branch_prefix) or (
+            branch_name.startswith(LEGACY_RELEASE_PREFIX)
+            and branch_name != LEGACY_RELEASE_PREFIX.rstrip("/")
+        )
+
+    def _find_release_pr(
+        self,
+        *,
+        github_token: str,
+        branch_name: str,
+        target_branch: str | None = None,
+    ) -> PullRequest | None:
+        repo: Repository = self._get_github_repo(
+            github_token=github_token,
+            repo_full_name=self._repo_full_name,
+        )
+        for pr in repo.get_pulls(state="all"):
+            if pr.head.ref != branch_name:
+                continue
+            if target_branch and pr.base.ref != target_branch:
+                continue
+            return pr
+        return None
+
+    def is_auto_semver_release_branch(
+        self,
+        *,
+        branch_name: str,
+        github_token: str,
+        branch_prefix: str,
+        labels: list[str] | None = None,
+        require_closed_pr: bool = False,
+        skip_pr_check: bool = False,
+    ) -> tuple[bool, str]:
+        """
+        Verify branch ownership for cleanup/delete operations.
+
+        Returns:
+            Tuple of (is_owned, skip_reason). skip_reason is empty when owned.
+        """
+        skip_reason = ""
+        if not self._is_candidate_release_branch(branch_name, branch_prefix):
+            skip_reason = "branch name does not match release prefix"
+        else:
+            lock = self.get_lock_at_ref(f"origin/{branch_name}")
+            if lock is None:
+                skip_reason = "no lockfile at branch tip"
+            elif not lock.is_release_branch_lock() and not lock.is_legacy_managed_lock():
+                skip_reason = "lock is not auto-semver managed"
+
+        if skip_reason:
+            return False, skip_reason
+
+        if skip_pr_check:
+            return True, ""
+
+        pr = self._find_release_pr(github_token=github_token, branch_name=branch_name)
+        if pr is None:
+            return False, "no associated pull request"
+
+        pr_reason = self._release_pr_ownership_reason(
+            pr=pr,
+            labels=labels,
+            require_closed_pr=require_closed_pr,
+        )
+        if pr_reason:
+            return False, pr_reason
+
+        return True, ""
+
+    def _release_pr_ownership_reason(
+        self,
+        *,
+        pr: PullRequest,
+        labels: list[str] | None,
+        require_closed_pr: bool,
+    ) -> str:
+        """Return a skip reason when the release PR fails ownership checks."""
+        if require_closed_pr and pr.state == "open":
+            return "pull request still open"
+
+        pr_labels = [label.name for label in pr.labels]
+        if labels and not any(label in pr_labels for label in labels):
+            return "pull request missing configured label"
+
+        if PR_HIDDEN_MARKER not in (pr.body or ""):
+            return "pull request missing auto-semver marker"
+
+        return ""
+
+    def _is_closeable_release_pr(
+        self,
+        *,
+        branch_name: str,
+        github_token: str,
+        branch_prefix: str,
+        labels: list[str] | None,
+    ) -> tuple[bool, str]:
+        """
+        Decide whether an open release PR can be superseded in single mode.
+
+        Accepts pre-ownership locks (no managed_by metadata) on candidate release
+        branches so legacy release/* PRs are closed when a new release opens.
+        """
+        owned, reason = self.is_auto_semver_release_branch(
+            branch_name=branch_name,
+            github_token=github_token,
+            branch_prefix=branch_prefix,
+            labels=labels,
+            skip_pr_check=True,
+        )
+        if owned:
+            return True, ""
+
+        lock = self.get_lock_at_ref(f"origin/{branch_name}")
+        if lock is None:
+            return False, reason or "no lockfile at branch tip"
+
+        if lock.finalized:
+            return False, "lock already finalized"
+
+        if lock.is_preownership_release_lock() and self._is_candidate_release_branch(
+            branch_name, branch_prefix
+        ):
+            return True, ""
+
+        return False, reason or "lock is not auto-semver managed"
+
     def close_old_release_prs(
         self,
         *,
         github_token: str,
         target_branch: str,
         labels: list[str] | None = None,
+        branch_prefix: str = DEFAULT_RELEASE_PREFIX,
+        exclude_branch: str | None = None,
+        delete_branches: bool = False,
     ) -> None:
         """
-        Close open PRs.
-
-        This method checks for open pull requests in the specified GitHub repository
-        that are targeting the specified branch. It closes any open pull requests
-        that match the specified labels and are based on branches starting with "release/".
-        This is useful for cleaning up old pull requests before creating a new one.
+        Close open owned release PRs targeting the specified branch.
 
         Args:
             github_token: GitHub access token.
             target_branch: The target branch (e.g., 'dev' or 'main').
             labels: Optional list of label names to match.
-
+            branch_prefix: Configured release branch prefix.
+            exclude_branch: Optional branch name to keep open (current release).
+            delete_branches: When True, delete each superseded release branch after closing.
 
         Raises:
             GithubException: If there is an error with the GitHub API.
 
         """
-
-        # Get the repository name (uses cached value)
         repo_full_name = self._repo_full_name
 
         logger.info(f"Checking for existing PRs for target branch: {target_branch}")
@@ -583,19 +1043,103 @@ class GitOps:
             for pr in open_prs:
                 head_ref: str = pr.head.ref
                 base_ref: str = pr.base.ref
-                pr_labels: list[str] = [label.name for label in pr.labels]
 
-                if (
-                    head_ref.startswith("release/")
-                    and base_ref == target_branch
-                    and (not labels or any(label in pr_labels for label in labels))
-                ):
-                    logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
-                    pr.edit(state="closed")
+                if head_ref == exclude_branch:
+                    continue
+
+                if base_ref != target_branch:
+                    continue
+
+                if not self._is_candidate_release_branch(head_ref, branch_prefix):
+                    continue
+
+                pr_labels: list[str] = [label.name for label in pr.labels]
+                if labels and not any(label in pr_labels for label in labels):
+                    continue
+
+                if PR_HIDDEN_MARKER not in (pr.body or ""):
+                    continue
+
+                owned, reason = self._is_closeable_release_pr(
+                    branch_name=head_ref,
+                    github_token=github_token,
+                    branch_prefix=branch_prefix,
+                    labels=labels,
+                )
+                if not owned:
+                    logger.info("Skipping PR #%s (%s): %s", pr.number, head_ref, reason)
+                    continue
+
+                logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
+                pr.edit(state="closed")
+                if delete_branches:
+                    self._delete_superseded_release_branch(branch_name=head_ref)
 
         except GithubException as err:
             logger.error(f"GitHub API error while closing PRs: {err}")
             raise
+
+    def cleanup_stale_release_branches(
+        self,
+        *,
+        github_token: str,
+        target_branch: str,
+        labels: list[str] | None = None,
+        branch_prefix: str = DEFAULT_RELEASE_PREFIX,
+        exclude_branch: str | None = None,
+    ) -> None:
+        """
+        Delete owned release branches that no longer have an open PR (single mode).
+
+        Handles branches left behind when a previous bump closed the PR but did not
+        delete the remote ref.
+        """
+        self.fetch()
+        remote: Remote = self.repo.remote()
+        candidates: list[str] = []
+
+        for ref in remote.refs:
+            branch_name = self._normalize_branch_name(ref.name)
+            if branch_name == exclude_branch:
+                continue
+            if not self._is_candidate_release_branch(branch_name, branch_prefix):
+                continue
+            candidates.append(branch_name)
+
+        for branch_name in sorted(set(candidates)):
+            pr = self._find_release_pr(
+                github_token=github_token,
+                branch_name=branch_name,
+                target_branch=target_branch,
+            )
+            if pr is not None and pr.state == "open":
+                continue
+            if pr is not None:
+                pr_labels = [label.name for label in pr.labels]
+                if labels and not any(label in pr_labels for label in labels):
+                    continue
+                if PR_HIDDEN_MARKER not in (pr.body or ""):
+                    continue
+
+            closeable, reason = self._is_closeable_release_pr(
+                branch_name=branch_name,
+                github_token=github_token,
+                branch_prefix=branch_prefix,
+                labels=labels,
+            )
+            if not closeable:
+                logger.info("Skipping stale branch delete for %s: %s", branch_name, reason)
+                continue
+
+            self._delete_superseded_release_branch(branch_name=branch_name)
+
+    def _delete_superseded_release_branch(self, *, branch_name: str) -> None:
+        """Delete a superseded release branch, logging failures without raising."""
+        try:
+            self.delete_branch(branch_name=branch_name)
+            logger.info("Deleted superseded release branch %s", branch_name)
+        except Exception as err:
+            logger.warning("Failed to delete superseded release branch %s: %s", branch_name, err)
 
     def create_pr(
         self,

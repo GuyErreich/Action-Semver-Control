@@ -2,6 +2,36 @@
 
 A custom GitHub Action written in Python to automatically bump semantic versioning, update changelogs, and create Pull Requests — fully configurable.
 
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Auto%20Semver%20Bumper-blue?logo=github)](https://github.com/marketplace/actions/auto-semver-bumper)
+
+## Quickstart
+
+**New to this action?** Follow [docs/SETUP.md](docs/SETUP.md) end-to-end (GitHub App, secrets, workflows).
+
+**Required:** Caller workflows must include a [concurrency queue](docs/SETUP.md#concurrent-merges--bump-queue) when merging multiple PRs to the same branch.
+
+### One-command setup (recommended)
+
+From your consumer repository:
+
+```bash
+uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver setup
+```
+
+### Add workflows without the CLI
+
+1. **[Register a GitHub App](https://github.com/settings/apps/new?name=Auto+Semver+Bot&description=Signed+commits+and+PRs+for+Action-Semver-Control&url=https%3A%2F%2Fgithub.com%2FGuyErreich%2FAction-Semver-Control&public=true&webhook_active=false&contents=write&pull_requests=write)** — install it on your repo, set secrets `GH_APP_ID` and `GH_APP_PRIVATE_KEY`.
+2. **Add a caller workflow** — copy [src/auto_semver/setup/templates/auto-semver.caller.yml](src/auto_semver/setup/templates/auto-semver.caller.yml) to `.github/workflows/auto-semver.yml`.
+3. **Add config** — copy [src/auto_semver/setup/templates/auto_semver_config.yml](src/auto_semver/setup/templates/auto_semver_config.yml) to `auto_semver_config.yml` and edit branch suffixes.
+
+Regenerate prefilled “add workflow” links for your repo:
+
+```bash
+python scripts/generate_onboarding_links.py --owner YOUR_ORG --repo YOUR_REPO --branch master
+```
+
+Pin reusable workflows at **`@v1`** (floating major tag, updated on each production release). See [Pinning policy](docs/SETUP.md#pinning-policy).
+
 ## Features
 - Auto bump `major`, `minor`, or `patch` depending on branch type
 - Add suffixes (`-dev`, `-rc`) depending on the target branch
@@ -12,7 +42,7 @@ A custom GitHub Action written in Python to automatically bump semantic versioni
 - No subprocess — uses GitPython and Requests libraries only
 - Fully Dockerized for clean CI/CD usage
 - Comprehensive test coverage with pytest and pyfakefs
-- Modern Python tooling (ruff, mypy, pre-commit)
+- Modern Python tooling (ruff, mypy, pre-commit, gitleaks secret scan)
 
 ## CLI Usage
 

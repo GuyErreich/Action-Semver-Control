@@ -17,11 +17,11 @@ from .version import Version
 
 logger = logging.getLogger(__package__)
 
-
 FILE_NAME: str = ".semver.lock"
+MANAGED_BY: str = "auto-semver"
+BRANCH_ROLE_RELEASE: str = "release"
 
 
-# TODO: improve docs
 @dataclass
 class SemverLock:
     """
@@ -37,6 +37,9 @@ class SemverLock:
         target_branch (str): The base branch the PR targets (e.g., `main` or `dev`).
         target_base_sha (str | None): The SHA from which commit messages were collected.
         finalized (bool): Whether the bump has been finalized (i.e., merged and tagged).
+        managed_by (str | None): Tool that owns this lock (auto-semver when set).
+        branch_role (str | None): release-only marker at release branch tips.
+        managed_by_version (str | None): Action-Semver-Control version that created the lock.
         path (str): The file path of the lockfile on disk.
 
     """
@@ -46,6 +49,9 @@ class SemverLock:
     target_branch: str
     target_base_sha: str | None = None
     finalized: bool = False
+    managed_by: str | None = None
+    branch_role: str | None = None
+    managed_by_version: str | None = None
     path: str = FILE_NAME
 
     @classmethod
@@ -112,17 +118,27 @@ class SemverLock:
             target_branch=data["target_branch"],
             target_base_sha=data.get("target_base_sha"),
             finalized=data.get("finalized", False),
+            managed_by=data.get("managed_by"),
+            branch_role=data.get("branch_role"),
+            managed_by_version=data.get("managed_by_version"),
         )
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this object to a dict for YAML serialization."""
-        return {
+        payload: dict[str, Any] = {
             "version": str(self.version),
             "source_branch": self.source_branch,
             "target_branch": self.target_branch,
             "target_base_sha": self.target_base_sha,
             "finalized": self.finalized,
         }
+        if self.managed_by:
+            payload["managed_by"] = self.managed_by
+        if self.branch_role:
+            payload["branch_role"] = self.branch_role
+        if self.managed_by_version:
+            payload["managed_by_version"] = self.managed_by_version
+        return payload
 
     def save_to_file(self) -> None:
         """Write this lockfile to disk."""
@@ -133,3 +149,31 @@ class SemverLock:
         except Exception as err:
             logger.error(f"Failed to write lockfile: {err}")
             raise
+
+    def as_release_branch_lock(self, *, managed_by_version: str | None = None) -> None:
+        """Mark this lock as owned by auto-semver on a release branch tip."""
+        self.managed_by = MANAGED_BY
+        self.branch_role = BRANCH_ROLE_RELEASE
+        self.finalized = False
+        if managed_by_version:
+            self.managed_by_version = managed_by_version
+
+    def as_finalized_baseline(self, *, merge_sha: str) -> None:
+        """Rewrite lock for the target integration branch after finalize."""
+        self.target_base_sha = merge_sha
+        self.finalized = True
+        self.managed_by = MANAGED_BY
+        self.branch_role = None
+        self.source_branch = self.target_branch
+
+    def is_release_branch_lock(self) -> bool:
+        """Return True when the lock shape indicates a release branch tip."""
+        return self.managed_by == MANAGED_BY and self.branch_role == BRANCH_ROLE_RELEASE
+
+    def is_legacy_managed_lock(self) -> bool:
+        """Return True for pre-branch_role locks still managed by auto-semver."""
+        return self.managed_by == MANAGED_BY and self.branch_role != BRANCH_ROLE_RELEASE
+
+    def is_preownership_release_lock(self) -> bool:
+        """Return True for release locks created before managed_by metadata existed."""
+        return self.managed_by is None and self.branch_role is None and not self.finalized

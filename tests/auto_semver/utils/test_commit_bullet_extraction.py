@@ -1,6 +1,7 @@
 """Test commit bullet point extraction for grouping."""
 
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.config._models._commit_groups import CommitGroupsConfig
 from auto_semver.git.grouper import CommitGrouper
 from auto_semver.git.parser import CommitParser
 
@@ -110,7 +111,10 @@ Features:
         CommitGroupConfig(title="🧪 Testing", patterns=["^Create ", "fixtures"], priority=2),
     ]
 
-    grouped = CommitGrouper.group_messages(messages, commit_groups)
+    grouped = CommitGrouper.group_messages(
+        messages,
+        CommitGroupsConfig(summary_mode="expand_body", groups=commit_groups),
+    )
 
     # Should have 2 groups
     assert len(grouped) == 2
@@ -144,7 +148,10 @@ def test_group_messages_simple_commits_without_body() -> None:
         CommitGroupConfig(title="📚 Documentation", patterns=["^docs:"], priority=3),
     ]
 
-    grouped = CommitGrouper.group_messages(messages, commit_groups)
+    grouped = CommitGrouper.group_messages(
+        messages,
+        CommitGroupsConfig(summary_mode="expand_body", groups=commit_groups),
+    )
 
     # Should have 3 groups
     assert len(grouped) == 3
@@ -196,7 +203,10 @@ Testing:
         CommitGroupConfig(title="📝 Other", patterns=["^Add typed"], priority=5),
     ]
 
-    grouped = CommitGrouper.group_messages(messages, commit_groups)
+    grouped = CommitGrouper.group_messages(
+        messages,
+        CommitGroupsConfig(summary_mode="expand_body", groups=commit_groups),
+    )
 
     # Check that simple commits are preserved
     fixes = next(g for g in grouped if g.title == "🐛 Bug Fixes")

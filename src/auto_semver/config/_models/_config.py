@@ -8,10 +8,13 @@ from pydantic import BaseModel, Field, field_serializer, field_validator, model_
 
 from ...git.grouper import CommitGrouper
 from ...semver import Version
+from ._bump import BumpConfig
 from ._changelog import ChangelogConfig
-from ._commit_group import CommitGroupConfig, CommitGroups
+from ._commit_group import CommitGroups
+from ._commit_groups import CommitGroupsConfig
 from ._promotion import PromotionRule
 from ._pull_request import PullRequestConfig
+from ._release import ReleaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +47,30 @@ class ConfigData(BaseModel):
     version_files: list[str] = Field(
         default=["version.txt"], description="Optional files that hold version format to update."
     )
-    commit_groups: list[CommitGroupConfig] = Field(
-        default_factory=list, description="Optional commit grouping configuration for templates"
+    commit_groups: CommitGroupsConfig = Field(
+        default_factory=CommitGroupsConfig,
+        description="Commit grouping settings and pattern-defined groups for templates",
+    )
+    release: ReleaseConfig = Field(
+        default_factory=ReleaseConfig,
+        description="Release branch lifecycle (single vs multi, prefix, cleanup)",
+    )
+    bump: BumpConfig = Field(
+        default_factory=BumpConfig,
+        description="Version bump mode (classic semver vs cumulative)",
     )
     pull_request: PullRequestConfig
     changelog: ChangelogConfig
+
+    @field_validator("commit_groups", mode="before")
+    @classmethod
+    def parse_commit_groups(
+        cls, value: CommitGroupsConfig | object | None
+    ) -> CommitGroupsConfig:
+        """Accept legacy YAML list format or structured commit_groups mapping."""
+        if isinstance(value, CommitGroupsConfig):
+            return value
+        return CommitGroupsConfig.from_yaml(value)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -105,7 +127,7 @@ class ConfigData(BaseModel):
         """
         seen_patterns: dict[str, str] = {}
 
-        for group in self.commit_groups:
+        for group in self.commit_groups.groups:
             for pattern in group.patterns:
                 # We check for exact string matches.
                 # Semantically identical regexes (e.g. [a-z] vs [a-z]) are hard to detect,

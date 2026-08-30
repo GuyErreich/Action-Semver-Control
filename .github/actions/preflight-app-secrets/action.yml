@@ -1,0 +1,44 @@
+name: Preflight App Secrets
+description: Fail fast when GitHub App secrets are missing and link to setup docs
+inputs:
+  app-id:
+    description: GitHub App ID secret value
+    required: false
+    default: ""
+  app-private-key:
+    description: GitHub App private key secret value
+    required: false
+    default: ""
+  setup-url:
+    description: Setup documentation URL shown in the error message
+    required: false
+    default: https://github.com/GuyErreich/Action-Semver-Control/blob/dev/docs/SETUP.md
+
+runs:
+  using: composite
+  steps:
+    - name: Verify GitHub App secrets
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
+        SETUP_URL: ${{ inputs.setup-url }}
+      run: |
+        set -euo pipefail
+        missing=()
+        if [[ -z "${APP_ID// }" ]]; then
+          missing+=("app-id (set repository secret GH_APP_ID)")
+        fi
+        if [[ -z "${APP_PRIVATE_KEY// }" ]]; then
+          missing+=("app-private-key (set repository secret GH_APP_PRIVATE_KEY)")
+        fi
+        if (( ${#missing[@]} > 0 )); then
+          echo "::error title=Missing GitHub App secrets::Auto Semver requires a GitHub App. See ${SETUP_URL}"
+          echo "Missing required secrets:"
+          printf '  - %s\n' "${missing[@]}"
+          echo
+          echo "Quick setup:"
+          echo "  uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver setup"
+          echo "  ${SETUP_URL}"
+          exit 1
+        fi

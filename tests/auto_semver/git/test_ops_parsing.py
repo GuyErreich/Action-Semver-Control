@@ -52,6 +52,29 @@ class TestGitOpsParsing:
         ops = GitOps()
         assert ops._repo_full_name == "owner/repo"
 
+    def test_parse_repository_name_https_with_stateless_jwt_token(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Stateless ghs_ JWT tokens (~520 chars, with dots) must not break URL parsing."""
+        header = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
+        payload = "eyJpc3MiOiIxMjM0NSJ9"
+        signature = "A" * 452
+        token = f"ghs_12345_{header}.{payload}.{signature}"
+        assert len(token) >= 520
+        assert token.count(".") == 2
+
+        mock_repo = mocker.MagicMock(spec=Repo)
+        mock_remote = mocker.MagicMock()
+        mock_remote.url = f"https://x-access-token:{token}@github.com/owner/repo.git"
+        mock_repo.remote.return_value = mock_remote
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        mocker.patch("auto_semver.git.ops.Github")
+
+        ops = GitOps()
+        assert ops._repo_full_name == "owner/repo"
+        assert ops.get_repository_name() == "owner/repo"
+        assert token in mock_remote.url
+
     def test_parse_repository_name_https_with_user_pass(self, mocker: MockerFixture) -> None:
         """Test parsing of HTTPS repository URL with username and password."""
         mock_repo = mocker.MagicMock(spec=Repo)
