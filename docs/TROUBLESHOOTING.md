@@ -101,3 +101,9 @@ Major bumps always reset to `X.0.0`.
 **If staging rules block direct push:** promotion uses fast-forward when possible, otherwise a single squash-style commit (no merge commit). Tag creation may require the **Create Release Tag** workflow with the GitHub App token.
 
 **Do not reset/rebase staging to dev** to promote — that rewrites history. Merge-based promotion preserves the git graph.
+
+## Release notes show the wrong group (Other Changes)
+
+With `commit_groups.summary_mode: header_only`, auto-semver classifies each merged change from the **PR or commit title line only** (squash-merge uses the PR title). Summary bullets in the PR body are not grouped separately.
+
+Use conventional prefixes on PR titles when opening PRs: `feat:`, `fix:`, `docs:`, etc. Imperative titles (`Add …`, `Harden …`, `Migrate …`) work only when listed in `commit_groups.patterns` in `auto_semver_config.yml`.
