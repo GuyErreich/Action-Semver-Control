@@ -184,7 +184,7 @@ def test_auto_promotion_finalize_workflow(
     mock_gitops.tag.return_value = "1.1.1234-dev"
     mock_gitops.push.return_value = None
     mock_gitops.auto_promote.return_value = None
-    mock_gitops.is_auto_semver_release_branch.return_value = (False, "test mock")
+    mock_gitops._is_closeable_release_pr.return_value = (False, "test mock")
     mock_gitops.add.return_value = None
     mock_gitops.commit.return_value = None
 
@@ -327,7 +327,7 @@ changelog:
     mock_gitops = mocker.Mock(spec=GitOps)
     mock_gitops.tag.return_value = "1.0.1-dev"
     mock_gitops.push.return_value = None
-    mock_gitops.is_auto_semver_release_branch.return_value = (False, "test mock")
+    mock_gitops._is_closeable_release_pr.return_value = (False, "test mock")
     mock_gitops.add.return_value = None
     mock_gitops.commit.return_value = None
 
@@ -451,7 +451,7 @@ changelog:
     mock_gitops = mocker.Mock(spec=GitOps)
     mock_gitops.tag.return_value = "1.0.1-dev"
     mock_gitops.push.return_value = None
-    mock_gitops.is_auto_semver_release_branch.return_value = (False, "test mock")
+    mock_gitops._is_closeable_release_pr.return_value = (False, "test mock")
     mock_gitops.add.return_value = None
     mock_gitops.commit.return_value = None
 
