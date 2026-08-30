@@ -8,8 +8,7 @@ After tagging, it checks for auto-promotion rules and creates promotion PRs auto
 
 import logging
 
-from auto_semver.changelog.manager import ChangelogManager
-from auto_semver.cli.utils import promotion_prefer_source_paths
+from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
@@ -137,21 +136,20 @@ def create_auto_promotion_prs(
 
         logger.info(f"Promoting version {version} → {promoted_version}")
 
-        def changelog_hook(src_v: str, tgt_v: str) -> None:
-            if config.data.changelog and config.data.changelog.file:
-                try:
-                    manager = ChangelogManager.from_config(config)
-                    manager.update_version_in_header(old_version=src_v, new_version=tgt_v)
-                except Exception as e:
-                    logger.warning(f"Failed to update changelog header: {e}")
+        metadata_hook = build_promotion_metadata_hook(
+            config=config,
+            target_branch=to_branch,
+            gitops=gitops,
+        )
 
         try:
             gitops.auto_promote(
-                source_branch=target_branch,
+                source_branch=str(version),
                 target_branch=to_branch,
                 version=str(promoted_version),
                 source_version=version,
-                post_merge_hook=changelog_hook,
+                is_source_tag=True,
+                post_merge_hook=metadata_hook,
                 prefer_source_paths=promotion_prefer_source_paths(config),
             )
         except Exception as e:

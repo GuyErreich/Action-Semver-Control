@@ -39,6 +39,30 @@ def test_finalized_baseline_strips_release_role() -> None:
 
 
 @pytest.mark.unit
+def test_promotion_baseline_rewrites_target_branch() -> None:
+    """Promotion normalizes the lock for the target channel with the rc version."""
+    lock = SemverLock(
+        version=Version.parse("1.4.6-dev"),
+        source_branch="feature/foo",
+        target_branch="dev",
+        branch_role="release",
+        managed_by="auto-semver",
+    )
+    lock.as_promotion_baseline(
+        target_branch="staging",
+        version=Version.parse("1.4.6-rc"),
+        merge_sha="def456",
+    )
+
+    assert lock.version == Version.parse("1.4.6-rc")
+    assert lock.target_branch == "staging"
+    assert lock.source_branch == "staging"
+    assert lock.finalized is True
+    assert lock.branch_role is None
+    assert lock.target_base_sha == "def456"
+
+
+@pytest.mark.unit
 def test_preownership_release_lock() -> None:
     """Legacy release locks without managed_by metadata are identifiable."""
     lock = SemverLock(

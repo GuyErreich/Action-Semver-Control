@@ -440,7 +440,9 @@ class TestGitOps:
         mock_repo.git.show.assert_called_once_with("origin/develop:.semver.lock")
 
     @pytest.mark.unit
-    def test_merge_resolves_allowlisted_conflicts(self, mocker: MockerFixture, mock_repo: Any) -> None:
+    def test_merge_resolves_allowlisted_conflicts(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
         """Promotion merges should prefer source for allowlisted metadata files."""
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
         gitops = GitOps()
@@ -464,9 +466,7 @@ class TestGitOps:
 
         mock_repo.git.checkout.assert_called_once_with("--theirs", "--", "CHANGELOG.md")
         mock_repo.git.add.assert_called_once_with("--", "CHANGELOG.md")
-        mock_repo.git.commit.assert_called_once_with(
-            m="chore: auto-promote", no_edit=False
-        )
+        mock_repo.git.commit.assert_called_once_with(m="chore: auto-promote", no_edit=False)
         mock_repo.git.merge.assert_called_once()
 
     @pytest.mark.unit
@@ -489,3 +489,48 @@ class TestGitOps:
             )
 
         mock_repo.git.merge.assert_any_call("--abort")
+
+    @pytest.mark.unit
+    def test_integrate_tag_fast_forwards(self, mocker: MockerFixture, mock_repo: Any) -> None:
+        """Tag promotion should fast-forward when staging is an ancestor."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+
+        gitops._integrate_source_for_promotion(
+            source_ref="1.4.6-dev",
+            message="chore: auto-promote",
+            remote_name="origin",
+            is_tag=True,
+            prefer_source_paths=["CHANGELOG.md"],
+        )
+
+        mock_repo.git.merge.assert_called_once_with("1.4.6-dev", ff_only=True)
+
+    @pytest.mark.unit
+    def test_integrate_tag_squash_when_not_ff(self, mocker: MockerFixture, mock_repo: Any) -> None:
+        """Tag promotion should squash to a single commit when ff is not possible."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+        mock_repo.git.merge.side_effect = GitCommandError(
+            "merge", 1, "Not possible to fast-forward"
+        )
+        mock_head = mocker.MagicMock()
+        mock_head.hexsha = "staging-sha"
+        mock_repo.head.commit = mock_head
+        mock_source = mocker.MagicMock()
+        mock_source.tree = mocker.MagicMock()
+        mock_repo.commit.return_value = mock_source
+        mock_repo.git.commit_tree.return_value = "squash-sha"
+        mock_repo.head.set_commit = mocker.MagicMock()
+
+        gitops._integrate_source_for_promotion(
+            source_ref="1.4.6-dev",
+            message="chore: auto-promote",
+            remote_name="origin",
+            is_tag=True,
+            prefer_source_paths=["CHANGELOG.md"],
+        )
+
+        mock_repo.git.commit_tree.assert_called_once()
+        mock_repo.head.set_commit.assert_called_once()
+        mock_repo.git.merge.assert_called_once_with("1.4.6-dev", ff_only=True)
