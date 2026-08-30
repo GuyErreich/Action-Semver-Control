@@ -46,7 +46,7 @@ class CommitGroupsConfig(BaseModel):
         return patterns
 
     @classmethod
-    def from_yaml(cls, value: list | dict | None) -> CommitGroupsConfig:
+    def from_yaml(cls, value: object | None) -> CommitGroupsConfig:
         """Parse commit_groups from legacy list or structured dict YAML."""
         if value is None:
             return cls()

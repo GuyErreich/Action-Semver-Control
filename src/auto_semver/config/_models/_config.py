@@ -65,7 +65,7 @@ class ConfigData(BaseModel):
     @field_validator("commit_groups", mode="before")
     @classmethod
     def parse_commit_groups(
-        cls, value: list | dict | CommitGroupsConfig | None
+        cls, value: CommitGroupsConfig | object | None
     ) -> CommitGroupsConfig:
         """Accept legacy YAML list format or structured commit_groups mapping."""
         if isinstance(value, CommitGroupsConfig):
