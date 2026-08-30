@@ -1,7 +1,5 @@
 """Extended GitOps tests for release branch lifecycle."""
 
-from typing import Any
-
 import pytest
 from git import GitCommandError
 from pytest_mock import MockerFixture

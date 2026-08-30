@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
-
-from github import Github
 
 from auto_semver.config import Config
 from auto_semver.git.ops import GitOps
@@ -44,11 +43,10 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Run release branch cleanup with dry-run default unless --apply is set."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = _parse_args()
     dry_run = args.dry_run and not args.apply
-
-    import os
 
     token = args.github_token or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
     if not token:
@@ -77,9 +75,6 @@ def main() -> int:
     if not candidates:
         logger.info("No candidate release branches found")
         return 0
-
-    gh = Github(login_or_token=token)
-    repo = gh.get_repo(gitops.get_repository_name())
 
     deleted = 0
     skipped = 0
@@ -110,8 +105,13 @@ def main() -> int:
             logger.info("DELETED %s", branch_name)
         deleted += 1
 
-    logger.info("Done: %s candidate(s), %s skipped, %s %s",
-                len(candidates), skipped, deleted, "would delete" if dry_run else "deleted")
+    logger.info(
+        "Done: %s candidate(s), %s skipped, %s %s",
+        len(candidates),
+        skipped,
+        deleted,
+        "would delete" if dry_run else "deleted",
+    )
     return 0
 
 

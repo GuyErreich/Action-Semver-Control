@@ -7,7 +7,6 @@ from auto_semver.config._models._commit_groups import CommitGroupsConfig
 from auto_semver.git.grouper import CommitGrouper
 from auto_semver.semver.version import Version
 
-
 PR_222_SQUASH_BODY = """feat: add signed commit support via GitHub API
 
 ### Summary

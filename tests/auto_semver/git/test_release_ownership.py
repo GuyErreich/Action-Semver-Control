@@ -1,14 +1,11 @@
 """Tests for release branch ownership helpers."""
 
-from typing import Any
-
 import pytest
 from pytest_mock import MockerFixture
 
-from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.git.ops import GitOps
-from auto_semver.semver.lock import SemverLock
 from auto_semver.semver import Version
+from auto_semver.semver.lock import SemverLock
 
 
 @pytest.mark.unit

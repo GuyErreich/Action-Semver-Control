@@ -40,6 +40,7 @@ class CommitParser:
     """
 
     def __init__(self, *, ignore_line_patterns: list[re.Pattern[str]] | None = None) -> None:
+        """Initialize parser with optional line patterns to skip during body expansion."""
         self._ignore_line_patterns = ignore_line_patterns or []
 
     # Regex for identifying list items (-, *, or numeric 1.)

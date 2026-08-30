@@ -1,7 +1,5 @@
 """Additional tests for bump baseline and release branch helpers."""
 
-from typing import Any
-
 import pytest
 from pytest_mock import MockerFixture
 

@@ -15,6 +15,7 @@ from auto_semver.cli.utils import is_finalized
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
+from auto_semver.setup.check import run_check
 from auto_semver.utils import setup_logger
 
 logger = logging.getLogger(__name__)
@@ -111,8 +112,6 @@ def main() -> None:
 
         if args.command == "setup":
             if getattr(args, "check", False):
-                from auto_semver.setup.check import run_check
-
                 sys.exit(0 if run_check() else 1)
             setup.run(
                 owner=args.owner,

@@ -736,9 +736,7 @@ class GitOps:
         post_merge_hook: Callable[[str, str], None] | None,
     ) -> str:
         """Promote via verified GitHub merge/tag APIs."""
-        merge_sha = self._api_merge(
-            base=target_branch, head=source_branch, message=merge_message
-        )
+        merge_sha = self._api_merge(base=target_branch, head=source_branch, message=merge_message)
 
         if post_merge_hook:
             logger.info("Executing post-merge hook")
@@ -827,7 +825,9 @@ class GitOps:
         repo: Repository = gh.get_repo(full_name_or_id=repo_full_name)
         branches: list[str] = []
 
-        for pr in repo.get_pulls(state="closed", base=target_branch, sort="updated", direction="desc"):
+        for pr in repo.get_pulls(
+            state="closed", base=target_branch, sort="updated", direction="desc"
+        ):
             if not pr.merged or not pr.merge_commit_sha:
                 continue
             merge_sha = pr.merge_commit_sha
@@ -917,18 +917,18 @@ class GitOps:
         Returns:
             Tuple of (is_owned, skip_reason). skip_reason is empty when owned.
         """
+        skip_reason = ""
         if not self._is_candidate_release_branch(branch_name, branch_prefix):
-            return False, "branch name does not match release prefix"
+            skip_reason = "branch name does not match release prefix"
+        else:
+            lock = self.get_lock_at_ref(f"origin/{branch_name}")
+            if lock is None:
+                skip_reason = "no lockfile at branch tip"
+            elif not lock.is_release_branch_lock() and not lock.is_legacy_managed_lock():
+                skip_reason = "lock is not auto-semver managed"
 
-        lock = self.get_lock_at_ref(f"origin/{branch_name}")
-        if lock is None:
-            return False, "no lockfile at branch tip"
-
-        has_release_role = lock.is_release_branch_lock()
-        has_legacy_lock = lock.is_legacy_managed_lock()
-
-        if not has_release_role and not has_legacy_lock:
-            return False, "lock is not auto-semver managed"
+        if skip_reason:
+            return False, skip_reason
 
         if skip_pr_check:
             return True, ""
@@ -937,17 +937,35 @@ class GitOps:
         if pr is None:
             return False, "no associated pull request"
 
+        pr_reason = self._release_pr_ownership_reason(
+            pr=pr,
+            labels=labels,
+            require_closed_pr=require_closed_pr,
+        )
+        if pr_reason:
+            return False, pr_reason
+
+        return True, ""
+
+    def _release_pr_ownership_reason(
+        self,
+        *,
+        pr: PullRequest,
+        labels: list[str] | None,
+        require_closed_pr: bool,
+    ) -> str:
+        """Return a skip reason when the release PR fails ownership checks."""
         if require_closed_pr and pr.state == "open":
-            return False, "pull request still open"
+            return "pull request still open"
 
         pr_labels = [label.name for label in pr.labels]
         if labels and not any(label in pr_labels for label in labels):
-            return False, "pull request missing configured label"
+            return "pull request missing configured label"
 
         if PR_HIDDEN_MARKER not in (pr.body or ""):
-            return False, "pull request missing auto-semver marker"
+            return "pull request missing auto-semver marker"
 
-        return True, ""
+        return ""
 
     def close_old_release_prs(
         self,

@@ -10,7 +10,7 @@ from ...git.grouper import CommitGrouper
 from ...semver import Version
 from ._bump import BumpConfig
 from ._changelog import ChangelogConfig
-from ._commit_group import CommitGroupConfig, CommitGroups
+from ._commit_group import CommitGroups
 from ._commit_groups import CommitGroupsConfig
 from ._promotion import PromotionRule
 from ._pull_request import PullRequestConfig
@@ -64,7 +64,9 @@ class ConfigData(BaseModel):
 
     @field_validator("commit_groups", mode="before")
     @classmethod
-    def parse_commit_groups(cls, value: list | dict | CommitGroupsConfig | None) -> CommitGroupsConfig:
+    def parse_commit_groups(
+        cls, value: list | dict | CommitGroupsConfig | None
+    ) -> CommitGroupsConfig:
         """Accept legacy YAML list format or structured commit_groups mapping."""
         if isinstance(value, CommitGroupsConfig):
             return value
