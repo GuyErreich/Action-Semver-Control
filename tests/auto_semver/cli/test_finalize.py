@@ -160,3 +160,6 @@ class TestFinalize:
             )
 
         mock_gitops.auto_promote.assert_called_once()
+        create_call = mock_gitops.auto_promote.call_args
+        assert create_call[1]["source_branch"] == "1.4.6-dev"
+        assert create_call[1]["is_source_tag"] is True

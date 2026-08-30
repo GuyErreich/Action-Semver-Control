@@ -658,6 +658,112 @@ class GitOps:
         logger.info("Completed merge after resolving promotion-file conflicts")
         return True
 
+    def _resolve_ref_sha(self, ref: str) -> str:
+        """Resolve a branch or tag name to a commit SHA."""
+        try:
+            return str(self.repo.commit(ref).hexsha)
+        except GitCommandError as err:
+            raise RuntimeError(f"Could not resolve ref '{ref}': {err}") from err
+
+    def _squash_commit_from_ref(self, *, ref: str, message: str) -> str:
+        """
+        Create a single promotion commit whose tree matches ``ref``.
+
+        Uses the current branch tip as the sole parent so protected branches that
+        reject merge commits still receive a linear promote commit.
+        """
+        source_commit = self.repo.commit(ref)
+        parent = self.repo.head.commit
+        new_commit = self.repo.create_commit("HEAD", source_commit.tree, message, [parent])
+        logger.info("Created squash promotion commit %s from %s", new_commit.hexsha[:8], ref)
+        return new_commit.hexsha
+
+    def _integrate_source_for_promotion(
+        self,
+        *,
+        source_ref: str,
+        message: str,
+        remote_name: str,
+        is_tag: bool,
+        prefer_source_paths: Collection[str] | None,
+    ) -> None:
+        """
+        Integrate a promotion source into the current branch.
+
+        Tag sources try fast-forward first, then fall back to a single squash commit
+        (no merge commit). Branch sources merge with ff when possible and auto-resolve
+        metadata conflicts by preferring the source side.
+        """
+        full_ref = source_ref if is_tag else f"{remote_name}/{source_ref}"
+
+        if is_tag:
+            try:
+                self.repo.git.merge(full_ref, ff_only=True)
+                logger.info("Fast-forward promotion merge successful: %s", full_ref)
+                return
+            except GitCommandError as err:
+                stderr = str(err)
+                if "CONFLICT" in stderr or "conflict" in stderr.lower():
+                    raise RuntimeError(
+                        f"Fast-forward promotion conflict for '{full_ref}'. "
+                        "Resolve manually before promoting."
+                    ) from err
+                logger.info(
+                    "Fast-forward not possible for %s; creating squash promotion commit",
+                    full_ref,
+                )
+                self._squash_commit_from_ref(ref=full_ref, message=message)
+                return
+
+        self.merge(
+            source_ref=source_ref,
+            message=message,
+            remote_name=remote_name,
+            is_tag=False,
+            prefer_source_paths=prefer_source_paths,
+            no_ff=False,
+        )
+
+    def _api_squash_promote(self, *, base: str, head: str, message: str) -> str:
+        """Create a single verified commit on ``base`` with ``head``'s tree."""
+        gh_repo = self._gh_repo()
+        base_ref = gh_repo.get_git_ref(f"heads/{base}")
+        base_sha = base_ref.object.sha
+        head_sha = self._resolve_ref_sha(head)
+        head_commit = gh_repo.get_git_commit(head_sha)
+        base_commit = gh_repo.get_git_commit(base_sha)
+        new_commit = gh_repo.create_git_commit(
+            message,
+            head_commit.tree,
+            [base_commit],
+            head_commit.author,
+            head_commit.committer,
+        )
+        base_ref.edit(sha=new_commit.sha)
+        logger.info("Verified squash promotion commit on %s (%s)", base, new_commit.sha)
+        return str(new_commit.sha)
+
+    def _integrate_source_for_promotion_api(
+        self,
+        *,
+        target_branch: str,
+        source_ref: str,
+        message: str,
+        is_source_tag: bool,
+    ) -> str:
+        """Integrate promotion source via GitHub API (ff merge or squash commit)."""
+        try:
+            return self._api_merge(base=target_branch, head=source_ref, message=message)
+        except (GithubException, RuntimeError) as err:
+            if not is_source_tag:
+                raise
+            logger.info(
+                "API merge failed for tag promotion (%s); using squash commit: %s",
+                source_ref,
+                err,
+            )
+            return self._api_squash_promote(base=target_branch, head=source_ref, message=message)
+
     def auto_promote(
         self,
         *,
@@ -721,6 +827,7 @@ class GitOps:
                 merge_message=merge_message,
                 is_source_tag=is_source_tag,
                 post_merge_hook=post_merge_hook,
+                prefer_source_paths=prefer_source_paths,
             )
 
         try:
@@ -738,8 +845,8 @@ class GitOps:
             # 3. Pull latest changes on target
             self.pull(branch_name=target_branch, remote_name=remote_name)
 
-            # 4. Merge source into target
-            self.merge(
+            # 4. Integrate source into target (ff, squash, or merge + metadata wins)
+            self._integrate_source_for_promotion(
                 source_ref=source_branch,
                 message=merge_message,
                 remote_name=remote_name,
@@ -799,9 +906,16 @@ class GitOps:
         merge_message: str,
         is_source_tag: bool,
         post_merge_hook: Callable[[str, str], None] | None,
+        prefer_source_paths: Collection[str] | None = None,
     ) -> str:
         """Promote via verified GitHub merge/tag APIs."""
-        merge_sha = self._api_merge(base=target_branch, head=source_branch, message=merge_message)
+        del prefer_source_paths  # API path uses ff merge or squash; conflicts handled upstream
+        merge_sha = self._integrate_source_for_promotion_api(
+            target_branch=target_branch,
+            source_ref=source_branch,
+            message=merge_message,
+            is_source_tag=is_source_tag,
+        )
 
         if post_merge_hook:
             logger.info("Executing post-merge hook")

@@ -7,8 +7,7 @@ against the configured promotion rules.
 
 import logging
 
-from auto_semver.changelog.manager import ChangelogManager
-from auto_semver.cli.utils import promotion_prefer_source_paths
+from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -76,22 +75,21 @@ def run(
     try:
         # Use tag as source if available, otherwise use branch
         merge_source = from_tag if from_tag else source_branch
+        use_source_tag = bool(from_tag)
 
-        def changelog_hook(src_v: str, tgt_v: str) -> None:
-            if config.data.changelog and config.data.changelog.file:
-                try:
-                    manager = ChangelogManager.from_config(config)
-                    manager.update_version_in_header(old_version=src_v, new_version=tgt_v)
-                except Exception as e:
-                    logger.warning(f"Failed to update changelog header: {e}")
+        metadata_hook = build_promotion_metadata_hook(
+            config=config,
+            target_branch=to_branch,
+            gitops=gitops,
+        )
 
         gitops.auto_promote(
             source_branch=merge_source,
             target_branch=to_branch,
             version=str(promoted_version),
             source_version=str(version),
-            is_source_tag=bool(from_tag),
-            post_merge_hook=changelog_hook,
+            is_source_tag=use_source_tag,
+            post_merge_hook=metadata_hook,
             prefer_source_paths=promotion_prefer_source_paths(config),
         )
 
