@@ -42,7 +42,7 @@ Pin reusable workflows at **`@v1`** (floating major tag, updated on each product
 - No subprocess — uses GitPython and Requests libraries only
 - Fully Dockerized for clean CI/CD usage
 - Comprehensive test coverage with pytest and pyfakefs
-- Modern Python tooling (ruff, mypy, pre-commit)
+- Modern Python tooling (ruff, mypy, pre-commit, gitleaks secret scan)
 
 ## CLI Usage
 
