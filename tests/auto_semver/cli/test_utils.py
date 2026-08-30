@@ -5,6 +5,7 @@ This module contains comprehensive tests for all utility functions in the CLI mo
 especially focusing on the is_finalized function which determines the workflow path.
 """
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -162,8 +163,6 @@ class TestPromotionPreferSourcePaths:
     @pytest.mark.unit
     def test_includes_lock_changelog_and_version_files(self, mocker: MockerFixture) -> None:
         """Allowlist should cover semver metadata files that diverge during promotion."""
-        from pathlib import Path
-
         mock_config = mocker.Mock(spec=Config)
         mock_data = mocker.Mock()
         mock_data.version_files = ["version.txt", "pyproject.toml"]

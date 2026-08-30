@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from git import Repo
+from git import GitCommandError, Repo
 from pytest_mock import MockerFixture
 
 from auto_semver.config.constants import PR_HIDDEN_MARKER
@@ -442,8 +442,6 @@ class TestGitOps:
     @pytest.mark.unit
     def test_merge_resolves_allowlisted_conflicts(self, mocker: MockerFixture, mock_repo: Any) -> None:
         """Promotion merges should prefer source for allowlisted metadata files."""
-        from git import GitCommandError
-
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
         gitops = GitOps()
 
@@ -476,8 +474,6 @@ class TestGitOps:
         self, mocker: MockerFixture, mock_repo: Any
     ) -> None:
         """Non-allowlisted conflicts must still fail the merge."""
-        from git import GitCommandError
-
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
         gitops = GitOps()
 
