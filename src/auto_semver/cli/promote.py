@@ -8,6 +8,7 @@ against the configured promotion rules.
 import logging
 
 from auto_semver.changelog.manager import ChangelogManager
+from auto_semver.cli.utils import promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -91,6 +92,7 @@ def run(
             source_version=str(version),
             is_source_tag=bool(from_tag),
             post_merge_hook=changelog_hook,
+            prefer_source_paths=promotion_prefer_source_paths(config),
         )
 
         logger.info(f"✅ Promotion completed successfully: {source_branch} → {to_branch}")

@@ -25,7 +25,7 @@ from __future__ import annotations
 import base64
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -554,6 +554,7 @@ class GitOps:
         no_ff: bool = True,
         remote_name: str = "origin",
         is_tag: bool = False,
+        prefer_source_paths: Collection[str] | None = None,
     ) -> None:
         """
         Merge a source ref into the current branch.
@@ -564,6 +565,9 @@ class GitOps:
             no_ff (bool): If True, create a merge commit even if fast-forward is possible.
             remote_name (str): Remote name to prefix to source_ref (default: 'origin').
             is_tag (bool): If True, treat source_ref as a tag (do not prepend remote).
+            prefer_source_paths: Relative paths where conflicts may be auto-resolved by
+                taking the source (theirs) side. Used during promotion for version
+                metadata files that diverge by design between branches.
 
         Raises:
             RuntimeError: If merge fails due to conflicts or other errors.
@@ -581,6 +585,15 @@ class GitOps:
         except GitCommandError as merge_err:
             stderr = str(merge_err)
             if "CONFLICT" in stderr or "conflict" in stderr.lower():
+                if prefer_source_paths and self._resolve_promotion_conflicts(
+                    prefer_source_paths=prefer_source_paths,
+                    merge_message=message,
+                ):
+                    logger.info(
+                        "Resolved promotion-file conflicts preferring source; merge completed"
+                    )
+                    return
+
                 logger.error(f"Merge conflict detected: {merge_err}")
                 # Attempt to abort the merge to keep repo clean
                 try:
@@ -597,6 +610,54 @@ class GitOps:
             logger.error(f"Merge failed: {merge_err}")
             raise RuntimeError(f"Merge failed: {merge_err}") from merge_err
 
+    def _unmerged_paths(self) -> list[str]:
+        """Return paths with unresolved merge conflicts."""
+        raw = self.repo.git.diff(name_only=True, diff_filter="U")
+        if not raw:
+            return []
+        return [line.strip() for line in raw.splitlines() if line.strip()]
+
+    def _resolve_promotion_conflicts(
+        self,
+        *,
+        prefer_source_paths: Collection[str],
+        merge_message: str,
+    ) -> bool:
+        """
+        Resolve conflicts by taking the source (theirs) side for allowlisted paths.
+
+        Returns True when every conflicted path was allowlisted and the merge was
+        completed; False when unresolved or non-allowlisted conflicts remain.
+        """
+        allowed = {str(Path(p)).replace("\\", "/") for p in prefer_source_paths}
+        conflicted = self._unmerged_paths()
+        if not conflicted:
+            return False
+
+        normalized = [str(Path(p)).replace("\\", "/") for p in conflicted]
+        disallowed = [p for p in normalized if p not in allowed]
+        if disallowed:
+            logger.error(
+                "Cannot auto-resolve merge conflicts outside promotion files: %s",
+                ", ".join(disallowed),
+            )
+            return False
+
+        for path in conflicted:
+            logger.info("Preferring source version for conflicted file: %s", path)
+            self.repo.git.checkout("--theirs", "--", path)
+            self.repo.git.add("--", path)
+
+        remaining = self._unmerged_paths()
+        if remaining:
+            logger.error("Unresolved conflicts remain after prefer-source: %s", remaining)
+            return False
+
+        # Complete the in-progress merge without re-invoking git merge.
+        self.repo.git.commit(m=merge_message, no_edit=False)
+        logger.info("Completed merge after resolving promotion-file conflicts")
+        return True
+
     def auto_promote(
         self,
         *,
@@ -607,6 +668,7 @@ class GitOps:
         remote_name: str = "origin",
         is_source_tag: bool = False,
         post_merge_hook: Callable[[str, str], None] | None = None,
+        prefer_source_paths: Collection[str] | None = None,
     ) -> str:
         """
         Automatically promote changes from source branch to target branch.
@@ -629,6 +691,8 @@ class GitOps:
             post_merge_hook (Callable[[str, str], None] | None): Optional hook function to execute after merge
             but before commit/tag.
             Receives (source_version_str, target_version_str).
+            prefer_source_paths: Paths to auto-resolve favoring the source branch on
+                conflict (changelog, lockfile, version files).
 
         Returns:
             str: The version tag that was created.
@@ -680,6 +744,7 @@ class GitOps:
                 message=merge_message,
                 remote_name=remote_name,
                 is_tag=is_source_tag,
+                prefer_source_paths=prefer_source_paths,
             )
 
             # Executing post-merge hook if provided

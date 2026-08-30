@@ -438,3 +438,58 @@ class TestGitOps:
         assert version == mock_version
         mock_repo.git.fetch.assert_called_once_with("origin", "develop")
         mock_repo.git.show.assert_called_once_with("origin/develop:.semver.lock")
+
+    @pytest.mark.unit
+    def test_merge_resolves_allowlisted_conflicts(self, mocker: MockerFixture, mock_repo: Any) -> None:
+        """Promotion merges should prefer source for allowlisted metadata files."""
+        from git import GitCommandError
+
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+
+        merge_err = GitCommandError(
+            "merge",
+            1,
+            "CONFLICT (content): Merge conflict in CHANGELOG.md",
+        )
+        mock_repo.git.merge.side_effect = merge_err
+        mock_repo.git.diff.side_effect = ["CHANGELOG.md\n", ""]
+        mock_repo.git.checkout = mocker.MagicMock()
+        mock_repo.git.add = mocker.MagicMock()
+        mock_repo.git.commit = mocker.MagicMock()
+
+        gitops.merge(
+            source_ref="dev",
+            message="chore: auto-promote",
+            prefer_source_paths=["CHANGELOG.md"],
+        )
+
+        mock_repo.git.checkout.assert_called_once_with("--theirs", "--", "CHANGELOG.md")
+        mock_repo.git.add.assert_called_once_with("--", "CHANGELOG.md")
+        mock_repo.git.commit.assert_called_once_with(
+            m="chore: auto-promote", no_edit=False
+        )
+        mock_repo.git.merge.assert_called_once()
+
+    @pytest.mark.unit
+    def test_merge_aborts_when_disallowed_conflicts(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Non-allowlisted conflicts must still fail the merge."""
+        from git import GitCommandError
+
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+
+        merge_err = GitCommandError("merge", 1, "CONFLICT (content): Merge conflict in README.md")
+        mock_repo.git.merge.side_effect = merge_err
+        mock_repo.git.diff.return_value = "README.md\n"
+
+        with pytest.raises(RuntimeError, match=r"Merge conflict detected"):
+            gitops.merge(
+                source_ref="dev",
+                message="chore: auto-promote",
+                prefer_source_paths=["CHANGELOG.md"],
+            )
+
+        mock_repo.git.merge.assert_any_call("--abort")
