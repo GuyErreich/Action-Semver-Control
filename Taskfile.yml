@@ -45,6 +45,7 @@ tasks:
     deps: [format, lint, type-check, test]
 
   pre-commit:
-    desc: Run pre-commit hooks
+    desc: Install and run pre-commit hooks (gitleaks, private-key scan)
     cmds:
-      - pre-commit install
+      - uv run pre-commit install
+      - uv run pre-commit run --all-files
