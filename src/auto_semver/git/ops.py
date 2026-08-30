@@ -674,9 +674,18 @@ class GitOps:
         """
         source_commit = self.repo.commit(ref)
         parent = self.repo.head.commit
-        new_commit = self.repo.create_commit("HEAD", source_commit.tree, message, [parent])
-        logger.info("Created squash promotion commit %s from %s", new_commit.hexsha[:8], ref)
-        return new_commit.hexsha
+        new_sha = str(
+            self.repo.git.commit_tree(
+                source_commit.tree.hexsha,
+                "-p",
+                parent.hexsha,
+                "-m",
+                message,
+            )
+        )
+        self.repo.head.set_commit(self.repo.commit(new_sha))
+        logger.info("Created squash promotion commit %s from %s", new_sha[:8], ref)
+        return new_sha
 
     def _integrate_source_for_promotion(
         self,
@@ -732,13 +741,7 @@ class GitOps:
         head_sha = self._resolve_ref_sha(head)
         head_commit = gh_repo.get_git_commit(head_sha)
         base_commit = gh_repo.get_git_commit(base_sha)
-        new_commit = gh_repo.create_git_commit(
-            message,
-            head_commit.tree,
-            [base_commit],
-            head_commit.author,
-            head_commit.committer,
-        )
+        new_commit = gh_repo.create_git_commit(message, head_commit.tree, [base_commit])
         base_ref.edit(sha=new_commit.sha)
         logger.info("Verified squash promotion commit on %s (%s)", base, new_commit.sha)
         return str(new_commit.sha)
