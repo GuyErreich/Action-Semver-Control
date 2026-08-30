@@ -5,12 +5,13 @@ This module contains comprehensive tests for all utility functions in the CLI mo
 especially focusing on the is_finalized function which determines the workflow path.
 """
 
+from pathlib import Path
 from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
 
-from auto_semver.cli.utils import is_finalized
+from auto_semver.cli.utils import is_finalized, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.gh.event import GitHubEvent
@@ -154,3 +155,22 @@ class TestIsFinalized:
         assert "Missing labels" in caplog.text
         assert "Title mismatch" in caplog.text
         assert "Body mismatch" in caplog.text
+
+
+class TestPromotionPreferSourcePaths:
+    """Tests for promotion conflict allowlist helper."""
+
+    @pytest.mark.unit
+    def test_includes_lock_changelog_and_version_files(self, mocker: MockerFixture) -> None:
+        """Allowlist should cover semver metadata files that diverge during promotion."""
+        mock_config = mocker.Mock(spec=Config)
+        mock_data = mocker.Mock()
+        mock_data.version_files = ["version.txt", "pyproject.toml"]
+        mock_changelog = mocker.Mock()
+        mock_changelog.file = Path("CHANGELOG.md")
+        mock_data.changelog = mock_changelog
+        mock_config.data = mock_data
+
+        paths = promotion_prefer_source_paths(mock_config)
+
+        assert paths == [".semver.lock", "CHANGELOG.md", "version.txt", "pyproject.toml"]
