@@ -108,6 +108,7 @@ preview = false
 
 [tool.mypy]
 python_version = "3.12"
+mypy_path = "src:scripts"
 strict = true
 ignore_missing_imports = false
 follow_imports = "normal"
