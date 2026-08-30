@@ -88,6 +88,16 @@ def set_repo_secret(*, owner: str, repo: str, name: str, value: str, dry_run: bo
     )
 
 
+def set_repo_variable(*, owner: str, repo: str, name: str, value: str, dry_run: bool) -> None:
+    """Set a repository Actions variable using the GitHub CLI."""
+    if dry_run:
+        return
+    subprocess.run(
+        ["gh", "variable", "set", name, "--repo", f"{owner}/{repo}", "--body", value],
+        check=True,
+    )
+
+
 def verify_gh_authenticated() -> None:
     """Ensure gh is installed and authenticated."""
     subprocess.run(["gh", "auth", "status"], check=True, capture_output=True, text=True)

@@ -7,7 +7,7 @@ This guide walks through adopting Action-Semver-Control in a repository you do n
 | Item | Purpose |
 |------|---------|
 | **GitHub App** (yours) | Verified commits and PRs that satisfy branch protection |
-| **`GH_APP_ID`** secret | Numeric App ID from the app settings page |
+| **`GH_APP_CLIENT_ID`** variable | App **Client ID** from the app settings page (not the numeric App ID) |
 | **`GH_APP_PRIVATE_KEY`** secret | PEM contents from **Generate a private key** |
 | **`auto_semver_config.yml`** | Branch suffixes, version files, changelog groups |
 | **Caller workflows** | Thin wrappers that invoke reusable workflows `@v1` |
@@ -25,8 +25,8 @@ uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver s
 The wizard will:
 
 1. Print a **prefilled GitHub App registration URL**
-2. Prompt for App ID and private key path
-3. Write `GH_APP_ID` and `GH_APP_PRIVATE_KEY` via `gh secret set`
+2. Prompt for App **Client ID** and private key path
+3. Write `GH_APP_CLIENT_ID` via `gh variable set` and `GH_APP_PRIVATE_KEY` via `gh secret set`
 4. Scaffold `auto_semver_config.yml` and caller workflows (if missing)
 
 Flags: `--dry-run`, `--skip-secrets`, `--skip-scaffold`, `--open-browser`.
@@ -47,20 +47,22 @@ Or regenerate links for your repo:
 python scripts/generate_onboarding_links.py --owner YOUR_ORG --repo YOUR_REPO --branch master
 ```
 
-Note the **App ID** (not the installation ID). Generate and download a **private key** (`.pem`).
+Note the **Client ID** (preferred for Actions; distinct from the numeric App ID and the installation ID). Generate and download a **private key** (`.pem`).
 
 ### 2. Install the app on your repository
 
 App settings → **Install App** → select your account/org → grant access to the target repository.
 
-### 3. Set repository secrets
+### 3. Set repository credentials
 
 ```bash
-gh secret set GH_APP_ID --repo YOUR_ORG/YOUR_REPO
+gh variable set GH_APP_CLIENT_ID --repo YOUR_ORG/YOUR_REPO --body 'Iv1.xxxxxxxx'
 gh secret set GH_APP_PRIVATE_KEY --repo YOUR_ORG/YOUR_REPO
 ```
 
-Paste the numeric App ID and the full PEM file contents (including `BEGIN` / `END` lines).
+Paste the Client ID (public identifier) as a variable and the full PEM file contents as a secret (including `BEGIN` / `END` lines).
+
+> **Migration note:** Older setups used `secrets.GH_APP_ID` with `create-github-app-token`'s deprecated `app-id` input. Switch callers to `vars.GH_APP_CLIENT_ID` and the `client-id` input.
 
 ### 4. Add caller workflows
 
@@ -89,8 +91,9 @@ jobs:
   bump:
     if: github.event.pull_request.merged == true
     uses: GuyErreich/Action-Semver-Control/.github/workflows/semver-bump.reusable.yml@v1
+    with:
+      client-id: ${{ vars.GH_APP_CLIENT_ID }}
     secrets:
-      app-id: ${{ secrets.GH_APP_ID }}
       app-private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 ```
 
@@ -128,8 +131,8 @@ jobs:
       from_tag: ${{ inputs.from_tag }}
       to_branch: ${{ inputs.to_branch }}
       dry_run: ${{ inputs.dry_run }}
+      client-id: ${{ vars.GH_APP_CLIENT_ID }}
     secrets:
-      app-id: ${{ secrets.GH_APP_ID }}
       app-private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 ```
 
@@ -187,9 +190,9 @@ Production releases of Action-Semver-Control force-update the `v1` tag to the la
 
 See **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** for version regressions, noisy release PRs, stale branches, and bump modes.
 
-### Workflow fails immediately: "Missing GitHub App secrets"
+### Workflow fails immediately: "Missing GitHub App credentials"
 
-Set `GH_APP_ID` and `GH_APP_PRIVATE_KEY` on the repository. Re-run setup:
+Set `GH_APP_CLIENT_ID` (repository variable) and `GH_APP_PRIVATE_KEY` (secret). Re-run setup:
 
 ```bash
 uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver setup
@@ -198,7 +201,7 @@ uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver s
 ### `create-github-app-token` fails
 
 - Confirm the app is **installed** on this repository (not just created).
-- Confirm `GH_APP_ID` is the **App ID**, not the installation ID.
+- Confirm `GH_APP_CLIENT_ID` is the App **Client ID** (not the installation ID or the deprecated numeric App ID secret).
 - Confirm the PEM secret includes header/footer lines.
 
 ### Reusable workflow not found `@v1`

@@ -10,6 +10,7 @@ from auto_semver.setup.scaffold import (
     detect_repo,
     scaffold_files,
     set_repo_secret,
+    set_repo_variable,
     verify_gh_authenticated,
 )
 
@@ -93,10 +94,33 @@ def test_set_repo_secret_skips_on_dry_run(mocker: MockerFixture) -> None:
 def test_set_repo_secret_invokes_gh(mocker: MockerFixture) -> None:
     """set_repo_secret calls gh with repo and secret name."""
     mock_run = mocker.patch("auto_semver.setup.scaffold.subprocess.run")
-    set_repo_secret(owner="acme", repo="demo", name="GH_APP_ID", value="123", dry_run=False)
+    set_repo_secret(owner="acme", repo="demo", name="GH_APP_PRIVATE_KEY", value="pem", dry_run=False)
     mock_run.assert_called_once()
-    assert mock_run.call_args.args[0] == ["gh", "secret", "set", "GH_APP_ID", "--repo", "acme/demo"]
+    assert mock_run.call_args.args[0] == [
+        "gh",
+        "secret",
+        "set",
+        "GH_APP_PRIVATE_KEY",
+        "--repo",
+        "acme/demo",
+    ]
 
+
+@pytest.mark.unit
+def test_set_repo_variable_invokes_gh(mocker: MockerFixture) -> None:
+    """set_repo_variable calls gh variable set with body."""
+    mock_run = mocker.patch("auto_semver.setup.scaffold.subprocess.run")
+    set_repo_variable(
+        owner="acme",
+        repo="demo",
+        name="GH_APP_CLIENT_ID",
+        value="Iv1.test",
+        dry_run=False,
+    )
+    mock_run.assert_called_once_with(
+        ["gh", "variable", "set", "GH_APP_CLIENT_ID", "--repo", "acme/demo", "--body", "Iv1.test"],
+        check=True,
+    )
 
 @pytest.mark.unit
 def test_verify_gh_authenticated(mocker: MockerFixture) -> None:

@@ -1,8 +1,8 @@
 name: Preflight App Secrets
-description: Fail fast when GitHub App secrets are missing and link to setup docs
+description: Fail fast when GitHub App credentials are missing and link to setup docs
 inputs:
-  app-id:
-    description: GitHub App ID secret value
+  client-id:
+    description: GitHub App Client ID (vars.GH_APP_CLIENT_ID)
     required: false
     default: ""
   app-private-key:
@@ -17,24 +17,24 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Verify GitHub App secrets
+    - name: Verify GitHub App credentials
       shell: bash
       env:
-        APP_ID: ${{ inputs.app-id }}
+        CLIENT_ID: ${{ inputs.client-id }}
         APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
         SETUP_URL: ${{ inputs.setup-url }}
       run: |
         set -euo pipefail
         missing=()
-        if [[ -z "${APP_ID// }" ]]; then
-          missing+=("app-id (set repository secret GH_APP_ID)")
+        if [[ -z "${CLIENT_ID// }" ]]; then
+          missing+=("client-id (set repository variable GH_APP_CLIENT_ID)")
         fi
         if [[ -z "${APP_PRIVATE_KEY// }" ]]; then
           missing+=("app-private-key (set repository secret GH_APP_PRIVATE_KEY)")
         fi
         if (( ${#missing[@]} > 0 )); then
-          echo "::error title=Missing GitHub App secrets::Auto Semver requires a GitHub App. See ${SETUP_URL}"
-          echo "Missing required secrets:"
+          echo "::error title=Missing GitHub App credentials::Auto Semver requires a GitHub App. See ${SETUP_URL}"
+          echo "Missing required credentials:"
           printf '  - %s\n' "${missing[@]}"
           echo
           echo "Quick setup:"
