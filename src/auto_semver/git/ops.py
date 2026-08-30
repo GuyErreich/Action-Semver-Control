@@ -1013,6 +1013,7 @@ class GitOps:
         labels: list[str] | None = None,
         branch_prefix: str = DEFAULT_RELEASE_PREFIX,
         exclude_branch: str | None = None,
+        delete_branches: bool = False,
     ) -> None:
         """
         Close open owned release PRs targeting the specified branch.
@@ -1023,6 +1024,7 @@ class GitOps:
             labels: Optional list of label names to match.
             branch_prefix: Configured release branch prefix.
             exclude_branch: Optional branch name to keep open (current release).
+            delete_branches: When True, delete each superseded release branch after closing.
 
         Raises:
             GithubException: If there is an error with the GitHub API.
@@ -1070,10 +1072,74 @@ class GitOps:
 
                 logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
                 pr.edit(state="closed")
+                if delete_branches:
+                    self._delete_superseded_release_branch(branch_name=head_ref)
 
         except GithubException as err:
             logger.error(f"GitHub API error while closing PRs: {err}")
             raise
+
+    def cleanup_stale_release_branches(
+        self,
+        *,
+        github_token: str,
+        target_branch: str,
+        labels: list[str] | None = None,
+        branch_prefix: str = DEFAULT_RELEASE_PREFIX,
+        exclude_branch: str | None = None,
+    ) -> None:
+        """
+        Delete owned release branches that no longer have an open PR (single mode).
+
+        Handles branches left behind when a previous bump closed the PR but did not
+        delete the remote ref.
+        """
+        self.fetch()
+        remote: Remote = self.repo.remote()
+        candidates: list[str] = []
+
+        for ref in remote.refs:
+            branch_name = self._normalize_branch_name(ref.name)
+            if branch_name == exclude_branch:
+                continue
+            if not self._is_candidate_release_branch(branch_name, branch_prefix):
+                continue
+            candidates.append(branch_name)
+
+        for branch_name in sorted(set(candidates)):
+            pr = self._find_release_pr(
+                github_token=github_token,
+                branch_name=branch_name,
+                target_branch=target_branch,
+            )
+            if pr is not None and pr.state == "open":
+                continue
+            if pr is not None:
+                pr_labels = [label.name for label in pr.labels]
+                if labels and not any(label in pr_labels for label in labels):
+                    continue
+                if PR_HIDDEN_MARKER not in (pr.body or ""):
+                    continue
+
+            closeable, reason = self._is_closeable_release_pr(
+                branch_name=branch_name,
+                github_token=github_token,
+                branch_prefix=branch_prefix,
+                labels=labels,
+            )
+            if not closeable:
+                logger.info("Skipping stale branch delete for %s: %s", branch_name, reason)
+                continue
+
+            self._delete_superseded_release_branch(branch_name=branch_name)
+
+    def _delete_superseded_release_branch(self, *, branch_name: str) -> None:
+        """Delete a superseded release branch, logging failures without raising."""
+        try:
+            self.delete_branch(branch_name=branch_name)
+            logger.info("Deleted superseded release branch %s", branch_name)
+        except Exception as err:
+            logger.warning("Failed to delete superseded release branch %s: %s", branch_name, err)
 
     def create_pr(
         self,

@@ -79,12 +79,11 @@ def _cleanup_release_branch(
         return
 
     source_branch = event.get_source_branch_name()
-    owned, reason = gitops.is_auto_semver_release_branch(
+    owned, reason = gitops._is_closeable_release_pr(
         branch_name=source_branch,
         github_token=github_token,
         branch_prefix=release_cfg.branch_prefix,
         labels=config.data.pull_request.labels,
-        require_closed_pr=True,
     )
     if not owned:
         logger.info("Skipping release branch delete for %s: %s", source_branch, reason)

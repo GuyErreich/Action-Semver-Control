@@ -51,7 +51,7 @@ Only the commit/PR title line appears in release notes.
 
 | Setting | Behavior |
 |---------|----------|
-| `release.strategy: single` (default) | One open release PR; older owned PRs closed; branch deleted after finalize when `cleanup_merged: true` |
+| `release.strategy: single` (default) | One open release PR; older owned PRs closed and branches deleted when `cleanup_merged: true` |
 | `release.strategy: multi` | Keeps sibling release PRs; you choose which to merge |
 
 New branches use prefix `auto-semver/release/` (configurable). Legacy `release/*` branches are cleaned only when lock + PR marker prove auto-semver ownership.
