@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.4.5-dev] - 30-08-2026
+## [1.4.5-rc] - 30-08-2026
 
 ### ✨ Features & Enhancements
 - Add signed-commits mode for verified GitHub App commits (#219)
