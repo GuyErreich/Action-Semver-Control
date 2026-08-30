@@ -36,3 +36,17 @@ def test_finalized_baseline_strips_release_role() -> None:
     assert lock.finalized is True
     assert lock.branch_role is None
     assert lock.target_base_sha == "abc123"
+
+
+@pytest.mark.unit
+def test_preownership_release_lock() -> None:
+    """Legacy release locks without managed_by metadata are identifiable."""
+    lock = SemverLock(
+        version=Version.parse("1.4.0-dev"),
+        source_branch="feature/foo",
+        target_branch="dev",
+    )
+
+    assert lock.is_preownership_release_lock()
+    assert not lock.is_release_branch_lock()
+    assert not lock.is_legacy_managed_lock()

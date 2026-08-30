@@ -115,3 +115,30 @@ def test_branch_matches_prefix() -> None:
     """Release branch prefix regex accepts semver suffixes."""
     assert GitOps._branch_matches_prefix("auto-semver/release/1.4.0-dev", "auto-semver/release/")
     assert not GitOps._branch_matches_prefix("release/manual-hotfix", "auto-semver/release/")
+
+
+@pytest.mark.unit
+def test_is_closeable_release_pr_accepts_preownership_lock(mocker: MockerFixture) -> None:
+    """Legacy release/* PRs with old lockfiles can be superseded in single mode."""
+    gitops = GitOps()
+    lock = SemverLock(
+        version=Version.parse("1.4.0-dev"),
+        source_branch="feature/x",
+        target_branch="dev",
+    )
+    mocker.patch.object(gitops, "get_lock_at_ref", return_value=lock)
+    mocker.patch.object(
+        gitops,
+        "is_auto_semver_release_branch",
+        return_value=(False, "lock is not auto-semver managed"),
+    )
+
+    closeable, reason = gitops._is_closeable_release_pr(
+        branch_name="release/1.4.0-dev",
+        github_token="token",
+        branch_prefix="auto-semver/release/",
+        labels=["semver-bump"],
+    )
+
+    assert closeable is True
+    assert reason == ""

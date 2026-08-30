@@ -173,3 +173,7 @@ class SemverLock:
     def is_legacy_managed_lock(self) -> bool:
         """Return True for pre-branch_role locks still managed by auto-semver."""
         return self.managed_by == MANAGED_BY and self.branch_role != BRANCH_ROLE_RELEASE
+
+    def is_preownership_release_lock(self) -> bool:
+        """Return True for release locks created before managed_by metadata existed."""
+        return self.managed_by is None and self.branch_role is None and not self.finalized
