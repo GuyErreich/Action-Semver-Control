@@ -13,6 +13,7 @@ from git import Repo
 from pytest_mock import MockerFixture
 
 from auto_semver.git.ops import GitOps
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.semver import Version
 
 
@@ -321,25 +322,28 @@ class TestGitOps:
         mock_pr1.number = 1
         mock_pr1.head.ref = "release/v1.0.0"
         mock_pr1.base.ref = "main"
+        mock_pr1.body = PR_HIDDEN_MARKER
 
-        # Create label object with name attribute
         mock_label = mocker.MagicMock()
         mock_label.name = "semver-bump"
         mock_pr1.labels = [mock_label]
 
         mock_pr2 = mocker.MagicMock()
         mock_pr2.number = 2
-        mock_pr2.head.ref = "feature/something"  # Should be skipped
+        mock_pr2.head.ref = "feature/something"
         mock_pr2.base.ref = "main"
         mock_pr2.labels = []
 
         mock_github_repo.get_pulls.return_value = [mock_pr1, mock_pr2]
 
-        # Create GitOps instance
         gitops = GitOps()
 
-        # Mock get_repository_name to return a test repo
         mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+        mocker.patch.object(
+            gitops,
+            "is_auto_semver_release_branch",
+            return_value=(True, ""),
+        )
 
         # Call close_old_release_prs
         gitops.close_old_release_prs(

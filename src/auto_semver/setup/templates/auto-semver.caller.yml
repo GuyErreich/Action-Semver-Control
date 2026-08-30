@@ -9,6 +9,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# Required: queue bump runs per integration branch when multiple PRs merge together.
+# Do not set cancel-in-progress: true — cancelled runs lose their version bump.
+concurrency:
+  group: auto-semver-bump-${{ github.repository }}-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
 jobs:
   bump:
     if: github.event.pull_request.merged == true

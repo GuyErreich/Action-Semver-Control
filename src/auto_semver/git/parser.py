@@ -39,6 +39,9 @@ class CommitParser:
     4. Header + grouped changes (sections with headers and bullet points).
     """
 
+    def __init__(self, *, ignore_line_patterns: list[re.Pattern[str]] | None = None) -> None:
+        self._ignore_line_patterns = ignore_line_patterns or []
+
     # Regex for identifying list items (-, *, or numeric 1.)
     _ITEM_PATTERN = re.compile(r"^\s*(?:[-*]|\d+[.)])\s+(.+)$")
 
@@ -125,6 +128,8 @@ class CommitParser:
             item_match = self._ITEM_PATTERN.match(line)
             if item_match:
                 description = item_match.group(1).strip()
+                if self._should_ignore(description):
+                    continue
                 if current_group:
                     sectioned_changes[current_group].append(description)
                 else:
@@ -138,3 +143,7 @@ class CommitParser:
                 bullet_points[-1] += f" {line}"
 
         return bullet_points, sectioned_changes
+
+    def _should_ignore(self, text: str) -> bool:
+        """Return True when text matches a configured ignore pattern."""
+        return any(pattern.search(text.strip()) for pattern in self._ignore_line_patterns)

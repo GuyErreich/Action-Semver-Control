@@ -13,6 +13,7 @@ import re
 from typing import TYPE_CHECKING
 
 from ..config._models._commit_group import Commit, CommitGroup
+from ..config._models._commit_groups import CommitGroupsConfig
 from .parser import CommitParser
 
 if TYPE_CHECKING:
@@ -28,33 +29,39 @@ class CommitGrouper:
     """Logic for grouping commit messages based on configuration."""
 
     @staticmethod
-    def group_messages(messages: list[str], commit_groups: list[CommitGroupConfig]) -> CommitGroups:
+    def group_messages(
+        messages: list[str],
+        commit_groups: list[CommitGroupConfig] | CommitGroupsConfig,
+    ) -> CommitGroups:
         """
         Group commit messages by patterns and return data ready for Jinja templates.
 
         Args:
             messages: List of raw commit messages from git.
-            commit_groups: List of commit group configurations with patterns.
+            commit_groups: Group definitions, optionally wrapped with summary settings.
 
         Returns:
             CommitGroups containing grouped_messages with parsed commits organized by group.
         """
+        settings = (
+            commit_groups
+            if isinstance(commit_groups, CommitGroupsConfig)
+            else CommitGroupsConfig(groups=commit_groups)
+        )
+        groups_config = settings.groups
+
         if not messages:
             return []
 
-        if not commit_groups:
-            # No groups configured - return all messages in one default group
+        if not groups_config:
             commits = [CommitGrouper._parse_commit(msg) for msg in messages]
             default_group = CommitGroup(title="📝 Changes", commits=commits, priority=1)
             return [default_group]
 
-        # Sort groups by priority (lower numbers first)
-        sorted_groups = sorted(commit_groups, key=lambda g: g.priority)
+        sorted_groups = sorted(groups_config, key=lambda g: g.priority)
+        ignore_patterns = [re.compile(p) for p in settings.ignore_line_patterns]
+        parser = CommitParser(ignore_line_patterns=ignore_patterns)
 
-        # Parse all messages using the robust parser
-        parser = CommitParser()
-
-        # Prepare groups structure
         groups: dict[str, CommitGroup] = {
             g.title: CommitGroup(title=g.title, commits=[], priority=g.priority)
             for g in sorted_groups
@@ -64,14 +71,17 @@ class CommitGrouper:
 
         for message in messages:
             CommitGrouper._process_message(
-                parser, message, sorted_groups, groups, unmatched_commits
+                parser,
+                message,
+                sorted_groups,
+                groups,
+                unmatched_commits,
+                summary_mode=settings.summary_mode,
             )
 
-        # Handle unmatched messages
         if unmatched_commits:
             CommitGrouper._handle_unmatched(unmatched_commits, sorted_groups, groups)
 
-        # Return groups with commits, sorted by priority
         result: CommitGroups = []
         for group in groups.values():
             if group.commits:
@@ -101,27 +111,38 @@ class CommitGrouper:
         sorted_groups: list[CommitGroupConfig],
         groups: dict[str, CommitGroup],
         unmatched_commits: list[Commit],
+        *,
+        summary_mode: str = "header_only",
     ) -> None:
         """Process a single commit message and sort into groups."""
         parsed = parser.parse(message)
 
-        # 1. Handle grouped sections (Type 3)
+        if summary_mode == "header_only":
+            CommitGrouper._process_header(
+                parsed.header, parsed.body, sorted_groups, groups, unmatched_commits
+            )
+            return
+
         if parsed.sectioned_changes:
             CommitGrouper._process_sections(
                 parsed.sectioned_changes, sorted_groups, groups, unmatched_commits
             )
 
-        # 2. Handle flat bullet points (Type 2)
         if parsed.bullet_points:
             CommitGrouper._process_bullets(
                 parsed.bullet_points, sorted_groups, groups, unmatched_commits
             )
 
-        # 3. Handle Header only if NO details found at all (Type 1)
         if not parsed.sectioned_changes and not parsed.bullet_points:
             CommitGrouper._process_header(
                 parsed.header, parsed.body, sorted_groups, groups, unmatched_commits
             )
+
+    @staticmethod
+    def _should_ignore_line(text: str, ignore_patterns: list[re.Pattern[str]]) -> bool:
+        """Return True when a parsed line matches an ignore pattern."""
+        stripped = text.strip()
+        return any(pattern.search(stripped) for pattern in ignore_patterns)
 
     @staticmethod
     def _process_sections(
@@ -132,17 +153,12 @@ class CommitGrouper:
     ) -> None:
         """Process Type 3 commits (grouped sections)."""
         for section, items in sections.items():
-            # Attempt to find a group that matches this section header
-            # We pass empty text because if section matches, we use that group for ALL items.
             group = CommitGrouper._resolve_group("", section, sorted_groups)
 
             if group:
-                # If section matches a group, all items go there
                 for item_text in items:
                     groups[group.title].commits.append(Commit(title=item_text))
             else:
-                # If section doesn't match a group, try to match items individually
-                # or fall back to unmatched
                 for item_text in items:
                     item_group = CommitGrouper._resolve_group(item_text, None, sorted_groups)
                     commit = Commit(title=item_text)
@@ -236,7 +252,6 @@ class CommitGrouper:
         title = lines[0].strip()
         body = lines[1].strip() if len(lines) > 1 and lines[1].strip() else None
 
-        # Clean up conventional commit titles
         if ":" in title:
             parts = title.split(":", 1)
             if len(parts) == CONVENTIONAL_COMMIT_PARTS:

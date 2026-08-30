@@ -12,6 +12,7 @@ from pytest_mock import MockerFixture
 
 from auto_semver.cli.finalize import run
 from auto_semver.config import Config, ConfigData
+from auto_semver.config._models._release import ReleaseConfig
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -49,7 +50,11 @@ class TestFinalize:
 
         # Set default behavior
         mock.data.suffixes = {"main": "", "develop": "-dev"}
-        mock.data.get_auto_promotion_targets.return_value = []  # No auto-promotion by default
+        mock.data.get_auto_promotion_targets.return_value = []
+        mock.data.release = ReleaseConfig(cleanup_merged=False)
+        mock_pr = mocker.Mock()
+        mock_pr.labels = ["semver-bump"]
+        mock.data.pull_request = mock_pr
         return mock
 
     @pytest.fixture
@@ -57,7 +62,8 @@ class TestFinalize:
         """Create a mock SemverLock."""
         mock = mocker.Mock(spec=SemverLock)
         mock.version = Version.parse("1.0.0")
-        # Mock the class method
+        mock.as_finalized_baseline = mocker.Mock()
+        mock.save_to_file = mocker.Mock()
         mocker.patch.object(SemverLock, "load_from_file", return_value=mock)
         return mock
 

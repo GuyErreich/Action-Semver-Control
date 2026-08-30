@@ -1,6 +1,7 @@
 """Tests for the CommitGroupConfig integration with CommitParser."""
 
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.config._models._commit_groups import CommitGroupsConfig
 from auto_semver.git.grouper import CommitGrouper
 
 
@@ -15,7 +16,10 @@ class TestCommitGroupConfigParsing:
             CommitGroupConfig(title="Fixes", patterns=["^fix"], priority=2, match_groups=[]),
         ]
 
-        result = CommitGrouper.group_messages(messages, groups_config)
+        result = CommitGrouper.group_messages(
+            messages,
+            CommitGroupsConfig(summary_mode="expand_body", groups=groups_config),
+        )
 
         assert len(result) == 2
         assert result[0].title == "Features"
@@ -44,7 +48,10 @@ class TestCommitGroupConfigParsing:
         # Note: The parser will split the commit into items "Upgrade libA" and "Upgrade libB"
         # Since they don't have explicit groups, we check regex. "Upgrade.*" matches "Upgrade libA".
 
-        result = CommitGrouper.group_messages(messages, groups_config)
+        result = CommitGrouper.group_messages(
+            messages,
+            CommitGroupsConfig(summary_mode="expand_body", groups=groups_config),
+        )
 
         assert len(result) == 1
         assert result[0].title == "Deps"
@@ -71,7 +78,10 @@ Bugs:
             CommitGroupConfig(title="Bug Fixes", patterns=[], match_groups=["Bugs"], priority=2),
         ]
 
-        result = CommitGrouper.group_messages(messages, groups_config)
+        result = CommitGrouper.group_messages(
+            messages,
+            CommitGroupsConfig(summary_mode="expand_body", groups=groups_config),
+        )
 
         assert len(result) == 2
 

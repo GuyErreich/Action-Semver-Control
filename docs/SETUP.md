@@ -81,6 +81,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
+# Required when multiple PRs merge close together — see "Concurrent merges" below.
+concurrency:
+  group: auto-semver-bump-${{ github.repository }}-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
 jobs:
   bump:
     if: github.event.pull_request.merged == true
@@ -88,6 +92,12 @@ jobs:
     secrets:
       app-id: ${{ secrets.GH_APP_ID }}
       app-private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+```
+
+Validate locally:
+
+```bash
+auto-semver setup --check
 ```
 
 `.github/workflows/promote.yml` (optional manual promotion):
@@ -130,7 +140,29 @@ Start from [`src/auto_semver/setup/templates/auto_semver_config.yml`](../src/aut
 - `suffixes` — map your branch names (`dev`, `staging`, `master`, etc.)
 - `version_files` — files Action-Semver-Control may update directly
 - `promotions` — which channels auto-promote
-- `commit_groups` — changelog grouping (see README)
+- `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
+- `release.strategy` — `single` (default) or `multi` for multiple open release PRs
+- `release.branch_prefix` — default `auto-semver/release/` (owned branches only)
+- `bump.mode` — `classic` (default) or `cumulative` (opt-in; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md))
+
+## Concurrent merges & bump queue
+
+When several PRs merge in quick succession (batch merge, merge queue, or rapid merges), bump workflows must **queue** — not run in parallel.
+
+Add this block to your **caller** workflow (already included in scaffolded `auto-semver.yml`):
+
+```yaml
+concurrency:
+  group: auto-semver-bump-${{ github.repository }}-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+```
+
+- Same target branch (`dev`, `staging`, `master`) shares one queue.
+- `cancel-in-progress: false` is critical: cancelled runs lose their bump.
+
+Run `auto-semver setup --check` to fail fast if the block is missing.
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for version regression and two-phase release flow.
 
 ### 6. Create channel branches
 
@@ -152,6 +184,8 @@ Keep `master` (or `main`) as production. Merge feature work into `dev`.
 Production releases of Action-Semver-Control force-update the `v1` tag to the latest stable release.
 
 ## Troubleshooting
+
+See **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** for version regressions, noisy release PRs, stale branches, and bump modes.
 
 ### Workflow fails immediately: "Missing GitHub App secrets"
 

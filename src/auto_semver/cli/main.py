@@ -101,10 +101,19 @@ def main() -> None:
             action="store_true",
             help="Skip writing auto_semver_config.yml and workflow files",
         )
+        setup_parser.add_argument(
+            "--check",
+            action="store_true",
+            help="Validate caller workflow concurrency and config presence",
+        )
 
         args = parser.parse_args()
 
         if args.command == "setup":
+            if getattr(args, "check", False):
+                from auto_semver.setup.check import run_check
+
+                sys.exit(0 if run_check() else 1)
             setup.run(
                 owner=args.owner,
                 repo=args.repo,

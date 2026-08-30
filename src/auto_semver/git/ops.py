@@ -36,6 +36,7 @@ from github import Github
 from github.GithubException import GithubException
 from github.InputGitTreeElement import InputGitTreeElement
 
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.semver import SemverLock, Version
 
 if TYPE_CHECKING:
@@ -47,6 +48,9 @@ if TYPE_CHECKING:
     from auto_semver.config import Config
 
 logger = logging.getLogger(__package__)
+
+LEGACY_RELEASE_PREFIX = "release/"
+DEFAULT_RELEASE_PREFIX = "auto-semver/release/"
 
 
 class GitOps:
@@ -769,33 +773,205 @@ class GitOps:
         )
         return version
 
+    def get_lock_at_ref(self, ref: str) -> SemverLock | None:
+        """Load `.semver.lock` from a branch or tag ref."""
+        try:
+            blob = self.repo.git.show(f"{ref}:{SemverLock.path}")
+            return SemverLock.from_dict(yaml.safe_load(blob))
+        except GitCommandError as err:
+            logger.debug("No lockfile at ref %s: %s", ref, err)
+            return None
+
+    def delete_branch(self, *, branch_name: str, remote_name: str = "origin") -> None:
+        """Delete a remote branch ref."""
+        logger.info("Deleting remote branch '%s' on '%s'", branch_name, remote_name)
+        if self.signed_commits:
+            gh_repo = self._gh_repo()
+            ref_name = f"heads/{branch_name}"
+            ref = gh_repo.get_git_ref(ref_name)
+            ref.delete()
+            self.fetch(remote_name=remote_name)
+            return
+
+        remote: Remote = self.repo.remote(name=remote_name)
+        push_infos = remote.push(refspec=f":{branch_name}")
+        for info in push_infos:
+            if info.flags & (PushInfo.ERROR | PushInfo.REJECTED | PushInfo.REMOTE_FAILURE):
+                raise RuntimeError(f"Failed to delete branch {branch_name}: {info.summary}")
+
+    @staticmethod
+    def _normalize_branch_name(ref: str) -> str:
+        """Strip remote prefix from a git ref name."""
+        for prefix in ("origin/", "refs/heads/"):
+            if ref.startswith(prefix):
+                return ref.removeprefix(prefix)
+        return ref
+
+    @staticmethod
+    def _branch_matches_prefix(branch_name: str, branch_prefix: str) -> bool:
+        """Return True when branch_name matches `{prefix}{semver}`."""
+        prefix = branch_prefix if branch_prefix.endswith("/") else f"{branch_prefix}/"
+        pattern = re.compile(re.escape(prefix) + r"\d+\.\d+\.\d+(?:-[\w.]+)?$")
+        return bool(pattern.match(branch_name))
+
+    def get_merged_source_branches_since(
+        self,
+        *,
+        base_sha: str,
+        target_branch: str,
+        github_token: str,
+    ) -> list[str]:
+        """List merged PR head branch names on target_branch since base_sha."""
+        repo_full_name = self._repo_full_name
+        gh = Github(login_or_token=github_token)
+        repo: Repository = gh.get_repo(full_name_or_id=repo_full_name)
+        branches: list[str] = []
+
+        for pr in repo.get_pulls(state="closed", base=target_branch, sort="updated", direction="desc"):
+            if not pr.merged or not pr.merge_commit_sha:
+                continue
+            merge_sha = pr.merge_commit_sha
+            try:
+                self.repo.git.merge_base("--is-ancestor", base_sha, merge_sha)
+                self.repo.git.merge_base("--is-ancestor", merge_sha, f"origin/{target_branch}")
+            except GitCommandError:
+                continue
+            branches.append(pr.head.ref)
+
+        return list(reversed(branches))
+
+    def get_open_release_version(
+        self,
+        *,
+        github_token: str,
+        target_branch: str,
+        branch_prefix: str,
+        labels: list[str] | None = None,
+    ) -> Version | None:
+        """Return the highest version from open owned release PRs targeting target_branch."""
+        repo_full_name = self._repo_full_name
+        gh = Github(login_or_token=github_token)
+        repo: Repository = gh.get_repo(full_name_or_id=repo_full_name)
+        highest: Version | None = None
+
+        for pr in repo.get_pulls(state="open"):
+            head_ref = pr.head.ref
+            if pr.base.ref != target_branch:
+                continue
+            if not self._is_candidate_release_branch(head_ref, branch_prefix):
+                continue
+            pr_labels = [label.name for label in pr.labels]
+            if labels and not any(label in pr_labels for label in labels):
+                continue
+            if PR_HIDDEN_MARKER not in (pr.body or ""):
+                continue
+
+            lock = self.get_lock_at_ref(f"origin/{head_ref}")
+            if lock is None:
+                continue
+
+            if highest is None or lock.version > highest:
+                highest = lock.version
+
+        return highest
+
+    def _is_candidate_release_branch(self, branch_name: str, branch_prefix: str) -> bool:
+        """Return True for configured or legacy release branch names."""
+        return self._branch_matches_prefix(branch_name, branch_prefix) or (
+            branch_name.startswith(LEGACY_RELEASE_PREFIX)
+            and branch_name != LEGACY_RELEASE_PREFIX.rstrip("/")
+        )
+
+    def _find_release_pr(
+        self,
+        *,
+        github_token: str,
+        branch_name: str,
+        target_branch: str | None = None,
+    ) -> PullRequest | None:
+        repo: Repository = self._get_github_repo(
+            github_token=github_token,
+            repo_full_name=self._repo_full_name,
+        )
+        for pr in repo.get_pulls(state="all"):
+            if pr.head.ref != branch_name:
+                continue
+            if target_branch and pr.base.ref != target_branch:
+                continue
+            return pr
+        return None
+
+    def is_auto_semver_release_branch(
+        self,
+        *,
+        branch_name: str,
+        github_token: str,
+        branch_prefix: str,
+        labels: list[str] | None = None,
+        require_closed_pr: bool = False,
+        skip_pr_check: bool = False,
+    ) -> tuple[bool, str]:
+        """
+        Verify branch ownership for cleanup/delete operations.
+
+        Returns:
+            Tuple of (is_owned, skip_reason). skip_reason is empty when owned.
+        """
+        if not self._is_candidate_release_branch(branch_name, branch_prefix):
+            return False, "branch name does not match release prefix"
+
+        lock = self.get_lock_at_ref(f"origin/{branch_name}")
+        if lock is None:
+            return False, "no lockfile at branch tip"
+
+        has_release_role = lock.is_release_branch_lock()
+        has_legacy_lock = lock.is_legacy_managed_lock()
+
+        if not has_release_role and not has_legacy_lock:
+            return False, "lock is not auto-semver managed"
+
+        if skip_pr_check:
+            return True, ""
+
+        pr = self._find_release_pr(github_token=github_token, branch_name=branch_name)
+        if pr is None:
+            return False, "no associated pull request"
+
+        if require_closed_pr and pr.state == "open":
+            return False, "pull request still open"
+
+        pr_labels = [label.name for label in pr.labels]
+        if labels and not any(label in pr_labels for label in labels):
+            return False, "pull request missing configured label"
+
+        if PR_HIDDEN_MARKER not in (pr.body or ""):
+            return False, "pull request missing auto-semver marker"
+
+        return True, ""
+
     def close_old_release_prs(
         self,
         *,
         github_token: str,
         target_branch: str,
         labels: list[str] | None = None,
+        branch_prefix: str = DEFAULT_RELEASE_PREFIX,
+        exclude_branch: str | None = None,
     ) -> None:
         """
-        Close open PRs.
-
-        This method checks for open pull requests in the specified GitHub repository
-        that are targeting the specified branch. It closes any open pull requests
-        that match the specified labels and are based on branches starting with "release/".
-        This is useful for cleaning up old pull requests before creating a new one.
+        Close open owned release PRs targeting the specified branch.
 
         Args:
             github_token: GitHub access token.
             target_branch: The target branch (e.g., 'dev' or 'main').
             labels: Optional list of label names to match.
-
+            branch_prefix: Configured release branch prefix.
+            exclude_branch: Optional branch name to keep open (current release).
 
         Raises:
             GithubException: If there is an error with the GitHub API.
 
         """
-
-        # Get the repository name (uses cached value)
         repo_full_name = self._repo_full_name
 
         logger.info(f"Checking for existing PRs for target branch: {target_branch}")
@@ -809,15 +985,36 @@ class GitOps:
             for pr in open_prs:
                 head_ref: str = pr.head.ref
                 base_ref: str = pr.base.ref
-                pr_labels: list[str] = [label.name for label in pr.labels]
 
-                if (
-                    head_ref.startswith("release/")
-                    and base_ref == target_branch
-                    and (not labels or any(label in pr_labels for label in labels))
-                ):
-                    logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
-                    pr.edit(state="closed")
+                if head_ref == exclude_branch:
+                    continue
+
+                if base_ref != target_branch:
+                    continue
+
+                if not self._is_candidate_release_branch(head_ref, branch_prefix):
+                    continue
+
+                pr_labels: list[str] = [label.name for label in pr.labels]
+                if labels and not any(label in pr_labels for label in labels):
+                    continue
+
+                if PR_HIDDEN_MARKER not in (pr.body or ""):
+                    continue
+
+                owned, reason = self.is_auto_semver_release_branch(
+                    branch_name=head_ref,
+                    github_token=github_token,
+                    branch_prefix=branch_prefix,
+                    labels=labels,
+                    skip_pr_check=True,
+                )
+                if not owned:
+                    logger.info("Skipping PR #%s (%s): %s", pr.number, head_ref, reason)
+                    continue
+
+                logger.info(f"Closing old PR #{pr.number}: {head_ref} → {base_ref}")
+                pr.edit(state="closed")
 
         except GithubException as err:
             logger.error(f"GitHub API error while closing PRs: {err}")
