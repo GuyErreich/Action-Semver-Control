@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -33,6 +33,8 @@ jobs:
 
       - name: Validate token format and consumers
         env:
+          # Client ID is preferred for JWT iss; App ID still works as a fallback.
+          GH_APP_CLIENT_ID: ${{ vars.GH_APP_CLIENT_ID }}
           GH_APP_ID: ${{ secrets.GH_APP_ID }}
           GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
         run: |
