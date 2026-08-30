@@ -142,3 +142,37 @@ def test_is_closeable_release_pr_accepts_preownership_lock(mocker: MockerFixture
 
     assert closeable is True
     assert reason == ""
+
+
+@pytest.mark.unit
+def test_cleanup_stale_release_branches_deletes_closed_pr_refs(mocker: MockerFixture) -> None:
+    """Delete remote release branches whose PRs are already closed."""
+    gitops = GitOps()
+    mocker.patch.object(gitops, "fetch")
+    mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+
+    mock_ref = mocker.MagicMock()
+    mock_ref.name = "origin/auto-semver/release/1.4.1-dev"
+    mock_repo = mocker.MagicMock()
+    mock_repo.remote.return_value.refs = [mock_ref]
+    gitops.repo = mock_repo
+
+    mock_pr = mocker.MagicMock()
+    mock_pr.state = "closed"
+    mock_pr.base.ref = "dev"
+    mock_pr.labels = [mocker.MagicMock(name="semver-bump")]
+    mock_pr.labels[0].name = "semver-bump"
+    mock_pr.body = PR_HIDDEN_MARKER
+    mocker.patch.object(gitops, "_find_release_pr", return_value=mock_pr)
+    mocker.patch.object(gitops, "_is_closeable_release_pr", return_value=(True, ""))
+    delete_mock = mocker.patch.object(gitops, "_delete_superseded_release_branch")
+
+    gitops.cleanup_stale_release_branches(
+        github_token="token",
+        target_branch="dev",
+        branch_prefix="auto-semver/release/",
+        labels=["semver-bump"],
+        exclude_branch="auto-semver/release/1.4.3-dev",
+    )
+
+    delete_mock.assert_called_once_with(branch_name="auto-semver/release/1.4.1-dev")

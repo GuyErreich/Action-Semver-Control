@@ -173,6 +173,36 @@ def _push_release_branch(
         gitops.push(branch_name=release_branch_name, force=force)
 
 
+def _supersede_old_releases_in_single_mode(
+    *,
+    gitops: GitOps,
+    config: Config,
+    github_token: str,
+    target_branch: str,
+    release_branch_name: str,
+) -> None:
+    """Close and optionally delete superseded release PRs/branches in single mode."""
+    release_cfg = config.data.release
+    logger.info("Closing old release PRs...")
+    gitops.close_old_release_prs(
+        github_token=github_token,
+        target_branch=target_branch,
+        labels=config.data.pull_request.labels,
+        branch_prefix=release_cfg.branch_prefix,
+        exclude_branch=release_branch_name,
+        delete_branches=release_cfg.cleanup_merged,
+    )
+    if release_cfg.cleanup_merged:
+        logger.info("Cleaning stale release branches...")
+        gitops.cleanup_stale_release_branches(
+            github_token=github_token,
+            target_branch=target_branch,
+            labels=config.data.pull_request.labels,
+            branch_prefix=release_cfg.branch_prefix,
+            exclude_branch=release_branch_name,
+        )
+
+
 def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str) -> None:
     """
     Run the bump workflow.
@@ -292,13 +322,12 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     _push_release_branch(gitops=gitops, release_branch_name=release_branch_name)
 
     if release_cfg.strategy == "single":
-        logger.info("Closing old release PRs...")
-        gitops.close_old_release_prs(
+        _supersede_old_releases_in_single_mode(
+            gitops=gitops,
+            config=config,
             github_token=github_token,
             target_branch=target_branch,
-            labels=config.data.pull_request.labels,
-            branch_prefix=release_cfg.branch_prefix,
-            exclude_branch=release_branch_name,
+            release_branch_name=release_branch_name,
         )
     else:
         logger.info("release.strategy=multi — keeping existing open release PRs")

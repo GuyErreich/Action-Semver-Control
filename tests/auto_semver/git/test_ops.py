@@ -357,6 +357,35 @@ class TestGitOps:
         mock_pr2.edit.assert_not_called()
 
     @pytest.mark.unit
+    def test_close_old_release_prs_deletes_branch_when_configured(
+        self, mocker: MockerFixture, mock_github_repo: Any
+    ) -> None:
+        """Superseded release branches are deleted when delete_branches is enabled."""
+        mock_pr = mocker.MagicMock()
+        mock_pr.number = 1
+        mock_pr.head.ref = "auto-semver/release/1.4.1-dev"
+        mock_pr.base.ref = "dev"
+        mock_pr.body = PR_HIDDEN_MARKER
+        mock_label = mocker.MagicMock()
+        mock_label.name = "semver-bump"
+        mock_pr.labels = [mock_label]
+        mock_github_repo.get_pulls.return_value = [mock_pr]
+
+        gitops = GitOps()
+        mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+        mocker.patch.object(gitops, "_is_closeable_release_pr", return_value=(True, ""))
+        delete_mock = mocker.patch.object(gitops, "_delete_superseded_release_branch")
+
+        gitops.close_old_release_prs(
+            github_token="token",
+            target_branch="dev",
+            labels=["semver-bump"],
+            delete_branches=True,
+        )
+
+        delete_mock.assert_called_once_with(branch_name="auto-semver/release/1.4.1-dev")
+
+    @pytest.mark.unit
     def test_get_recent_commits(self, mocker: MockerFixture) -> None:
         """Test getting recent commits with get_recent_commits method."""
         # Create mock repo and commits

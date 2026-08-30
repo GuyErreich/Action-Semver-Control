@@ -22,5 +22,7 @@ class ReleaseConfig(BaseModel):
     )
     cleanup_merged: bool = Field(
         default=True,
-        description="Delete owned release branch after finalize (single mode default)",
+        description=(
+            "Delete owned release branches when superseded in single mode and after finalize"
+        ),
     )
