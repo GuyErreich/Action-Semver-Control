@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Guy Erreich
+# Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
 """Validate consumer repository setup for Action-Semver-Control."""

@@ -1,4 +1,4 @@
-# Copyright (c) 2026 Guy Erreich
+# Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
 """Commit grouping settings and group definitions."""

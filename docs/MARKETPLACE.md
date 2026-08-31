@@ -13,3 +13,8 @@ Action-Semver-Control is published as **Auto Semver Bumper** on the [GitHub Mark
 4. Confirm `action.yml` includes `branding.icon` and `branding.color`.
 
 Consumers should pin caller workflows at `@v1`. Exact semver pins (`@1.3.14`) and SHA pins remain supported via the reusable workflow `action-ref` input.
+
+## Maintainer notes
+
+- Require status check **`license-check`** on `dev` and `master` so merges (and thus Auto Semver) only happen after SPDX headers pass.
+- Annual copyright updates come from workflow **Copyright Year Update** (`copyright-year.yml`); merge that PR after `license-check` is green so the bump includes the year-touched files.

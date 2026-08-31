@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026 Guy Erreich
+# Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
 """Validate GitHub App installation tokens against the stateless format rollout.
