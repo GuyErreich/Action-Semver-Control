@@ -533,4 +533,5 @@ class TestGitOps:
 
         mock_repo.git.commit_tree.assert_called_once()
         mock_repo.head.set_commit.assert_called_once()
+        mock_repo.git.reset.assert_called_once_with("--hard", "squash-sha")
         mock_repo.git.merge.assert_called_once_with("1.4.6-dev", ff_only=True)
