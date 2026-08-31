@@ -212,6 +212,19 @@ The `v1` tag is created on the first **production** release of Action-Semver-Con
 
 Use a GitHub App (not `GITHUB_TOKEN` alone). App commits via the action satisfy typical **required signed commits** rules when branch protection is configured for verified commits.
 
+### License check before Auto Semver
+
+`license-check` (workflow **License Header Check**) must be a **required status check** on `dev` and `master`.
+
+Auto Semver Bump runs only after a PR is merged. Requiring `license-check` on those branches means:
+
+1. PRs (including annual copyright-year updates) cannot merge until SPDX headers pass.
+2. Auto Semver then runs on the merged tree that already includes any license/header file updates.
+
+Configure under **Settings → Rules → Rulesets** (or classic branch protection): require status check **`license-check`**.
+
+The **Copyright Year Update** workflow (`copyright-year.yml`) opens a PR to `dev` each New Year; merge it only after `license-check` is green.
+
 ## Architecture
 
 ```mermaid

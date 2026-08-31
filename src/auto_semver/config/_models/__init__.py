@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 from ._bump import BumpConfig
 from ._changelog import ChangelogConfig
 from ._commit_group import Commit, CommitGroup, CommitGroupConfig, CommitGroups, RegexPattern
