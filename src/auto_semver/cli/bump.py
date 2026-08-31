@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Version bump CLI operations for auto_semver."""
 
 import datetime

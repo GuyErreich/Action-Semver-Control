@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Configuration models for changelog generation."""
 
 from dataclasses import dataclass
