@@ -1,6 +1,6 @@
-version: 1.6.4
-source_branch: staging
-target_branch: master
-target_base_sha: 2ee366dba28457d836a00824461ee21d1c4203f7
+version: 1.6.5-rc
+source_branch: dev
+target_branch: staging
+target_base_sha: f02473195d1ee3ace20e881a049364aa0facc319
 finalized: true
 managed_by: auto-semver
