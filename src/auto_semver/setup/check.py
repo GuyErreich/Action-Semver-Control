@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Validate consumer repository setup for Action-Semver-Control."""
 
 from __future__ import annotations

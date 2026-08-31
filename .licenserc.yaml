@@ -1,0 +1,19 @@
+header:
+  license:
+    spdx-id: MIT
+    copyright-owner: Guy Erreich
+    content: |
+      Copyright (c) 2025-2026 Guy Erreich
+
+      SPDX-License-Identifier: MIT
+  paths:
+    - src
+    - scripts
+    - .github
+    - action.yml
+  paths-ignore:
+    - '**/*.json'
+    - '**/__pycache__/**'
+    - '**/py.typed'
+    - 'src/**/templates/**'
+    - '.github/copilot/**'

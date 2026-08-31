@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 from ._models import (
     BranchName,
     ChangelogConfig,

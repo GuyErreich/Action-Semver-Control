@@ -1,3 +1,6 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """
 GitOps utilities for Git and GitHub operations in Auto-Semver pipelines.
 
