@@ -166,23 +166,6 @@ class SemverLock:
         self.branch_role = None
         self.source_branch = self.target_branch
 
-    def as_promotion_baseline(
-        self,
-        *,
-        target_branch: str,
-        version: Version,
-        merge_sha: str,
-    ) -> None:
-        """Rewrite lock on a promotion target branch after dev/rc metadata apply."""
-        self.version = version
-        self.target_branch = target_branch
-        self.source_branch = target_branch
-        self.target_base_sha = merge_sha
-        self.finalized = True
-        self.managed_by = MANAGED_BY
-        self.branch_role = None
-        self.managed_by_version = None
-
     def is_release_branch_lock(self) -> bool:
         """Return True when the lock shape indicates a release branch tip."""
         return self.managed_by == MANAGED_BY and self.branch_role == BRANCH_ROLE_RELEASE

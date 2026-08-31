@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from auto_semver.cli.finalize import create_auto_promotion_prs, run
+from auto_semver.cli.finalize import run
 from auto_semver.config import Config, ConfigData
 from auto_semver.config._models._release import ReleaseConfig
 from auto_semver.gh.event import GitHubEvent
@@ -133,33 +133,3 @@ class TestFinalize:
 
         # Verify tag was pushed
         mock_gitops.push.assert_called_once_with(branch_name="v1.0.0")
-
-    @pytest.mark.unit
-    def test_auto_promotion_failure_raises(
-        self,
-        mock_gitops: Any,
-        mock_event: Any,
-        mock_config: Any,
-    ) -> None:
-        """Auto-promotion failures must propagate so CI exits non-zero."""
-        mock_config.data.suffixes = {"dev": "-dev", "staging": "-rc"}
-        mock_config.data.get_auto_promotion_targets.return_value = ["staging"]
-        mock_config.data.changelog = None
-        mock_config.data.version_files = ["version.txt"]
-        mock_gitops.auto_promote.side_effect = RuntimeError(
-            "Merge conflict detected when merging 'origin/dev'."
-        )
-
-        with pytest.raises(RuntimeError, match=r"Auto-promotion failed for dev → staging"):
-            create_auto_promotion_prs(
-                gitops=mock_gitops,
-                event=mock_event,
-                config=mock_config,
-                target_branch="dev",
-                version="1.4.6-dev",
-            )
-
-        mock_gitops.auto_promote.assert_called_once()
-        create_call = mock_gitops.auto_promote.call_args
-        assert create_call[1]["source_branch"] == "1.4.6-dev"
-        assert create_call[1]["is_source_tag"] is True

@@ -68,7 +68,6 @@ class TestPromoteCLI:
             source_version="1.2.3-dev",
             is_source_tag=True,
             post_merge_hook=ANY,
-            prefer_source_paths=ANY,
         )
 
     @patch("auto_semver.git.GitOps.get_lock_version_from_branch")
@@ -122,7 +121,6 @@ class TestPromoteCLI:
             source_version="1.2.3-dev",
             is_source_tag=True,
             post_merge_hook=ANY,
-            prefer_source_paths=ANY,
         )
 
     def test_promotion_validation_failure(self) -> None:

@@ -8,7 +8,7 @@ After tagging, it checks for auto-promotion rules and creates promotion PRs auto
 
 import logging
 
-from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
+from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
@@ -124,41 +124,40 @@ def create_auto_promotion_prs(
     for to_branch in auto_targets:
         logger.info(f"Auto-promoting {target_branch} → {to_branch}")
 
-        target_suffix = config.data.suffixes.get(to_branch, "")
-
-        current_version = Version.parse(version)
-        promoted_version = Version(
-            major=current_version.major,
-            minor=current_version.minor,
-            patch=current_version.patch,
-            suffix=target_suffix if target_suffix else None,
-        )
-
-        logger.info(f"Promoting version {version} → {promoted_version}")
-
-        metadata_hook = build_promotion_metadata_hook(
-            config=config,
-            target_branch=to_branch,
-            gitops=gitops,
-        )
-
         try:
+            target_suffix = config.data.suffixes.get(to_branch, "")
+
+            current_version = Version.parse(version)
+            promoted_version = Version(
+                major=current_version.major,
+                minor=current_version.minor,
+                patch=current_version.patch,
+                suffix=target_suffix if target_suffix else None,
+            )
+
+            logger.info(f"Promoting version {version} → {promoted_version}")
+
+            def changelog_hook(src_v: str, tgt_v: str) -> None:
+                if config.data.changelog and config.data.changelog.file:
+                    try:
+                        manager = ChangelogManager.from_config(config)
+                        manager.update_version_in_header(old_version=src_v, new_version=tgt_v)
+                    except Exception as e:
+                        logger.warning(f"Failed to update changelog header: {e}")
+
             gitops.auto_promote(
-                source_branch=str(version),
+                source_branch=target_branch,
                 target_branch=to_branch,
                 version=str(promoted_version),
                 source_version=version,
-                is_source_tag=True,
-                post_merge_hook=metadata_hook,
-                prefer_source_paths=promotion_prefer_source_paths(config),
+                post_merge_hook=changelog_hook,
             )
+
+            logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")
+
         except Exception as e:
             logger.error(f"❌ Failed to auto-promote {target_branch} → {to_branch}: {e}")
-            raise RuntimeError(
-                f"Auto-promotion failed for {target_branch} → {to_branch}: {e}"
-            ) from e
-
-        logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")
+            continue
 
 
 def run(

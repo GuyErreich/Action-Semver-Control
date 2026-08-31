@@ -83,27 +83,3 @@ bump:
 ```
 
 Major bumps always reset to `X.0.0`.
-
-## Auto-promotion failed or staging did not deploy
-
-**Expected behavior:**
-
-1. Merging the **release PR** to `dev` tags `X.Y.Z-dev` and auto-promotes to `staging`.
-2. Promotion merges the **dev tag** into `staging` (not `staging` into `dev`).
-3. On metadata conflicts (`.semver.lock`, `CHANGELOG.md`, `version_files`), **dev/rc wins**.
-4. A metadata commit rewrites headers and version files to `-rc`, then tags `X.Y.Z-rc`.
-5. Pushing `*.*.*-rc` triggers **Publish Release - Staging**.
-
-**If promotion failed with merge conflicts:** check whether the conflict is outside semver metadata (e.g. `README.md`). Those require a manual merge. Metadata conflicts should auto-resolve.
-
-**If the workflow was green but staging did not update:** older versions swallowed promotion errors; ensure you are on a build that fails finalize when auto-promote fails.
-
-**If staging rules block direct push:** promotion uses fast-forward when possible, otherwise a single squash-style commit (no merge commit). Tag creation may require the **Create Release Tag** workflow with the GitHub App token.
-
-**Do not reset/rebase staging to dev** to promote — that rewrites history. Merge-based promotion preserves the git graph.
-
-## Release notes show the wrong group (Other Changes)
-
-With `commit_groups.summary_mode: header_only`, auto-semver classifies each merged change from the **PR or commit title line only** (squash-merge uses the PR title). Summary bullets in the PR body are not grouped separately.
-
-Use conventional prefixes on PR titles when opening PRs: `feat:`, `fix:`, `docs:`, etc. Imperative titles (`Add …`, `Harden …`, `Migrate …`) work only when listed in `commit_groups.patterns` in `auto_semver_config.yml`.
