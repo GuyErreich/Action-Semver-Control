@@ -1,96 +1,14 @@
 """CLI utility functions for auto_semver."""
 
-from __future__ import annotations
-
 import logging
-from collections.abc import Callable
-from typing import TYPE_CHECKING
 
-from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
 from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.gh import GitHubEvent
-from auto_semver.semver import SemverLock, Version
-from auto_semver.semver.updater import VersionFileUpdater
-
-if TYPE_CHECKING:
-    from auto_semver.git import GitOps
+from auto_semver.semver import SemverLock
 
 logger = logging.getLogger(__package__)
-
-
-def promotion_prefer_source_paths(config: Config) -> list[str]:
-    """Paths that diverge by design during promotion and may take the source side."""
-    paths: list[str] = [SemverLock.path]
-    if config.data.changelog and config.data.changelog.file:
-        paths.append(str(config.data.changelog.file))
-    paths.extend(str(path) for path in config.data.version_files)
-    return paths
-
-
-def apply_promotion_metadata(
-    *,
-    config: Config,
-    source_branch: str,
-    source_version: str,
-    target_version: str,
-    target_branch: str,
-    merge_sha: str,
-) -> None:
-    """Rewrite changelog, version files, and lock for a promoted target branch."""
-    rule = config.data.find_promotion_rule(from_branch=source_branch, to_branch=target_branch)
-    if rule is None:
-        logger.warning(
-            "Promotion metadata for %s → %s does not match any promotions[] rule in config",
-            source_branch,
-            target_branch,
-        )
-
-    if config.data.changelog and config.data.changelog.file:
-        try:
-            manager = ChangelogManager.from_config(config)
-            manager.update_version_in_header(old_version=source_version, new_version=target_version)
-        except Exception as err:
-            logger.warning("Failed to update changelog header during promotion: %s", err)
-
-    promoted = Version.parse(target_version)
-    for file_path in config.data.version_files:
-        VersionFileUpdater(file_path=str(file_path), version=promoted).update()
-
-    try:
-        lock = SemverLock.load_from_file()
-        lock.as_promotion_baseline(
-            source_branch=source_branch,
-            target_branch=target_branch,
-            version=promoted,
-            merge_sha=merge_sha,
-        )
-        lock.save_to_file()
-    except FileNotFoundError:
-        logger.warning("No lockfile found during promotion metadata update")
-
-
-def build_promotion_metadata_hook(
-    *,
-    config: Config,
-    source_branch: str,
-    target_branch: str,
-    gitops: GitOps,
-) -> Callable[[str, str], None]:
-    """Build a post-merge hook that applies dev/rc metadata on the target branch."""
-
-    def hook(source_version: str, target_version: str) -> None:
-        apply_promotion_metadata(
-            config=config,
-            source_branch=source_branch,
-            source_version=source_version,
-            target_version=target_version,
-            target_branch=target_branch,
-            merge_sha=gitops.repo.head.commit.hexsha,
-        )
-
-    return hook
 
 
 def is_finalized(*, config: Config, event: GitHubEvent) -> bool:

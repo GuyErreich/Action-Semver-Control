@@ -235,8 +235,7 @@ def test_auto_promotion_finalize_workflow(
     create_call = mock_gitops.auto_promote.call_args
 
     # Verify call details
-    assert create_call[1]["source_branch"] == "1.1.1234-dev"
-    assert create_call[1]["is_source_tag"] is True
+    assert create_call[1]["source_branch"] == "dev"
     assert create_call[1]["target_branch"] == "staging"
     # Version should be transformed to use target branch suffix (-rc for staging)
     assert create_call[1]["version"] == "1.1.1234-rc"
