@@ -10,7 +10,7 @@ This guide walks through adopting Action-Semver-Control in a repository you do n
 | **`GH_APP_CLIENT_ID`** variable | App **Client ID** from the app settings page (not the numeric App ID) |
 | **`GH_APP_PRIVATE_KEY`** secret | PEM contents from **Generate a private key** |
 | **`auto_semver_config.yml`** | Branch suffixes, version files, changelog groups |
-| **Caller workflows** | Thin wrappers that invoke reusable workflows `@v1` |
+| **Caller workflows** | Thin wrappers that invoke reusable workflows at the floating `v1` tag |
 
 Action-Semver-Control is listed on the [GitHub Marketplace](https://github.com/marketplace/actions/auto-semver-bumper) for discovery. Marketplace does not install secrets or workflows — follow this guide after adding the action.
 
@@ -180,7 +180,7 @@ Keep `master` (or `main`) as production. Merge feature work into `dev`.
 
 | Pin | When to use |
 |-----|-------------|
-| `@v1` | **Recommended** — floating major tag, updated on each production release |
+| `v1` (as `...@v1`) | **Recommended** — floating major tag, updated on each production release |
 | `@1.3.14` | Exact semver for reproducibility |
 | `@<sha>` | Maximum control; pin in reusable workflow `action-ref` input |
 
@@ -204,7 +204,7 @@ uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver s
 - Confirm `GH_APP_CLIENT_ID` is the App **Client ID** (not the installation ID or the deprecated numeric App ID secret).
 - Confirm the PEM secret includes header/footer lines.
 
-### Reusable workflow not found `@v1`
+### Reusable workflow not found at tag `v1`
 
 The `v1` tag is created on the first **production** release of Action-Semver-Control. Until then, pin `action-ref` to a commit SHA or release tag in your caller workflow, or wait for `v1` to exist.
 
