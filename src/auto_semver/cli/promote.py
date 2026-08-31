@@ -79,6 +79,7 @@ def run(
 
         metadata_hook = build_promotion_metadata_hook(
             config=config,
+            source_branch=source_branch,
             target_branch=to_branch,
             gitops=gitops,
         )
