@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """
 Configuration management for auto-semver-bump.
 

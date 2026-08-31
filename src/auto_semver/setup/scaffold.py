@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Repository scaffolding for Action-Semver-Control onboarding."""
 
 from __future__ import annotations

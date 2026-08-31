@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Version bump mode configuration."""
 
 from __future__ import annotations

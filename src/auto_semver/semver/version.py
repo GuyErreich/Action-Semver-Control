@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """
 Semantic versioning utilities for Auto-Semver pipelines.
 

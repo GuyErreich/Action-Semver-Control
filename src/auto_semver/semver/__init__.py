@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 from .lock import SemverLock
 from .updater import VersionFileUpdater
 from .version import Version

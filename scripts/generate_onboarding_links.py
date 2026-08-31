@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Generate onboarding deep links for Action-Semver-Control documentation."""
 
 from __future__ import annotations

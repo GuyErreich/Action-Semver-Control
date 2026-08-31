@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """CLI utility functions for auto_semver."""
 
 from __future__ import annotations

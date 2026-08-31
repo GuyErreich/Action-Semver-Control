@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """CLI command to onboard a repository onto Action-Semver-Control."""
 
 from __future__ import annotations

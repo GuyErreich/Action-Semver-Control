@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
 """Templates package public API.
 
 Expose the primary engine class, helper functions, and common type aliases at the
