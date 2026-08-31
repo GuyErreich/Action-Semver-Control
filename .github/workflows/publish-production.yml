@@ -12,7 +12,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     # Dynamically set environment based on branch
     environment: 'production'
 
@@ -35,13 +35,18 @@ jobs:
         with:
           github_token: ${{ steps.app-token.outputs.token }}
 
-      - name: Update floating v1 tag
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Configure Git for App
         run: |
-          set -euo pipefail
           git config user.name "${{ steps.app-token.outputs.user-name }}"
           git config user.email "${{ steps.app-token.outputs.user-email }}"
-          git tag -fa v1 "${GITHUB_REF_NAME}"
-          git push origin v1 --force
-          echo "Updated v1 tag to ${GITHUB_REF_NAME}"
+          git remote set-url origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git
+
+      - name: Update floating v1 tag
+        run: |
+          set -euo pipefail
+          COMMIT_SHA=$(git rev-parse "${GITHUB_REF_NAME}^{commit}")
+          git tag -fa v1 \
+            -m "Floating v1 pointer to ${GITHUB_REF_NAME}" \
+            "${COMMIT_SHA}"
+          git push origin refs/tags/v1 --force
+          echo "Updated v1 tag to ${GITHUB_REF_NAME} (${COMMIT_SHA})"
