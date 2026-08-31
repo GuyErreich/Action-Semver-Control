@@ -163,3 +163,34 @@ class TestFinalize:
         create_call = mock_gitops.auto_promote.call_args
         assert create_call[1]["source_branch"] == "1.4.6-dev"
         assert create_call[1]["is_source_tag"] is True
+
+    @pytest.mark.unit
+    def test_auto_promotion_metadata_hook_uses_config_branch_pair(
+        self,
+        mocker: MockerFixture,
+        mock_gitops: Any,
+        mock_event: Any,
+        mock_config: Any,
+    ) -> None:
+        """Metadata hook must record dev as source and staging as target from config."""
+        mock_config.data.suffixes = {"dev": "-dev", "staging": "-rc"}
+        mock_config.data.get_auto_promotion_targets.return_value = ["staging"]
+        mock_config.data.changelog = None
+        mock_config.data.version_files = ["version.txt"]
+        mock_build_hook = mocker.patch("auto_semver.cli.finalize.build_promotion_metadata_hook")
+        mock_gitops.auto_promote.return_value = None
+
+        create_auto_promotion_prs(
+            gitops=mock_gitops,
+            event=mock_event,
+            config=mock_config,
+            target_branch="dev",
+            version="1.4.6-dev",
+        )
+
+        mock_build_hook.assert_called_once_with(
+            config=mock_config,
+            source_branch="dev",
+            target_branch="staging",
+            gitops=mock_gitops,
+        )

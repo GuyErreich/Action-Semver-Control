@@ -32,12 +32,21 @@ def promotion_prefer_source_paths(config: Config) -> list[str]:
 def apply_promotion_metadata(
     *,
     config: Config,
+    source_branch: str,
     source_version: str,
     target_version: str,
     target_branch: str,
     merge_sha: str,
 ) -> None:
     """Rewrite changelog, version files, and lock for a promoted target branch."""
+    rule = config.data.find_promotion_rule(from_branch=source_branch, to_branch=target_branch)
+    if rule is None:
+        logger.warning(
+            "Promotion metadata for %s → %s does not match any promotions[] rule in config",
+            source_branch,
+            target_branch,
+        )
+
     if config.data.changelog and config.data.changelog.file:
         try:
             manager = ChangelogManager.from_config(config)
@@ -52,6 +61,7 @@ def apply_promotion_metadata(
     try:
         lock = SemverLock.load_from_file()
         lock.as_promotion_baseline(
+            source_branch=source_branch,
             target_branch=target_branch,
             version=promoted,
             merge_sha=merge_sha,
@@ -64,6 +74,7 @@ def apply_promotion_metadata(
 def build_promotion_metadata_hook(
     *,
     config: Config,
+    source_branch: str,
     target_branch: str,
     gitops: GitOps,
 ) -> Callable[[str, str], None]:
@@ -72,6 +83,7 @@ def build_promotion_metadata_hook(
     def hook(source_version: str, target_version: str) -> None:
         apply_promotion_metadata(
             config=config,
+            source_branch=source_branch,
             source_version=source_version,
             target_version=target_version,
             target_branch=target_branch,

@@ -49,14 +49,16 @@ def test_promotion_baseline_rewrites_target_branch() -> None:
         managed_by="auto-semver",
     )
     lock.as_promotion_baseline(
+        source_branch="dev",
         target_branch="staging",
         version=Version.parse("1.4.6-rc"),
         merge_sha="def456",
     )
 
     assert lock.version == Version.parse("1.4.6-rc")
+    assert lock.source_branch == "dev"
     assert lock.target_branch == "staging"
-    assert lock.source_branch == "staging"
+    assert lock.source_branch != lock.target_branch
     assert lock.finalized is True
     assert lock.branch_role is None
     assert lock.target_base_sha == "def456"

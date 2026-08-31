@@ -138,6 +138,7 @@ def create_auto_promotion_prs(
 
         metadata_hook = build_promotion_metadata_hook(
             config=config,
+            source_branch=target_branch,
             target_branch=to_branch,
             gitops=gitops,
         )

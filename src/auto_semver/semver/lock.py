@@ -169,14 +169,15 @@ class SemverLock:
     def as_promotion_baseline(
         self,
         *,
+        source_branch: str,
         target_branch: str,
         version: Version,
         merge_sha: str,
     ) -> None:
         """Rewrite lock on a promotion target branch after dev/rc metadata apply."""
         self.version = version
+        self.source_branch = source_branch
         self.target_branch = target_branch
-        self.source_branch = target_branch
         self.target_base_sha = merge_sha
         self.finalized = True
         self.managed_by = MANAGED_BY
