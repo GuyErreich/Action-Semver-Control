@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 START_YEAR = 2025
@@ -99,8 +100,6 @@ def main(argv: list[str] | None = None) -> int:
 
     end_year = args.end_year
     if end_year is None:
-        from datetime import UTC, datetime
-
         end_year = datetime.now(UTC).year
 
     changed = update_files(end_year=end_year, dry_run=args.dry_run)
