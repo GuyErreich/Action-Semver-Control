@@ -1,7 +1,6 @@
-version: 1.6.3-dev
-source_branch: feature/lockfile
-target_branch: dev
-target_base_sha: f4b91cf0aa12e3d7c203e04040af4ab3fac29aae
-finalized: false
+version: 1.6.3-rc
+source_branch: dev
+target_branch: staging
+target_base_sha: 4878d09f18b88c462803ad2b050801eebed49394
+finalized: true
 managed_by: auto-semver
-branch_role: release
