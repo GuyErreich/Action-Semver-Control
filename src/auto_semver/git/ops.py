@@ -491,7 +491,10 @@ class GitOps:
             raise GitCommandError(f"Checkout failed for branch '{branch_name}'") from err
 
     def __ensure_git_identity(
-        self, *, email: str = "auto-semver@github.action", name: str = "Auto-Semver Bot"
+        self,
+        *,
+        email: str = "256984269+auto-semver-bot[bot]@users.noreply.github.com",
+        name: str = "auto-semver-bot[bot]",
     ) -> None:
         """
         Ensure Git user identity is configured for commits.
@@ -499,9 +502,13 @@ class GitOps:
         This is required for merge operations that create commits.
         If not already set, configures user.email and user.name locally.
 
+        Prefer setting identity from the GitHub App token outputs in CI
+        (`user-name` / `user-email`). The defaults match this repo's App bot
+        noreply address so fallback commits attribute correctly on GitHub.
+
         Args:
-            email (str): Git user email (default: 'auto-semver@github.action').
-            name (str): Git user name (default: 'Auto-Semver Bot').
+            email (str): Git user email (default: App bot users.noreply address).
+            name (str): Git user name (default: auto-semver-bot[bot]).
         """
         try:
             # Check if identity is already configured

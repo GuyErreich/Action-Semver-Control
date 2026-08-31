@@ -5,7 +5,7 @@ A custom GitHub Action written in Python to automatically bump semantic versioni
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Auto%20Semver%20Bumper-blue?logo=github)](https://github.com/marketplace/actions/auto-semver-bumper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Pin @v1](https://img.shields.io/badge/pin-@v1-green)](docs/SETUP.md#pinning-policy)
+[![Pin major v1 tag](https://img.shields.io/badge/pin-v1-green)](docs/SETUP.md#pinning-policy)
 [![CI](https://github.com/GuyErreich/Action-Semver-Control/actions/workflows/ci.yml/badge.svg)](https://github.com/GuyErreich/Action-Semver-Control/actions/workflows/ci.yml)
 
 ## Usage
@@ -17,7 +17,7 @@ Marketplace install snippets often pin an exact release (for example `@1.6.3`). 
   uses: GuyErreich/Action-Semver-Control@v1
 ```
 
-See [Pinning policy](docs/SETUP.md#pinning-policy) for `@v1` vs exact semver vs SHA pins.
+See [Pinning policy](docs/SETUP.md#pinning-policy) for the floating `v1` tag vs exact semver vs SHA pins.
 
 ## Quickstart
 
@@ -45,7 +45,7 @@ Regenerate prefilled “add workflow” links for your repo:
 python scripts/generate_onboarding_links.py --owner YOUR_ORG --repo YOUR_REPO --branch master
 ```
 
-Pin reusable workflows at **`@v1`** (floating major tag, updated on each production release). See [Pinning policy](docs/SETUP.md#pinning-policy).
+Pin reusable workflows at the floating major tag `v1` (for example `.../semver-bump.reusable.yml@v1`). See [Pinning policy](docs/SETUP.md#pinning-policy).
 
 ## Features
 - Auto bump `major`, `minor`, or `patch` depending on branch type

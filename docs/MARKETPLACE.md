@@ -12,7 +12,7 @@ Action-Semver-Control is published as **Auto Semver Bumper** on the [GitHub Mark
    - Or open the [Marketplace listing](https://github.com/marketplace/actions/new) / existing listing and publish from the new release tag.
 4. Confirm `action.yml` includes `branding.icon` and `branding.color`.
 
-Consumers should pin caller workflows at `@v1`. Exact semver pins (`@1.3.14`) and SHA pins remain supported via the reusable workflow `action-ref` input.
+Consumers should pin caller workflows at the floating major tag `v1` (for example `...@v1` in workflow YAML). Exact semver pins (`@1.3.14`) and SHA pins remain supported via the reusable workflow `action-ref` input.
 
 ## Maintainer notes
 
