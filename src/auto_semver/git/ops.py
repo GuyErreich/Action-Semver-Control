@@ -684,6 +684,8 @@ class GitOps:
             )
         )
         self.repo.head.set_commit(self.repo.commit(new_sha))
+        # HEAD moved but index/worktree still reflect pre-promotion target; sync before hooks.
+        self.repo.git.reset("--hard", new_sha)
         logger.info("Created squash promotion commit %s from %s", new_sha[:8], ref)
         return new_sha
 
@@ -866,9 +868,14 @@ class GitOps:
                 try:
                     post_merge_hook(src_v, version)
 
-                    if self.repo.is_dirty(untracked_files=False):
-                        logger.info("Changes detected after post-merge hook. Committing.")
-                        self.repo.git.add(update=True)  # Stage modified tracked files
+                    dirty_paths = self._collect_dirty_tracked_paths()
+                    if dirty_paths:
+                        logger.info(
+                            "Changes detected after post-merge hook; committing metadata: %s",
+                            ", ".join(dirty_paths),
+                        )
+                        for path in dirty_paths:
+                            self.repo.git.add("--", path)
                         self.repo.index.commit(f"chore: update version metadata for {version}")
                 except Exception as e:
                     logger.error(f"Post-merge hook failed: {e}")
