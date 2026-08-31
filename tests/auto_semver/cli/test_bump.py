@@ -7,7 +7,7 @@ which handles version bumping, changelog updating, and PR creation.
 
 import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pytest
 
@@ -17,10 +17,8 @@ from pytest_mock import MockerFixture
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.cli.bump import run
 from auto_semver.config import Config, ConfigData
-
-if TYPE_CHECKING:
-    pass
-
+from auto_semver.config._models._commit_groups import CommitGroupsConfig
+from auto_semver.config._models._release import ReleaseConfig
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -36,9 +34,10 @@ class TestBump:
     def mock_gitops(self, mocker: MockerFixture) -> Any:
         """Create a mock GitOps object."""
         mock = mocker.Mock(spec=GitOps)
-        # Set up some default behaviors
         mock.get_lock_version_from_branch.return_value = None
+        mock.get_open_release_version.return_value = None
         mock.get_recent_commits.return_value = ["feat: add new feature", "fix: bug fix"]
+        mock.fetch.return_value = None
         return mock
 
     @pytest.fixture
@@ -54,10 +53,10 @@ class TestBump:
         mock.data.version_files = ["version.txt"]
         # Add empty promotions list for tag promotion logic
         mock.data.promotions = []
-        # Add empty commit_groups list for commit grouping
-        mock.data.commit_groups = []
+        mock.data.commit_groups = CommitGroupsConfig()
+        mock.data.release = ReleaseConfig()
+        mock.data.bump = mocker.Mock(mode="classic")
 
-        # Set up PR config
         mock_pr_config = mocker.Mock()
         mock_pr_config.title = "Release {{ version }}"
         mock_pr_config.body = "Release notes for {{ version }}"

@@ -95,7 +95,7 @@ class Config:
 
     def __getattr__(self, item: str) -> ConfigValue:
         """Use for returning the named property in data."""
-        return cast(ConfigValue, getattr(self.data, item))
+        return cast("ConfigValue", getattr(self.data, item))
 
     @staticmethod
     def generate_config_file(*, config_data: ConfigData, path: Path = Path(CONFIG_FILE)) -> None:

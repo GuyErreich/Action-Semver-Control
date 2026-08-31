@@ -6,11 +6,15 @@ import logging
 
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
+from ...git.grouper import CommitGrouper
 from ...semver import Version
+from ._bump import BumpConfig
 from ._changelog import ChangelogConfig
-from ._commit_group import CommitGroupConfig, CommitGroups
+from ._commit_group import CommitGroups
+from ._commit_groups import CommitGroupsConfig
 from ._promotion import PromotionRule
 from ._pull_request import PullRequestConfig
+from ._release import ReleaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +47,30 @@ class ConfigData(BaseModel):
     version_files: list[str] = Field(
         default=["version.txt"], description="Optional files that hold version format to update."
     )
-    commit_groups: list[CommitGroupConfig] = Field(
-        default_factory=list, description="Optional commit grouping configuration for templates"
+    commit_groups: CommitGroupsConfig = Field(
+        default_factory=CommitGroupsConfig,
+        description="Commit grouping settings and pattern-defined groups for templates",
+    )
+    release: ReleaseConfig = Field(
+        default_factory=ReleaseConfig,
+        description="Release branch lifecycle (single vs multi, prefix, cleanup)",
+    )
+    bump: BumpConfig = Field(
+        default_factory=BumpConfig,
+        description="Version bump mode (classic semver vs cumulative)",
     )
     pull_request: PullRequestConfig
     changelog: ChangelogConfig
+
+    @field_validator("commit_groups", mode="before")
+    @classmethod
+    def parse_commit_groups(
+        cls, value: CommitGroupsConfig | object | None
+    ) -> CommitGroupsConfig:
+        """Accept legacy YAML list format or structured commit_groups mapping."""
+        if isinstance(value, CommitGroupsConfig):
+            return value
+        return CommitGroupsConfig.from_yaml(value)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -93,6 +116,39 @@ class ConfigData(BaseModel):
 
         return self
 
+    @model_validator(mode="after")
+    def validate_unique_patterns(self) -> ConfigData:
+        """
+        Validate that regex patterns are unique across all commit groups.
+
+        This ensures deterministic grouping of commits. If a pattern appears
+        in multiple groups, it creates ambiguity about which group a commit
+        should belong to.
+        """
+        seen_patterns: dict[str, str] = {}
+
+        for group in self.commit_groups.groups:
+            for pattern in group.patterns:
+                # We check for exact string matches.
+                # Semantically identical regexes (e.g. [a-z] vs [a-z]) are hard to detect,
+                # but catching exact duplicates prevents most configuration errors.
+                if pattern in seen_patterns:
+                    existing_group = seen_patterns[pattern]
+                    # Allow duplicate patterns only if they are the catch-all ".*"
+                    # strictly speaking catch-all should also be unique, but let's be strict for now.
+                    if pattern == ".*":
+                        logger.debug("Duplicate catch-all pattern '.*' detected, permitting.")
+                        continue
+
+                    raise ValueError(
+                        f"Duplicate pattern '{pattern}' found in groups: "
+                        f"'{existing_group}' and '{group.title}'. "
+                        "Patterns must be unique to ensure deterministic grouping."
+                    )
+                seen_patterns[pattern] = group.title
+
+        return self
+
     def group_commit_messages(self, messages: list[str]) -> CommitGroups:
         """
         Group commit messages using the configured commit groups.
@@ -103,7 +159,8 @@ class ConfigData(BaseModel):
         Returns:
             CommitGroups: list of CommitGroup dataclasses for template rendering.
         """
-        return CommitGroupConfig.group_messages(messages, self.commit_groups)
+
+        return CommitGrouper.group_messages(messages, self.commit_groups)
 
     def find_promotion_rule(self, *, from_branch: str, to_branch: str) -> PromotionRule | None:
         """

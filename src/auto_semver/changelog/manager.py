@@ -17,6 +17,7 @@ from pathlib import Path
 
 from auto_semver.config import Config
 from auto_semver.config._models._commit_group import CommitGroupConfig
+from auto_semver.git.grouper import CommitGrouper
 from auto_semver.templates.engine import get_template_engine
 from auto_semver.templates.utils import format_date_iso_to_custom
 
@@ -165,7 +166,7 @@ class ChangelogManager:
             messages = [_DEFAULT_COMMIT_PLACEHOLDER]
 
         grouped_data = (
-            CommitGroupConfig.group_messages(messages, commit_groups) if commit_groups else None
+            CommitGrouper.group_messages(messages, commit_groups) if commit_groups else None
         )
 
         # Manager handles all template rendering
@@ -229,3 +230,40 @@ class ChangelogManager:
 
         parts = [self.header.strip(), rendered.strip(), existing.strip(), self.footer.strip()]
         return "\n\n".join(part for part in parts if part)
+
+    def update_version_in_header(self, *, old_version: str, new_version: str) -> bool:
+        """
+        Update the version string in the changelog header.
+
+        This replaces occurrences of `[old_version]` with `[new_version]`.
+
+        Args:
+            old_version: The version string to replace (e.g., '1.3.14-dev').
+            new_version: The new version string (e.g., '1.3.14').
+
+        Returns:
+            bool: True if the file was modified, False otherwise.
+        """
+        if not self.path.exists():
+            logger.warning(f"Changelog file {self.path} does not exist.")
+            return False
+
+        logger.info(f"Updating version header in changelog: {old_version} -> {new_version}")
+
+        with open(self.path, encoding="utf-8") as f:
+            content = f.read()
+
+        # Simple string replacement for the header format `[version]`
+        old_pattern = f"[{old_version}]"
+        new_pattern = f"[{new_version}]"
+
+        if old_pattern not in content:
+            logger.warning(f"Version header for '{old_version}' not found in changelog.")
+            return False
+
+        new_content = content.replace(old_pattern, new_pattern, 1)
+
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write(new_content)
+
+        return True

@@ -15,6 +15,7 @@ from pytest_mock import MockerFixture
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.cli.bump import _detect_tag_source_branch, _is_tag_promotion_scenario, run
 from auto_semver.config import ChangelogConfig, Config, ConfigData, PromotionRule, PullRequestConfig
+from auto_semver.config._models._commit_groups import CommitGroupsConfig
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -186,6 +187,8 @@ class TestPromotionWorkflow:
         """Create a mock GitOps object."""
         mock = mocker.Mock(spec=GitOps)
         mock.get_lock_version_from_branch.return_value = None
+        mock.get_open_release_version.return_value = None
+        mock.fetch.return_value = None
         mock.get_recent_commits.return_value = ["feat: promotion feature"]
         return mock
 
@@ -201,7 +204,7 @@ class TestPromotionWorkflow:
                 PromotionRule(from_branch="staging", to_branch="master"),
             ],
             version_files=["version.txt"],
-            commit_groups=[],  # Empty list for minimal setup
+            commit_groups=CommitGroupsConfig(),
             pull_request=PullRequestConfig(
                 title="Release {{version}}", body="Promotion notes", labels=["semver-bump"]
             ),

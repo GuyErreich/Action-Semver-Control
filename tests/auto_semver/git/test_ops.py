@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from git import Repo
+from git import GitCommandError, Repo
 from pytest_mock import MockerFixture
 
+from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.git.ops import GitOps
 from auto_semver.semver import Version
 
@@ -321,25 +322,28 @@ class TestGitOps:
         mock_pr1.number = 1
         mock_pr1.head.ref = "release/v1.0.0"
         mock_pr1.base.ref = "main"
+        mock_pr1.body = PR_HIDDEN_MARKER
 
-        # Create label object with name attribute
         mock_label = mocker.MagicMock()
         mock_label.name = "semver-bump"
         mock_pr1.labels = [mock_label]
 
         mock_pr2 = mocker.MagicMock()
         mock_pr2.number = 2
-        mock_pr2.head.ref = "feature/something"  # Should be skipped
+        mock_pr2.head.ref = "feature/something"
         mock_pr2.base.ref = "main"
         mock_pr2.labels = []
 
         mock_github_repo.get_pulls.return_value = [mock_pr1, mock_pr2]
 
-        # Create GitOps instance
         gitops = GitOps()
 
-        # Mock get_repository_name to return a test repo
         mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+        mocker.patch.object(
+            gitops,
+            "_is_closeable_release_pr",
+            return_value=(True, ""),
+        )
 
         # Call close_old_release_prs
         gitops.close_old_release_prs(
@@ -351,6 +355,35 @@ class TestGitOps:
         # Check that the correct PR was closed
         mock_pr1.edit.assert_called_once_with(state="closed")
         mock_pr2.edit.assert_not_called()
+
+    @pytest.mark.unit
+    def test_close_old_release_prs_deletes_branch_when_configured(
+        self, mocker: MockerFixture, mock_github_repo: Any
+    ) -> None:
+        """Superseded release branches are deleted when delete_branches is enabled."""
+        mock_pr = mocker.MagicMock()
+        mock_pr.number = 1
+        mock_pr.head.ref = "auto-semver/release/1.4.1-dev"
+        mock_pr.base.ref = "dev"
+        mock_pr.body = PR_HIDDEN_MARKER
+        mock_label = mocker.MagicMock()
+        mock_label.name = "semver-bump"
+        mock_pr.labels = [mock_label]
+        mock_github_repo.get_pulls.return_value = [mock_pr]
+
+        gitops = GitOps()
+        mocker.patch.object(gitops, "get_repository_name", return_value="owner/repo")
+        mocker.patch.object(gitops, "_is_closeable_release_pr", return_value=(True, ""))
+        delete_mock = mocker.patch.object(gitops, "_delete_superseded_release_branch")
+
+        gitops.close_old_release_prs(
+            github_token="token",
+            target_branch="dev",
+            labels=["semver-bump"],
+            delete_branches=True,
+        )
+
+        delete_mock.assert_called_once_with(branch_name="auto-semver/release/1.4.1-dev")
 
     @pytest.mark.unit
     def test_get_recent_commits(self, mocker: MockerFixture) -> None:
@@ -405,3 +438,100 @@ class TestGitOps:
         assert version == mock_version
         mock_repo.git.fetch.assert_called_once_with("origin", "develop")
         mock_repo.git.show.assert_called_once_with("origin/develop:.semver.lock")
+
+    @pytest.mark.unit
+    def test_merge_resolves_allowlisted_conflicts(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Promotion merges should prefer source for allowlisted metadata files."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+
+        merge_err = GitCommandError(
+            "merge",
+            1,
+            "CONFLICT (content): Merge conflict in CHANGELOG.md",
+        )
+        mock_repo.git.merge.side_effect = merge_err
+        mock_repo.git.diff.side_effect = ["CHANGELOG.md\n", ""]
+        mock_repo.git.checkout = mocker.MagicMock()
+        mock_repo.git.add = mocker.MagicMock()
+        mock_repo.git.commit = mocker.MagicMock()
+
+        gitops.merge(
+            source_ref="dev",
+            message="chore: auto-promote",
+            prefer_source_paths=["CHANGELOG.md"],
+        )
+
+        mock_repo.git.checkout.assert_called_once_with("--theirs", "--", "CHANGELOG.md")
+        mock_repo.git.add.assert_called_once_with("--", "CHANGELOG.md")
+        mock_repo.git.commit.assert_called_once_with(m="chore: auto-promote", no_edit=False)
+        mock_repo.git.merge.assert_called_once()
+
+    @pytest.mark.unit
+    def test_merge_aborts_when_disallowed_conflicts(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Non-allowlisted conflicts must still fail the merge."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+
+        merge_err = GitCommandError("merge", 1, "CONFLICT (content): Merge conflict in README.md")
+        mock_repo.git.merge.side_effect = merge_err
+        mock_repo.git.diff.return_value = "README.md\n"
+
+        with pytest.raises(RuntimeError, match=r"Merge conflict detected"):
+            gitops.merge(
+                source_ref="dev",
+                message="chore: auto-promote",
+                prefer_source_paths=["CHANGELOG.md"],
+            )
+
+        mock_repo.git.merge.assert_any_call("--abort")
+
+    @pytest.mark.unit
+    def test_integrate_tag_fast_forwards(self, mocker: MockerFixture, mock_repo: Any) -> None:
+        """Tag promotion should fast-forward when staging is an ancestor."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+
+        gitops._integrate_source_for_promotion(
+            source_ref="1.4.6-dev",
+            message="chore: auto-promote",
+            remote_name="origin",
+            is_tag=True,
+            prefer_source_paths=["CHANGELOG.md"],
+        )
+
+        mock_repo.git.merge.assert_called_once_with("1.4.6-dev", ff_only=True)
+
+    @pytest.mark.unit
+    def test_integrate_tag_squash_when_not_ff(self, mocker: MockerFixture, mock_repo: Any) -> None:
+        """Tag promotion should squash to a single commit when ff is not possible."""
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        gitops = GitOps()
+        mock_repo.git.merge.side_effect = GitCommandError(
+            "merge", 1, "Not possible to fast-forward"
+        )
+        mock_head = mocker.MagicMock()
+        mock_head.hexsha = "staging-sha"
+        mock_repo.head.commit = mock_head
+        mock_source = mocker.MagicMock()
+        mock_source.tree = mocker.MagicMock()
+        mock_repo.commit.return_value = mock_source
+        mock_repo.git.commit_tree.return_value = "squash-sha"
+        mock_repo.head.set_commit = mocker.MagicMock()
+
+        gitops._integrate_source_for_promotion(
+            source_ref="1.4.6-dev",
+            message="chore: auto-promote",
+            remote_name="origin",
+            is_tag=True,
+            prefer_source_paths=["CHANGELOG.md"],
+        )
+
+        mock_repo.git.commit_tree.assert_called_once()
+        mock_repo.head.set_commit.assert_called_once()
+        mock_repo.git.reset.assert_called_once_with("--hard", "squash-sha")
+        mock_repo.git.merge.assert_called_once_with("1.4.6-dev", ff_only=True)

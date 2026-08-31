@@ -1,0 +1,34 @@
+name: Publish Release - Staging
+
+on:
+  push:
+    tags:
+      - '*.*.*-rc'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # Dynamically set environment based on branch
+    environment: 'staging'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # Required to fetch tags
+          persist-credentials: false
+
+      - name: Get GitHub App Token
+        uses: ./.github/actions/app-authentication
+        id: app-token
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: GH Release
+        uses: ./.github/actions/gh-release
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}

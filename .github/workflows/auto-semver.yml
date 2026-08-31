@@ -8,6 +8,12 @@ on:
       - master
       - dev
 
+# Queue bump runs per target branch — required when multiple PRs merge close together.
+# cancel-in-progress must be false so in-flight bumps are not lost.
+concurrency:
+  group: auto-semver-bump-${{ github.repository }}-${{ github.event.pull_request.base.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write   # Allow push, create branches, modify files
   pull-requests: write  # Allow create/close PRs
@@ -19,7 +25,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       with:
         fetch-depth: 0  # Important! Needed for git history
         persist-credentials: false
@@ -28,7 +34,7 @@ jobs:
       uses: ./.github/actions/app-authentication
       id: app-token
       with:
-        app-id: ${{ secrets.GH_APP_ID }}
+        client-id: ${{ vars.GH_APP_CLIENT_ID }}
         private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
 
     - name: Configure Git for App

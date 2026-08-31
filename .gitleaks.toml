@@ -1,0 +1,48 @@
+# Gitleaks config for Action-Semver-Control.
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+title = "Action-Semver-Control gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "GitHub Actions secret references (not values)"
+regexTarget = "line"
+regexes = [
+  '''\$\{\{\s*secrets\.[A-Z0-9_]+''',
+  '''\$\{\{\s*inputs\.(app-private-key|private-key|client-id)''',
+  '''\$\{\{\s*vars\.GH_APP_CLIENT_ID''',
+  '''GH_APP_(ID|CLIENT_ID|PRIVATE_KEY)''',
+  '''GITLEAKS_(CONFIG|VERSION|ENABLE_|LICENSE)''',
+]
+
+[[allowlists]]
+description = "Lockfiles and generated caches"
+paths = [
+  '''uv\.lock$''',
+  '''\.pytest_cache/''',
+  '''htmlcov/''',
+]
+
+[[allowlists]]
+description = "Documentation placeholders for App private keys"
+regexTarget = "line"
+regexes = [
+  '''-----BEGIN RSA PRIVATE KEY-----\.{3}''',
+  '''-----BEGIN PRIVATE KEY-----\.{3}''',
+]
+
+[[allowlists]]
+description = "Synthetic ghs_ tokens in unit tests"
+paths = [
+  '''tests/scripts/test_validate_stateless_token\.py''',
+  '''tests/auto_semver/git/test_ops_parsing\.py''',
+]
+
+# Default gitleaks rule uses ghs_[0-9a-zA-Z]{36} and misses stateless JWT tokens (~520 chars).
+[[rules]]
+id = "github-app-installation-token-stateless"
+description = "GitHub App installation token (stateful or stateless JWT format)"
+regex = '''ghs_[A-Za-z0-9\.\-_]{36,}'''
+entropy = 3
+keywords = ["ghs_"]

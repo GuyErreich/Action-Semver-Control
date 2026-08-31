@@ -7,6 +7,7 @@ against the configured promotion rules.
 
 import logging
 
+from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -74,13 +75,23 @@ def run(
     try:
         # Use tag as source if available, otherwise use branch
         merge_source = from_tag if from_tag else source_branch
+        use_source_tag = bool(from_tag)
+
+        metadata_hook = build_promotion_metadata_hook(
+            config=config,
+            source_branch=source_branch,
+            target_branch=to_branch,
+            gitops=gitops,
+        )
 
         gitops.auto_promote(
             source_branch=merge_source,
             target_branch=to_branch,
             version=str(promoted_version),
             source_version=str(version),
-            is_source_tag=bool(from_tag),
+            is_source_tag=use_source_tag,
+            post_merge_hook=metadata_hook,
+            prefer_source_paths=promotion_prefer_source_paths(config),
         )
 
         logger.info(f"✅ Promotion completed successfully: {source_branch} → {to_branch}")

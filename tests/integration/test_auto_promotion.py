@@ -184,6 +184,9 @@ def test_auto_promotion_finalize_workflow(
     mock_gitops.tag.return_value = "1.1.1234-dev"
     mock_gitops.push.return_value = None
     mock_gitops.auto_promote.return_value = None
+    mock_gitops._is_closeable_release_pr.return_value = (False, "test mock")
+    mock_gitops.add.return_value = None
+    mock_gitops.commit.return_value = None
 
     # Mock GitOps constructor
     mocker.patch("auto_semver.cli.finalize.GitOps", return_value=mock_gitops)
@@ -232,7 +235,8 @@ def test_auto_promotion_finalize_workflow(
     create_call = mock_gitops.auto_promote.call_args
 
     # Verify call details
-    assert create_call[1]["source_branch"] == "dev"
+    assert create_call[1]["source_branch"] == "1.1.1234-dev"
+    assert create_call[1]["is_source_tag"] is True
     assert create_call[1]["target_branch"] == "staging"
     # Version should be transformed to use target branch suffix (-rc for staging)
     assert create_call[1]["version"] == "1.1.1234-rc"
@@ -313,7 +317,8 @@ changelog:
   "pull_request": {
     "merged": true,
     "base": {"ref": "dev"},
-    "head": {"sha": "abc123"}
+    "head": {"ref": "auto-semver/release/1.0.1-dev", "sha": "abc123"},
+    "merge_commit_sha": "def456"
   },
   "repository": {"full_name": "testuser/testrepo"}
 }""",
@@ -323,6 +328,9 @@ changelog:
     mock_gitops = mocker.Mock(spec=GitOps)
     mock_gitops.tag.return_value = "1.0.1-dev"
     mock_gitops.push.return_value = None
+    mock_gitops._is_closeable_release_pr.return_value = (False, "test mock")
+    mock_gitops.add.return_value = None
+    mock_gitops.commit.return_value = None
 
     # Mock GitOps constructor
     mocker.patch("auto_semver.cli.finalize.GitOps", return_value=mock_gitops)
@@ -433,7 +441,8 @@ changelog:
   "pull_request": {
     "merged": true,
     "base": {"ref": "dev"},
-    "head": {"sha": "abc123"}
+    "head": {"ref": "auto-semver/release/1.0.1-dev", "sha": "abc123"},
+    "merge_commit_sha": "def456"
   },
   "repository": {"full_name": "testuser/testrepo"}
 }""",
@@ -443,6 +452,9 @@ changelog:
     mock_gitops = mocker.Mock(spec=GitOps)
     mock_gitops.tag.return_value = "1.0.1-dev"
     mock_gitops.push.return_value = None
+    mock_gitops._is_closeable_release_pr.return_value = (False, "test mock")
+    mock_gitops.add.return_value = None
+    mock_gitops.commit.return_value = None
 
     # Mock GitOps constructor
     mocker.patch("auto_semver.cli.finalize.GitOps", return_value=mock_gitops)

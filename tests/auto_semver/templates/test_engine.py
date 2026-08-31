@@ -1,24 +1,9 @@
-'''
+"""
 Unit tests for the TemplateEngine class.
 
-Tests the centralized Jinja2 t    @pytest.mark.unit
-    def test_register_custom_function(self) -> None:
-        """Test registering custom functions."""
-        engine = TemplateEngine()
-
-        def reverse_function(text: str) -> str:
-            return text[::-1]
-
-        engine.register_function("reverse", reverse_function)
-
-        # Check function is registered
-        assert "reverse" in engine.list_functions()
-
-        # Test using the function in a template
-        result = engine.render_template("{{ reverse('hello') }}", {})
-        assert result == "olleh"ith pluggable custom functions,
+Tests the centralized Jinja2 template engine with pluggable custom functions,
 filters, and template validation functionality.
-'''
+"""
 
 from datetime import datetime
 from typing import Any, cast
@@ -376,7 +361,7 @@ class TestTemplateEngineWithCommitGroups:
                 )
             ]
 
-        engine.register_function("group_commits", cast(Any, mock_group_function))
+        engine.register_function("group_commits", cast("Any", mock_group_function))
 
         # This should work without type errors
         template_str = (
@@ -407,10 +392,27 @@ class TestTemplateEngineWithCommitGroups:
                 }
             )
 
-        engine.register_function("group_messages", cast(Any, mock_grouped_function))
+        engine.register_function("group_messages", cast("Any", mock_grouped_function))
 
         # This should work without type errors
         result = engine.render_template(
             "{{ group_messages(['feat: add feature']).grouped_messages|length }}", {}
         )
         assert "1" in result
+
+    @pytest.mark.unit
+    def test_get_static_prefix(self) -> None:
+        """Test extracting static prefix from templates."""
+        engine = TemplateEngine()
+
+        # Case 1: Simple prefix
+        assert engine.get_static_prefix("Release {{version}}") == "Release "
+
+        # Case 2: No prefix (starts with var)
+        assert engine.get_static_prefix("{{version}} release") is None
+
+        # Case 3: Prefix with newline
+        assert engine.get_static_prefix("Release \n {{version}}") == "Release \n "
+
+        # Case 4: Complex prefix
+        assert engine.get_static_prefix("Bump to version: {{version}}") == "Bump to version: "

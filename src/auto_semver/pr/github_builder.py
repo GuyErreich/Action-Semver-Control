@@ -17,6 +17,8 @@ class GitHubPRTemplateVariables(BasePRTemplateVariables):
     """GitHub-specific template variables for PR builder."""
 
     groups: list[CommitGroup] | None = None
+    feature_count: int = 0
+    fix_count: int = 0
 
 
 class GitHubPRBuilder(PRBuilder[GitHubPRTemplateVariables]):

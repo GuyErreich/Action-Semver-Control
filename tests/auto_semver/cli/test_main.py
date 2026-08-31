@@ -29,6 +29,7 @@ class TestMain:
         args.github_token = "mock-token"
         args.debug = True
         args.command = None
+        args.signed_commits = False
         return args
 
     @pytest.fixture

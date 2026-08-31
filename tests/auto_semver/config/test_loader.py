@@ -12,8 +12,8 @@ import pytest
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
 from auto_semver.config._models._changelog import ChangelogTemplateVars
-from auto_semver.config._models._commit_group import CommitGroupConfig
 from auto_semver.config._models._pull_request import PullRequestTemplateVars
+from auto_semver.git.grouper import CommitGrouper
 from tests.fixtures.config_fixture import ConfigFixture
 
 
@@ -156,7 +156,7 @@ changelog:
         )
         config = Config(config_fixture.config_path)
         messages = ["feat: add feature"]
-        grouped = CommitGroupConfig.group_messages(messages, config.data.commit_groups)
+        grouped = CommitGrouper.group_messages(messages, config.data.commit_groups)
         vars = ChangelogTemplateVars(
             version="1.0.0",
             date="2025-10-03",

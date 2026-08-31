@@ -1,0 +1,114 @@
+name: Semver Promote (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      from_tag:
+        description: Specific tag to promote
+        required: true
+        type: string
+      to_branch:
+        description: Target branch to promote to
+        required: true
+        type: string
+      dry_run:
+        description: Validate promotion without performing changes
+        required: false
+        type: boolean
+        default: false
+      debug:
+        description: Enable debug logging in the semver action
+        required: false
+        type: boolean
+        default: false
+      runs-on:
+        description: Runner label
+        required: false
+        type: string
+        default: ubuntu-latest
+      action-ref:
+        description: Action-Semver-Control ref (tag, branch, or SHA)
+        required: false
+        type: string
+        default: v1
+      setup-url:
+        description: Setup documentation URL for preflight errors
+        required: false
+        type: string
+        default: https://github.com/GuyErreich/Action-Semver-Control/blob/dev/docs/SETUP.md
+      client-id:
+        description: GitHub App Client ID (vars.GH_APP_CLIENT_ID)
+        required: true
+        type: string
+    secrets:
+      app-private-key:
+        description: GitHub App private key PEM (GH_APP_PRIVATE_KEY)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - name: Checkout Action-Semver-Control
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: GuyErreich/Action-Semver-Control
+          ref: ${{ inputs.action-ref }}
+          path: _auto-semver-action
+
+      - name: Preflight GitHub App credentials
+        uses: ./_auto-semver-action/.github/actions/preflight-app-secrets
+        with:
+          client-id: ${{ inputs.client-id }}
+          app-private-key: ${{ secrets.app-private-key }}
+          setup-url: ${{ inputs.setup-url }}
+
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get GitHub App Token
+        uses: ./_auto-semver-action/.github/actions/app-authentication
+        id: app-token
+        with:
+          client-id: ${{ inputs.client-id }}
+          private-key: ${{ secrets.app-private-key }}
+
+      - name: Configure Git for App
+        shell: bash
+        run: |
+          git config user.name "${{ steps.app-token.outputs.user-name }}"
+          git config user.email "${{ steps.app-token.outputs.user-email }}"
+          git remote set-url origin "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
+
+      - name: List recent tags
+        shell: bash
+        run: |
+          echo "Recent tags (for reference):"
+          git tag -l | sort -V | tail -n 10
+
+      - name: Validate promotion (dry run)
+        if: inputs.dry_run
+        uses: ./_auto-semver-action
+        with:
+          action: promote
+          to_branch: ${{ inputs.to_branch }}
+          from_tag: ${{ inputs.from_tag }}
+          dry_run: true
+          github-token: ${{ steps.app-token.outputs.token }}
+          debug: ${{ inputs.debug }}
+
+      - name: Execute promotion
+        if: ${{ !inputs.dry_run }}
+        uses: ./_auto-semver-action
+        with:
+          action: promote
+          to_branch: ${{ inputs.to_branch }}
+          from_tag: ${{ inputs.from_tag }}
+          github-token: ${{ steps.app-token.outputs.token }}
+          debug: ${{ inputs.debug }}

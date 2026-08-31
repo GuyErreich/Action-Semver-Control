@@ -1,0 +1,46 @@
+name: Validate Stateless App Token
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "X-GitHub-Stateless-S2S-Token override (enabled = JWT format, disabled = classic)"
+        required: true
+        type: choice
+        options:
+          - enabled
+          - disabled
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Validate token format and consumers
+        env:
+          # Client ID is preferred for JWT iss; App ID still works as a fallback.
+          GH_APP_CLIENT_ID: ${{ vars.GH_APP_CLIENT_ID }}
+          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        run: |
+          owner="${{ github.repository_owner }}"
+          repo="${{ github.event.repository.name }}"
+          uv run python scripts/validate_stateless_token.py \
+            --mode "${{ inputs.mode }}" \
+            --owner "${owner}" \
+            --repo "${repo}"

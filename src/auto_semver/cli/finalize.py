@@ -8,6 +8,7 @@ After tagging, it checks for auto-promotion rules and creates promotion PRs auto
 
 import logging
 
+from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
@@ -49,6 +50,49 @@ def create_and_push_tag(*, gitops: GitOps, event: GitHubEvent, config: Config) -
     return target_branch, str(version)
 
 
+def _rewrite_baseline_lock(*, gitops: GitOps, event: GitHubEvent, version: str) -> None:
+    """Strip release-only lock markers from the integration branch after merge."""
+    merge_sha = event.get_merged_commit_sha()
+    lock = SemverLock.load_from_file()
+    lock.version = Version.parse(version)
+    lock.as_finalized_baseline(merge_sha=merge_sha)
+    lock.save_to_file()
+    gitops.add([lock.path])
+    gitops.commit(f"chore: finalize semver lock for {version}")
+
+
+def _cleanup_release_branch(
+    *,
+    gitops: GitOps,
+    event: GitHubEvent,
+    config: Config,
+    github_token: str | None,
+) -> None:
+    """Delete merged release branch when configured and ownership checks pass."""
+    release_cfg = config.data.release
+    if not release_cfg.cleanup_merged:
+        logger.info("release.cleanup_merged=false — skipping branch deletion")
+        return
+
+    if not github_token:
+        logger.warning("No GitHub token; skipping release branch cleanup")
+        return
+
+    source_branch = event.get_source_branch_name()
+    owned, reason = gitops._is_closeable_release_pr(
+        branch_name=source_branch,
+        github_token=github_token,
+        branch_prefix=release_cfg.branch_prefix,
+        labels=config.data.pull_request.labels,
+    )
+    if not owned:
+        logger.info("Skipping release branch delete for %s: %s", source_branch, reason)
+        return
+
+    gitops.delete_branch(branch_name=source_branch)
+    logger.info("Deleted merged release branch %s", source_branch)
+
+
 def create_auto_promotion_prs(
     *,
     gitops: GitOps,
@@ -71,47 +115,51 @@ def create_auto_promotion_prs(
     """
     logger.info(f"Successfully tagged {target_branch} with {version}")
 
-    # Check for auto-promotion opportunities
     auto_targets = config.data.get_auto_promotion_targets(from_branch=target_branch)
 
     if not auto_targets:
         logger.info(f"No auto-promotion rules found for branch '{target_branch}'")
         return
 
-    # Auto-promotion is performed locally (SCM-agnostic). We don't require a GitHub token
-    # to perform the branch merge and tagging — pushes rely on repository remote credentials.
-
     for to_branch in auto_targets:
         logger.info(f"Auto-promoting {target_branch} → {to_branch}")
 
+        target_suffix = config.data.suffixes.get(to_branch, "")
+
+        current_version = Version.parse(version)
+        promoted_version = Version(
+            major=current_version.major,
+            minor=current_version.minor,
+            patch=current_version.patch,
+            suffix=target_suffix if target_suffix else None,
+        )
+
+        logger.info(f"Promoting version {version} → {promoted_version}")
+
+        metadata_hook = build_promotion_metadata_hook(
+            config=config,
+            source_branch=target_branch,
+            target_branch=to_branch,
+            gitops=gitops,
+        )
+
         try:
-            # Get the suffix for the target branch and create the appropriate version tag
-            target_suffix = config.data.suffixes.get(to_branch, "")
-
-            # Parse the current version and apply the target branch's suffix
-            current_version = Version.parse(version)
-            promoted_version = Version(
-                major=current_version.major,
-                minor=current_version.minor,
-                patch=current_version.patch,
-                suffix=target_suffix if target_suffix else None,
-            )
-
-            logger.info(f"Promoting version {version} → {promoted_version}")
-
             gitops.auto_promote(
-                source_branch=target_branch,
+                source_branch=str(version),
                 target_branch=to_branch,
                 version=str(promoted_version),
                 source_version=version,
+                is_source_tag=True,
+                post_merge_hook=metadata_hook,
+                prefer_source_paths=promotion_prefer_source_paths(config),
             )
-
-            logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")
-
         except Exception as e:
             logger.error(f"❌ Failed to auto-promote {target_branch} → {to_branch}: {e}")
-            # Continue with other auto-promotions even if one fails
-            continue
+            raise RuntimeError(
+                f"Auto-promotion failed for {target_branch} → {to_branch}: {e}"
+            ) from e
+
+        logger.info(f"✅ Auto-promotion completed: {target_branch} → {to_branch}")
 
 
 def run(
@@ -129,10 +177,20 @@ def run(
         github_token (str, optional): GitHub token for creating promotion PRs.
 
     """
-    # Step 1: Create and push the tag
     target_branch, version = create_and_push_tag(gitops=gitops, event=event, config=config)
 
-    # Step 2: Create auto-promotion PRs if configured
+    try:
+        _rewrite_baseline_lock(gitops=gitops, event=event, version=version)
+    except Exception as err:
+        logger.warning("Failed to rewrite baseline lock on %s: %s", target_branch, err)
+
+    _cleanup_release_branch(
+        gitops=gitops,
+        event=event,
+        config=config,
+        github_token=github_token,
+    )
+
     create_auto_promotion_prs(
         gitops=gitops,
         event=event,

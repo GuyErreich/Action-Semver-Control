@@ -10,8 +10,9 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from auto_semver.cli.finalize import run
+from auto_semver.cli.finalize import create_auto_promotion_prs, run
 from auto_semver.config import Config, ConfigData
+from auto_semver.config._models._release import ReleaseConfig
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import Version
@@ -49,7 +50,11 @@ class TestFinalize:
 
         # Set default behavior
         mock.data.suffixes = {"main": "", "develop": "-dev"}
-        mock.data.get_auto_promotion_targets.return_value = []  # No auto-promotion by default
+        mock.data.get_auto_promotion_targets.return_value = []
+        mock.data.release = ReleaseConfig(cleanup_merged=False)
+        mock_pr = mocker.Mock()
+        mock_pr.labels = ["semver-bump"]
+        mock.data.pull_request = mock_pr
         return mock
 
     @pytest.fixture
@@ -57,7 +62,8 @@ class TestFinalize:
         """Create a mock SemverLock."""
         mock = mocker.Mock(spec=SemverLock)
         mock.version = Version.parse("1.0.0")
-        # Mock the class method
+        mock.as_finalized_baseline = mocker.Mock()
+        mock.save_to_file = mocker.Mock()
         mocker.patch.object(SemverLock, "load_from_file", return_value=mock)
         return mock
 
@@ -127,3 +133,64 @@ class TestFinalize:
 
         # Verify tag was pushed
         mock_gitops.push.assert_called_once_with(branch_name="v1.0.0")
+
+    @pytest.mark.unit
+    def test_auto_promotion_failure_raises(
+        self,
+        mock_gitops: Any,
+        mock_event: Any,
+        mock_config: Any,
+    ) -> None:
+        """Auto-promotion failures must propagate so CI exits non-zero."""
+        mock_config.data.suffixes = {"dev": "-dev", "staging": "-rc"}
+        mock_config.data.get_auto_promotion_targets.return_value = ["staging"]
+        mock_config.data.changelog = None
+        mock_config.data.version_files = ["version.txt"]
+        mock_gitops.auto_promote.side_effect = RuntimeError(
+            "Merge conflict detected when merging 'origin/dev'."
+        )
+
+        with pytest.raises(RuntimeError, match=r"Auto-promotion failed for dev → staging"):
+            create_auto_promotion_prs(
+                gitops=mock_gitops,
+                event=mock_event,
+                config=mock_config,
+                target_branch="dev",
+                version="1.4.6-dev",
+            )
+
+        mock_gitops.auto_promote.assert_called_once()
+        create_call = mock_gitops.auto_promote.call_args
+        assert create_call[1]["source_branch"] == "1.4.6-dev"
+        assert create_call[1]["is_source_tag"] is True
+
+    @pytest.mark.unit
+    def test_auto_promotion_metadata_hook_uses_config_branch_pair(
+        self,
+        mocker: MockerFixture,
+        mock_gitops: Any,
+        mock_event: Any,
+        mock_config: Any,
+    ) -> None:
+        """Metadata hook must record dev as source and staging as target from config."""
+        mock_config.data.suffixes = {"dev": "-dev", "staging": "-rc"}
+        mock_config.data.get_auto_promotion_targets.return_value = ["staging"]
+        mock_config.data.changelog = None
+        mock_config.data.version_files = ["version.txt"]
+        mock_build_hook = mocker.patch("auto_semver.cli.finalize.build_promotion_metadata_hook")
+        mock_gitops.auto_promote.return_value = None
+
+        create_auto_promotion_prs(
+            gitops=mock_gitops,
+            event=mock_event,
+            config=mock_config,
+            target_branch="dev",
+            version="1.4.6-dev",
+        )
+
+        mock_build_hook.assert_called_once_with(
+            config=mock_config,
+            source_branch="dev",
+            target_branch="staging",
+            gitops=mock_gitops,
+        )
