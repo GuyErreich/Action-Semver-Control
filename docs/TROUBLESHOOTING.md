@@ -107,3 +107,9 @@ Major bumps always reset to `X.0.0`.
 With `commit_groups.summary_mode: header_only`, auto-semver classifies each merged change from the **PR or commit title line only** (squash-merge uses the PR title). Summary bullets in the PR body are not grouped separately.
 
 Use conventional prefixes on PR titles when opening PRs: `feat:`, `fix:`, `docs:`, etc. Imperative titles (`Add …`, `Harden …`, `Migrate …`) work only when listed in `commit_groups.patterns` in `auto_semver_config.yml`.
+
+## Releases page links `@v1` to an unrelated GitHub user
+
+GitHub autolinks bare `@v1` in release-note markdown to [github.com/v1](https://github.com/v1). That also populates the per-release Contributors box.
+
+**Fix:** In PR titles and changelog bullets, write **v1 tag** or `` `v1` `` — never bare `@v1` outside YAML. The floating major git tag remains `v1`; consumers still pin `uses: …@v1`. The publish action sanitizes `@vN` in CHANGELOG-derived release notes.

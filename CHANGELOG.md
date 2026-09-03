@@ -1,10 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.5] - 31-08-2026
+## [1.6.6-rc] - 03-09-2026
 
 ### 🐛 Bug Fixes & Resolutions
-- stop README @v1 mention and attribute bot commits (#257)
+- stop @v1 autolinks in GitHub release notes (#259)
 
 ## License
 This project is licensed under the MIT License.
