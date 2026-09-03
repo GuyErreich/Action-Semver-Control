@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.6-rc] - 03-09-2026
+## [1.6.6] - 03-09-2026
 
 ### 🐛 Bug Fixes & Resolutions
 - stop @v1 autolinks in GitHub release notes (#259)
