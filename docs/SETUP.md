@@ -141,7 +141,7 @@ jobs:
 Start from [`src/auto_semver/setup/templates/auto_semver_config.yml`](../src/auto_semver/setup/templates/auto_semver_config.yml). Adjust:
 
 - `suffixes` — map your branch names (`dev`, `staging`, `master`, etc.)
-- `version_files` — files Action-Semver-Control may update directly
+- `version_files` — files Action-Semver-Control may update directly (`version.txt`, `pyproject.toml` here). **`uv.lock` is not included** — after a version bump, run `uv lock` (or Dependabot) so the editable package version in the lockfile matches `pyproject.toml`.
 - `promotions` — which channels auto-promote
 - `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
 - `release.strategy` — `single` (default) or `multi` for multiple open release PRs
