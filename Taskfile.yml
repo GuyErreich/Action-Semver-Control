@@ -18,6 +18,11 @@ tasks:
       - pyproject.toml
       - uv.lock
 
+  audit:
+    desc: Audit locked dependencies with uv
+    cmds:
+      - uv audit --frozen
+
   format:
     desc: Format code with ruff
     cmds:
@@ -42,7 +47,7 @@ tasks:
 
   all:
     desc: Run all checks
-    deps: [format, lint, type-check, test]
+    deps: [format, lint, type-check, test, audit]
 
   pre-commit:
     desc: Install and run pre-commit hooks (gitleaks, private-key scan)
