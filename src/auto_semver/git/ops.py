@@ -513,13 +513,18 @@ class GitOps:
             if not additions and not deletions:
                 logger.warning("No staged files for signed commit")
                 return
-            self._api_commit_files_on_branch(
+            commit_sha = self._api_commit_files_on_branch(
                 branch_name=branch_name,
                 message=message,
                 file_paths=additions,
                 deletions=deletions,
                 force=force,
             )
+            # GraphQL commits update the remote only; sync the runner worktree so
+            # later checkouts (e.g. auto-promote to staging) are not blocked by
+            # leftover dirty files such as .semver.lock.
+            self.repo.git.reset("--hard", commit_sha)
+            logger.info("Synced local worktree to signed commit %s", commit_sha)
             return
 
         try:
@@ -1271,6 +1276,14 @@ class GitOps:
         canceled by a second push from the same job.
         """
         self.fetch(remote_name=remote_name)
+        # Signed finalize may leave the worktree dirty if a prior sync was
+        # skipped; discard local dirt so checkout of the promote target works.
+        if self.repo.is_dirty(index=True, working_tree=True, untracked_files=False):
+            logger.warning(
+                "Dirty worktree before promote checkout; resetting to HEAD "
+                "(remote already has signed changes)"
+            )
+            self.repo.git.reset("--hard", "HEAD")
         if target_branch in self.repo.heads:
             self.checkout(branch_name=target_branch)
         else:
