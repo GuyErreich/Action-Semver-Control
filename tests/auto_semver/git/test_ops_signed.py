@@ -250,6 +250,53 @@ class TestSignedGitOps:
         mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="merge-sha")
 
     @pytest.mark.unit
+    def test_api_promote_post_merge_creates_local_target_branch(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Post-merge hook should create local target from origin when missing."""
+        # Simulate CI: no local staging head after fetch.
+        mock_repo.heads = mocker.MagicMock()
+        mock_repo.heads.__contains__.return_value = False
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(
+            gitops,
+            "_integrate_source_for_promotion_api",
+            return_value="merge-sha",
+        )
+        mock_checkout = mocker.patch.object(gitops, "checkout")
+        mock_reset = mocker.MagicMock()
+        mock_repo.git.reset = mock_reset
+        mocker.patch.object(gitops, "fetch")
+        mocker.patch.object(gitops, "_collect_dirty_tracked_paths", return_value=[])
+        mock_tag = mocker.patch.object(
+            gitops,
+            "_api_create_lightweight_tag",
+            return_value="1.0.0-rc",
+        )
+        hook = mocker.MagicMock()
+
+        result = gitops._auto_promote_api(
+            source_branch="1.0.0-dev",
+            target_branch="staging",
+            version="1.0.0-rc",
+            source_version="1.0.0-dev",
+            merge_message="chore: promote",
+            is_source_tag=True,
+            post_merge_hook=hook,
+            remote_name="origin",
+        )
+
+        assert result == "1.0.0-rc"
+        mock_checkout.assert_called_once_with(
+            branch_name="staging",
+            create_from="origin/staging",
+        )
+        mock_reset.assert_called_once_with("--hard", "merge-sha")
+        hook.assert_called_once_with("1.0.0-dev", "1.0.0-rc")
+        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="merge-sha")
+
+    @pytest.mark.unit
     def test_api_squash_promote_uses_graphql(self, mocker: MockerFixture, mock_repo: Any) -> None:
         """Squash promote should build file changes and call createCommitOnBranch."""
         gitops = GitOps(signed_commits=True, github_token="token")
