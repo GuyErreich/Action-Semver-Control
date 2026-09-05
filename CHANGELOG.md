@@ -1,12 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.11-dev] - 05-09-2026
+## [1.6.12-dev] - 05-09-2026
 
 ### 🔧 Infrastructure & Tooling
-- finalize semver lock for 1.6.10-dev
+- finalize semver lock for 1.6.11-dev
 ### 🐛 Bug Fixes & Resolutions
-- create local target branch for signed promote post-merge hook (#279)
+- Fix signed auto-promote canceling Secret Scan (#281)
 
 ## License
 This project is licensed under the MIT License.
