@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.11-dev] - 05-09-2026
+## [1.6.11-rc] - 05-09-2026
 
 ### 🔧 Infrastructure & Tooling
 - finalize semver lock for 1.6.10-dev
