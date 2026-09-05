@@ -1,7 +1,7 @@
-version: 1.6.10-dev
-source_branch: feature/lockfile
+version: 1.6.11-dev
+source_branch: dev
 target_branch: dev
-target_base_sha: eeb02d221d037be41f293aef37c6b41ed41847d3
+target_base_sha: fe1057194f0fbaa8da6b690b19bf47a8514020e5
 finalized: false
 managed_by: auto-semver
 branch_role: release
