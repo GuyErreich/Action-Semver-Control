@@ -210,7 +210,13 @@ The `v1` tag is created on the first **production** release of Action-Semver-Con
 
 ### Commits blocked by branch protection
 
-Use a GitHub App (not `GITHUB_TOKEN` alone). App commits via the action satisfy typical **required signed commits** rules when branch protection is configured for verified commits.
+Reusable bump/promote workflows default **`signed-commits: true`**, which creates commits through GraphQL `createCommitOnBranch`. GitHub auto-signs those commits (verified in the UI), so they satisfy rulesets that require verified signatures.
+
+- Use a **GitHub App** installation token (not `GITHUB_TOKEN` alone).
+- The Docker action input `signed-commits` still defaults to `false` for backward compatibility when you call `uses: GuyErreich/Action-Semver-Control@v1` directly — pass `signed-commits: true` (or use the reusable workflows).
+- Opt out in a reusable caller with `signed-commits: false` only if you do not need verified signatures.
+
+If merges still fail with **Cannot update this protected ref** / **Commits must have verified signatures**, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#merging-is-blocked--commits-must-have-verified-signatures).
 
 ### License check before Auto Semver
 

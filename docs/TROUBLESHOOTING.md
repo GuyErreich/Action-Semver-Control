@@ -108,6 +108,19 @@ With `commit_groups.summary_mode: header_only`, auto-semver classifies each merg
 
 Use conventional prefixes on PR titles when opening PRs: `feat:`, `fix:`, `docs:`, etc. Imperative titles (`Add …`, `Harden …`, `Migrate …`) work only when listed in `commit_groups.patterns` in `auto_semver_config.yml`.
 
+## Merging is blocked — Commits must have verified signatures
+
+**Symptom:** GitHub shows *Merging is blocked* with *Cannot update this protected ref* and *Commits must have verified signatures* when merging a release PR (merge commit or rebase). Squash merge may still work because GitHub authors and signs a fresh commit.
+
+**Cause:** The release branch head commit was created with plain `git commit` (or the Git Database REST API), so it is **unsigned**. Rulesets with **Require signed commits** reject updating the protected branch with that commit.
+
+**Fix:**
+
+1. Ensure bump/promote runs use **`signed-commits: true`** (default on the reusable workflows). That path uses GraphQL `createCommitOnBranch`, which GitHub auto-signs.
+2. Confirm the workflow uses a **GitHub App** token (`vars.GH_APP_CLIENT_ID` + `secrets.GH_APP_PRIVATE_KEY`), not only `GITHUB_TOKEN`.
+3. Optionally grant the App **bypass** on the ruleset (defense in depth), matching Staging/Prod if those already bypass the integration.
+4. For an already-open release PR with an unsigned head: close it, re-run bump with signed commits enabled, or squash-merge if policy allows.
+
 ## Releases page links `@v1` to an unrelated GitHub user
 
 GitHub autolinks bare `@v1` in release-note markdown to [github.com/v1](https://github.com/v1). That also populates the per-release Contributors box.
