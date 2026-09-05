@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.9-rc] - 05-09-2026
+## [1.6.9] - 05-09-2026
 
 ### 📝 Other Changes
 - Require uv audit in CI and refresh lock deps (#273)
