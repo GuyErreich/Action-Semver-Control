@@ -1135,6 +1135,121 @@ class GitOps:
             logger.error(f"Unexpected error during auto-promotion: {err}")
             raise RuntimeError(f"Auto-promotion failed unexpectedly: {err}") from err
 
+    def _diff_paths_between(
+        self, *, base_sha: str, head_ref: str = "HEAD"
+    ) -> tuple[list[str], list[str]]:
+        """Return (additions/modifications, deletions) between two commits."""
+        added = self.repo.git.diff(base_sha, head_ref, "--name-only", "--diff-filter=ACMR")
+        deleted = self.repo.git.diff(base_sha, head_ref, "--name-only", "--diff-filter=D")
+        additions = [line.strip() for line in added.splitlines() if line.strip()]
+        deletions = [line.strip() for line in deleted.splitlines() if line.strip()]
+        return additions, deletions
+
+    def _remote_has_commit(self, sha: str) -> bool:
+        """Return True when ``sha`` is already present on the GitHub remote."""
+        try:
+            self._gh_repo().get_git_commit(sha)
+        except GithubException:
+            return False
+        return True
+
+    def _publish_local_tip_once(
+        self,
+        *,
+        branch_name: str,
+        base_sha: str,
+        message: str,
+    ) -> str:
+        """
+        Move ``branch_name`` to the local tip with a single remote ref update.
+
+        Fast-forwards the branch when HEAD already exists on the remote and
+        matches ``base_sha``'s descendant with no unpublished local-only history
+        that needs signing. Otherwise publishes the final worktree as one
+        verified ``createCommitOnBranch`` commit so promote + metadata never
+        produce two push events on the integration branch.
+        """
+        local_tip = self.repo.head.commit.hexsha
+        if local_tip == base_sha:
+            logger.info("No promotion changes on %s; leaving branch at %s", branch_name, base_sha)
+            return base_sha
+
+        additions, deletions = self._diff_paths_between(base_sha=base_sha, head_ref=local_tip)
+        if not additions and not deletions:
+            if self._remote_has_commit(local_tip):
+                ref = self._gh_repo().get_git_ref(f"heads/{branch_name}")
+                ref.edit(sha=local_tip)
+                self.fetch()
+                logger.info(
+                    "Fast-forwarded %s to existing commit %s (single ref update)",
+                    branch_name,
+                    local_tip,
+                )
+                return local_tip
+            logger.info(
+                "Empty tree diff for %s but tip %s is local-only; leaving at %s",
+                branch_name,
+                local_tip,
+                base_sha,
+            )
+            return base_sha
+
+        # Prefer a true fast-forward when the tip is already on the remote and
+        # there are no local-only commits beyond that tip (e.g. tag promote ff).
+        if self._remote_has_commit(local_tip):
+            try:
+                self.repo.git.merge_base("--is-ancestor", base_sha, local_tip)
+                ref = self._gh_repo().get_git_ref(f"heads/{branch_name}")
+                ref.edit(sha=local_tip)
+                self.fetch()
+                logger.info(
+                    "Fast-forwarded %s to %s (single ref update)",
+                    branch_name,
+                    local_tip,
+                )
+                return local_tip
+            except GitCommandError:
+                pass
+
+        try:
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=branch_name,
+                message=message,
+                expected_head_oid=base_sha,
+                additions=self._build_file_additions(
+                    file_paths=additions,
+                    repo_root=Path(self.repo.working_tree_dir or "."),
+                ),
+                deletions=[{"path": self._normalize_repo_rel_path(path)} for path in deletions],
+            )
+        except GithubException as err:
+            if not self._is_expected_head_mismatch(err):
+                raise
+            logger.warning(
+                "expectedHeadOid mismatch publishing tip on %s; retrying once: %s",
+                branch_name,
+                err,
+            )
+            self.fetch()
+            expected_head = self._ensure_remote_branch(branch_name=branch_name)
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=branch_name,
+                message=message,
+                expected_head_oid=expected_head,
+                additions=self._build_file_additions(
+                    file_paths=additions,
+                    repo_root=Path(self.repo.working_tree_dir or "."),
+                ),
+                deletions=[{"path": self._normalize_repo_rel_path(path)} for path in deletions],
+            )
+        self.fetch()
+        logger.info(
+            "Published verified promotion tip %s on %s (single ref update)",
+            commit_sha,
+            branch_name,
+        )
+        return commit_sha
+
     def _auto_promote_api(
         self,
         *,
@@ -1148,46 +1263,57 @@ class GitOps:
         prefer_source_paths: Collection[str] | None = None,
         remote_name: str = "origin",
     ) -> str:
-        """Promote via verified GitHub merge/tag APIs."""
-        del prefer_source_paths  # API path uses ff merge or squash; conflicts handled upstream
-        merge_sha = self._integrate_source_for_promotion_api(
-            target_branch=target_branch,
+        """
+        Promote via local integrate + one verified remote tip update.
+
+        Builds promote (and optional metadata) commits locally, then moves the
+        target branch once so concurrent workflows (e.g. Secret Scan) are not
+        canceled by a second push from the same job.
+        """
+        self.fetch(remote_name=remote_name)
+        if target_branch in self.repo.heads:
+            self.checkout(branch_name=target_branch)
+        else:
+            self.checkout(
+                branch_name=target_branch,
+                create_from=f"{remote_name}/{target_branch}",
+            )
+        self.pull(branch_name=target_branch, remote_name=remote_name)
+        base_sha = self.repo.head.commit.hexsha
+
+        self._integrate_source_for_promotion(
             source_ref=source_branch,
             message=merge_message,
-            is_source_tag=is_source_tag,
+            remote_name=remote_name,
+            is_tag=is_source_tag,
+            prefer_source_paths=prefer_source_paths,
         )
 
         if post_merge_hook:
             logger.info("Executing post-merge hook")
             src_v = source_version if source_version else source_branch
             try:
-                self.fetch(remote_name=remote_name)
-                # CI checkouts often lack a local target branch; create from remote.
-                if target_branch in self.repo.heads:
-                    self.checkout(branch_name=target_branch)
-                else:
-                    self.checkout(
-                        branch_name=target_branch,
-                        create_from=f"{remote_name}/{target_branch}",
-                    )
-                self.repo.git.reset("--hard", merge_sha)
                 post_merge_hook(src_v, version)
                 dirty_paths = self._collect_dirty_tracked_paths()
                 if dirty_paths:
-                    logger.info("Changes detected after post-merge hook; creating verified commit")
-                    self._api_commit_files_on_branch(
-                        branch_name=target_branch,
-                        message=f"chore: update version metadata for {version}",
-                        file_paths=dirty_paths,
-                        force=False,
+                    logger.info(
+                        "Changes detected after post-merge hook; committing metadata locally: %s",
+                        ", ".join(dirty_paths),
                     )
-                    branch_ref = self._gh_repo().get_git_ref(f"heads/{target_branch}")
-                    merge_sha = branch_ref.object.sha
+                    for path in dirty_paths:
+                        self.repo.git.add("--", path)
+                    # Local-only; folded into the single verified tip published below.
+                    self.repo.index.commit(f"chore: update version metadata for {version}")
             except Exception as exc:
                 logger.error(f"Post-merge hook failed: {exc}")
                 raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
 
-        self._api_create_lightweight_tag(tag=version, sha=merge_sha)
+        tip_sha = self._publish_local_tip_once(
+            branch_name=target_branch,
+            base_sha=base_sha,
+            message=merge_message,
+        )
+        self._api_create_lightweight_tag(tag=version, sha=tip_sha)
         self.fetch(remote_name=remote_name)
         logger.info(
             "✅ Verified auto-promotion complete: %s → %s (tagged: %s)",

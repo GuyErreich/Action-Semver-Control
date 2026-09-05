@@ -216,19 +216,27 @@ class TestSignedGitOps:
 
     @pytest.mark.unit
     def test_api_merge_promotion(self, mocker: MockerFixture, mock_repo: Any) -> None:
-        """Signed auto-promote should merge and tag via the GitHub API."""
+        """Signed auto-promote integrates locally and publishes one tip."""
+        mock_repo.head.commit.hexsha = "base-sha"
+        mock_repo.heads = mocker.MagicMock()
+        mock_repo.heads.__contains__.return_value = True
+
         gitops = GitOps(signed_commits=True, github_token="token")
-        mock_integrate = mocker.patch.object(
+        mocker.patch.object(gitops, "fetch")
+        mock_checkout = mocker.patch.object(gitops, "checkout")
+        mocker.patch.object(gitops, "pull")
+        mock_integrate = mocker.patch.object(gitops, "_integrate_source_for_promotion")
+        mock_publish = mocker.patch.object(
             gitops,
-            "_integrate_source_for_promotion_api",
-            return_value="merge-sha",
+            "_publish_local_tip_once",
+            return_value="tip-sha",
         )
         mock_tag = mocker.patch.object(
             gitops,
             "_api_create_lightweight_tag",
             return_value="1.0.0-rc",
         )
-        mocker.patch.object(gitops, "fetch")
+        mock_merge_api = mocker.patch.object(gitops, "_integrate_source_for_promotion_api")
 
         result = gitops._auto_promote_api(
             source_branch="dev",
@@ -241,34 +249,42 @@ class TestSignedGitOps:
         )
 
         assert result == "1.0.0-rc"
+        mock_checkout.assert_called_once_with(branch_name="staging")
         mock_integrate.assert_called_once_with(
-            target_branch="staging",
             source_ref="dev",
             message="chore: promote",
-            is_source_tag=False,
+            remote_name="origin",
+            is_tag=False,
+            prefer_source_paths=None,
         )
-        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="merge-sha")
+        mock_publish.assert_called_once_with(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="tip-sha")
+        mock_merge_api.assert_not_called()
 
     @pytest.mark.unit
     def test_api_promote_post_merge_creates_local_target_branch(
         self, mocker: MockerFixture, mock_repo: Any
     ) -> None:
         """Post-merge hook should create local target from origin when missing."""
-        # Simulate CI: no local staging head after fetch.
+        mock_repo.head.commit.hexsha = "base-sha"
         mock_repo.heads = mocker.MagicMock()
         mock_repo.heads.__contains__.return_value = False
 
         gitops = GitOps(signed_commits=True, github_token="token")
-        mocker.patch.object(
-            gitops,
-            "_integrate_source_for_promotion_api",
-            return_value="merge-sha",
-        )
-        mock_checkout = mocker.patch.object(gitops, "checkout")
-        mock_reset = mocker.MagicMock()
-        mock_repo.git.reset = mock_reset
         mocker.patch.object(gitops, "fetch")
+        mock_checkout = mocker.patch.object(gitops, "checkout")
+        mocker.patch.object(gitops, "pull")
+        mocker.patch.object(gitops, "_integrate_source_for_promotion")
         mocker.patch.object(gitops, "_collect_dirty_tracked_paths", return_value=[])
+        mock_publish = mocker.patch.object(
+            gitops,
+            "_publish_local_tip_once",
+            return_value="tip-sha",
+        )
         mock_tag = mocker.patch.object(
             gitops,
             "_api_create_lightweight_tag",
@@ -292,9 +308,191 @@ class TestSignedGitOps:
             branch_name="staging",
             create_from="origin/staging",
         )
-        mock_reset.assert_called_once_with("--hard", "merge-sha")
         hook.assert_called_once_with("1.0.0-dev", "1.0.0-rc")
-        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="merge-sha")
+        mock_publish.assert_called_once_with(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="tip-sha")
+
+    @pytest.mark.unit
+    def test_api_promote_dirty_hook_publishes_once(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Metadata changes are committed locally and folded into one tip publish."""
+        mock_repo.head.commit.hexsha = "base-sha"
+        mock_repo.heads = mocker.MagicMock()
+        mock_repo.heads.__contains__.return_value = True
+        mock_index = mocker.MagicMock()
+        mock_repo.index = mock_index
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "fetch")
+        mocker.patch.object(gitops, "checkout")
+        mocker.patch.object(gitops, "pull")
+        mocker.patch.object(gitops, "_integrate_source_for_promotion")
+        mocker.patch.object(
+            gitops,
+            "_collect_dirty_tracked_paths",
+            return_value=["version.txt", ".semver.lock"],
+        )
+        mock_publish = mocker.patch.object(
+            gitops,
+            "_publish_local_tip_once",
+            return_value="meta-tip-sha",
+        )
+        mock_tag = mocker.patch.object(
+            gitops,
+            "_api_create_lightweight_tag",
+            return_value="1.0.0-rc",
+        )
+        mock_merge_api = mocker.patch.object(gitops, "_integrate_source_for_promotion_api")
+        mock_api_commit = mocker.patch.object(gitops, "_api_commit_files_on_branch")
+        hook = mocker.MagicMock()
+
+        result = gitops._auto_promote_api(
+            source_branch="1.0.0-dev",
+            target_branch="staging",
+            version="1.0.0-rc",
+            source_version="1.0.0-dev",
+            merge_message="chore: promote",
+            is_source_tag=True,
+            post_merge_hook=hook,
+        )
+
+        assert result == "1.0.0-rc"
+        assert mock_repo.git.add.call_count == 2
+        mock_index.commit.assert_called_once_with("chore: update version metadata for 1.0.0-rc")
+        mock_publish.assert_called_once_with(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="meta-tip-sha")
+        mock_merge_api.assert_not_called()
+        mock_api_commit.assert_not_called()
+
+    @pytest.mark.unit
+    def test_api_promote_clean_hook_publishes_once(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Clean hook still results in a single tip publish and tag."""
+        mock_repo.head.commit.hexsha = "base-sha"
+        mock_repo.heads = mocker.MagicMock()
+        mock_repo.heads.__contains__.return_value = True
+        mock_index = mocker.MagicMock()
+        mock_repo.index = mock_index
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "fetch")
+        mocker.patch.object(gitops, "checkout")
+        mocker.patch.object(gitops, "pull")
+        mocker.patch.object(gitops, "_integrate_source_for_promotion")
+        mocker.patch.object(gitops, "_collect_dirty_tracked_paths", return_value=[])
+        mock_publish = mocker.patch.object(
+            gitops,
+            "_publish_local_tip_once",
+            return_value="promote-tip-sha",
+        )
+        mock_tag = mocker.patch.object(
+            gitops,
+            "_api_create_lightweight_tag",
+            return_value="1.0.0-rc",
+        )
+        hook = mocker.MagicMock()
+
+        result = gitops._auto_promote_api(
+            source_branch="1.0.0-dev",
+            target_branch="staging",
+            version="1.0.0-rc",
+            source_version="1.0.0-dev",
+            merge_message="chore: promote",
+            is_source_tag=True,
+            post_merge_hook=hook,
+        )
+
+        assert result == "1.0.0-rc"
+        mock_index.commit.assert_not_called()
+        mock_publish.assert_called_once_with(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+        mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="promote-tip-sha")
+
+    @pytest.mark.unit
+    def test_publish_local_tip_once_uses_single_graphql_commit(
+        self, mocker: MockerFixture, mock_repo: Any, tmp_path: Any
+    ) -> None:
+        """Local-only tip with file changes becomes one createCommitOnBranch."""
+        mock_repo.working_tree_dir = str(tmp_path)
+        (tmp_path / "version.txt").write_text("1.0.0-rc\n", encoding="utf-8")
+        mock_repo.head.commit.hexsha = "local-tip"
+
+        def diff_side_effect(*args: str, **_kwargs: Any) -> str:
+            if "--diff-filter=D" in args:
+                return ""
+            if "--diff-filter=ACMR" in args:
+                return "version.txt\n"
+            return "version.txt\n"
+
+        mock_repo.git.diff.side_effect = diff_side_effect
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "_remote_has_commit", return_value=False)
+        mock_gql = mocker.patch.object(
+            gitops,
+            "_graphql_create_commit_on_branch",
+            return_value="published-sha",
+        )
+        mocker.patch.object(gitops, "fetch")
+        mock_ref_edit = mocker.MagicMock()
+        mock_gh = mocker.MagicMock()
+        mock_gh.get_git_ref.return_value = mock_ref_edit
+        mocker.patch.object(gitops, "_gh_repo", return_value=mock_gh)
+
+        result = gitops._publish_local_tip_once(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+
+        assert result == "published-sha"
+        mock_gql.assert_called_once()
+        mock_ref_edit.edit.assert_not_called()
+        kwargs = mock_gql.call_args.kwargs
+        assert kwargs["branch_name"] == "staging"
+        assert kwargs["expected_head_oid"] == "base-sha"
+        assert kwargs["additions"][0]["path"] == "version.txt"
+
+    @pytest.mark.unit
+    def test_publish_local_tip_once_fast_forwards_existing_remote_commit(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """When the tip already exists remotely, only edit the branch ref once."""
+        mock_repo.head.commit.hexsha = "remote-tip"
+        mock_repo.git.diff.return_value = "version.txt\n"
+        mock_repo.git.merge_base.return_value = ""
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "_remote_has_commit", return_value=True)
+        mock_gql = mocker.patch.object(gitops, "_graphql_create_commit_on_branch")
+        mocker.patch.object(gitops, "fetch")
+        mock_ref = mocker.MagicMock()
+        mock_gh = mocker.MagicMock()
+        mock_gh.get_git_ref.return_value = mock_ref
+        mocker.patch.object(gitops, "_gh_repo", return_value=mock_gh)
+
+        result = gitops._publish_local_tip_once(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+
+        assert result == "remote-tip"
+        mock_ref.edit.assert_called_once_with(sha="remote-tip")
+        mock_gql.assert_not_called()
 
     @pytest.mark.unit
     def test_api_squash_promote_uses_graphql(self, mocker: MockerFixture, mock_repo: Any) -> None:
