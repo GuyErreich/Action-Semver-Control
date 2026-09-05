@@ -1061,6 +1061,7 @@ class GitOps:
                 is_source_tag=is_source_tag,
                 post_merge_hook=post_merge_hook,
                 prefer_source_paths=prefer_source_paths,
+                remote_name=remote_name,
             )
 
         try:
@@ -1145,6 +1146,7 @@ class GitOps:
         is_source_tag: bool,
         post_merge_hook: Callable[[str, str], None] | None,
         prefer_source_paths: Collection[str] | None = None,
+        remote_name: str = "origin",
     ) -> str:
         """Promote via verified GitHub merge/tag APIs."""
         del prefer_source_paths  # API path uses ff merge or squash; conflicts handled upstream
@@ -1159,8 +1161,15 @@ class GitOps:
             logger.info("Executing post-merge hook")
             src_v = source_version if source_version else source_branch
             try:
-                self.fetch()
-                self.checkout(branch_name=target_branch)
+                self.fetch(remote_name=remote_name)
+                # CI checkouts often lack a local target branch; create from remote.
+                if target_branch in self.repo.heads:
+                    self.checkout(branch_name=target_branch)
+                else:
+                    self.checkout(
+                        branch_name=target_branch,
+                        create_from=f"{remote_name}/{target_branch}",
+                    )
                 self.repo.git.reset("--hard", merge_sha)
                 post_merge_hook(src_v, version)
                 dirty_paths = self._collect_dirty_tracked_paths()
@@ -1179,7 +1188,7 @@ class GitOps:
                 raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
 
         self._api_create_lightweight_tag(tag=version, sha=merge_sha)
-        self.fetch()
+        self.fetch(remote_name=remote_name)
         logger.info(
             "✅ Verified auto-promotion complete: %s → %s (tagged: %s)",
             source_branch,
