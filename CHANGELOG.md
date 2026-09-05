@@ -1,10 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.7-dev] - 03-09-2026
+## [1.6.9-dev] - 05-09-2026
 
-### 🔧 Infrastructure & Tooling
-- harden OSS settings and refresh uv.lock (#261)
+### 📝 Other Changes
+- Require uv audit in CI and refresh lock deps (#273)
+- Bump the github-actions group across 1 directory with 2 updates (#265)
 
 ## License
 This project is licensed under the MIT License.
