@@ -1,10 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.6] - 03-09-2026
+## [1.6.9-rc] - 05-09-2026
 
-### 🐛 Bug Fixes & Resolutions
-- stop @v1 autolinks in GitHub release notes (#259)
+### 📝 Other Changes
+- Require uv audit in CI and refresh lock deps (#273)
+- Bump the github-actions group across 1 directory with 2 updates (#265)
 
 ## License
 This project is licensed under the MIT License.
