@@ -55,8 +55,10 @@ logger = logging.getLogger(__package__)
 LEGACY_RELEASE_PREFIX = "release/"
 DEFAULT_RELEASE_PREFIX = "auto-semver/release/"
 
-# GraphQL mutation that GitHub auto-signs (verified). Git Database REST create_git_commit
-# does NOT produce verified signatures.
+# GraphQL mutation that GitHub auto-signs (verified) in one request for multiple
+# file changes. Prefer this over the Git Database REST blob/tree/commit/ref
+# sequence for signed mode; see #286 for REST fallback for symlink/executable
+# mode limits of createCommitOnBranch.
 _CREATE_COMMIT_ON_BRANCH_MUTATION = """
 mutation($input: CreateCommitOnBranchInput!) {
   createCommitOnBranch(input: $input) {
@@ -105,7 +107,7 @@ class GitOps:
             raise ValueError("github_token is required when signed_commits=True")
         if ensure_safe:
             self.__ensure_git_safe_directory()
-        self.__ensure_git_identity()
+        self._identity = self.__ensure_git_identity()
 
     def __ensure_git_safe_directory(self) -> None:
         """
@@ -312,8 +314,10 @@ class GitOps:
         """
         Create a verified commit on a branch via GraphQL ``createCommitOnBranch``.
 
-        GitHub auto-signs commits from this mutation. The Git Database REST
-        ``create_git_commit`` API does not.
+        GitHub auto-signs commits from this mutation. Prefer it for multi-file
+        signed updates in one request; the Git Database REST sequence can also
+        produce verified App commits when author/committer/signature are omitted,
+        but needs separate blob/tree/commit/ref calls (see #286).
 
         Args:
             branch_name: Target branch (created on the remote if missing).
@@ -527,22 +531,23 @@ class GitOps:
             logger.info("Synced local worktree to signed commit %s", commit_sha)
             return
 
-        try:
-            # Explicitly set author and committer to ensure consistency (e.g., prevent "GitHub" as committer)
-            reader = self.repo.config_reader()
-            author = Actor(
-                name=str(reader.get_value("user", "name")),
-                email=str(reader.get_value("user", "email")),
-            )
-            reader.release()
+        self._local_commit(message)
+        logger.info("Committed changes.")
 
-            self.repo.index.commit(message=message, author=author, committer=author)
+    def _local_commit(self, message: str) -> Commit:
+        """
+        Create a local commit as the bot, bypassing repository hooks.
 
-            logger.info("Committed changes.")
-
-        except GitCommandError as err:
-            logger.error(f"Failed to commit changes: {err}")
-            raise
+        Two deliberate deviations from ``git commit``:
+        - ``GIT_AUTHOR_*``/``GIT_COMMITTER_*`` are ignored so bot attribution is
+          deterministic; ``user.*`` config is the override channel.
+        - Hooks are skipped (``git commit -n``). Lint/commit-msg policy belongs on
+          the PR, and the signed GraphQL path cannot run hooks, so skipping keeps
+          both paths symmetric.
+        """
+        return self.repo.index.commit(
+            message, author=self._identity, committer=self._identity, skip_hooks=True
+        )
 
     def push(self, *, branch_name: str, remote_name: str = "origin", force: bool = False) -> None:
         """
@@ -656,23 +661,27 @@ class GitOps:
         *,
         email: str = "256984269+auto-semver-bot[bot]@users.noreply.github.com",
         name: str = "auto-semver-bot[bot]",
-    ) -> None:
+    ) -> Actor:
         """
-        Ensure Git user identity is configured for commits.
+        Resolve and cache the bot Actor used for local commits.
 
-        This is required for merge operations that create commits.
-        If not already set, configures user.email and user.name locally.
+        Prefer an existing ``user.name`` / ``user.email`` from git config (CI
+        usually sets these from App token ``user-name`` / ``user-email``
+        outputs). Otherwise write the App bot defaults into repo config so
+        subprocess git operations (merge, etc.) also attribute correctly.
 
-        Prefer setting identity from the GitHub App token outputs in CI
-        (`user-name` / `user-email`). The defaults match this repo's App bot
-        noreply address so fallback commits attribute correctly on GitHub.
+        When the config write fails (read-only FS, permissions), still return
+        the in-memory defaults so ``_local_commit`` can proceed.
 
         Args:
-            email (str): Git user email (default: App bot users.noreply address).
-            name (str): Git user name (default: auto-semver-bot[bot]).
+            email: Git user email (default: App bot users.noreply address).
+            name: Git user name (default: auto-semver-bot[bot]).
+
+        Returns:
+            Actor to use as both author and committer for local commits.
         """
+        defaults = Actor(name=name, email=email)
         try:
-            # Check if identity is already configured
             with self.repo.config_reader() as config:
                 try:
                     existing_email = config.get_value("user", "email")
@@ -680,21 +689,26 @@ class GitOps:
                     logger.debug(
                         f"Git identity already configured: {existing_name} <{existing_email}>"
                     )
-                    return
+                    return Actor(name=str(existing_name), email=str(existing_email))
                 except Exception:
                     # Not configured, will set below
                     pass
 
-            # Configure identity locally
             logger.info(f"Configuring Git identity: {name} <{email}>")
             with self.repo.config_writer() as config:
                 config.set_value("user", "email", email)
                 config.set_value("user", "name", name)
 
             logger.debug("Git identity configured successfully")
+            return defaults
         except Exception as err:
-            logger.warning(f"Failed to configure Git identity: {err}")
-            # Don't raise - let the merge fail with clearer error if needed
+            logger.warning(
+                "Failed to configure Git identity: %s; using in-memory defaults %s <%s>",
+                err,
+                name,
+                email,
+            )
+            return defaults
 
     def pull(self, *, branch_name: str, remote_name: str = "origin") -> None:
         """
@@ -1110,7 +1124,7 @@ class GitOps:
                         )
                         for path in dirty_paths:
                             self.repo.git.add("--", path)
-                        self.repo.index.commit(f"chore: update version metadata for {version}")
+                        self._local_commit(f"chore: update version metadata for {version}")
                 except Exception as e:
                     logger.error(f"Post-merge hook failed: {e}")
                     raise RuntimeError(f"Post-merge hook failed: {e}") from e
@@ -1316,7 +1330,7 @@ class GitOps:
                     for path in dirty_paths:
                         self.repo.git.add("--", path)
                     # Local-only; folded into the single verified tip published below.
-                    self.repo.index.commit(f"chore: update version metadata for {version}")
+                    self._local_commit(f"chore: update version metadata for {version}")
             except Exception as exc:
                 logger.error(f"Post-merge hook failed: {exc}")
                 raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
