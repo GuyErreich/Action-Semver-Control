@@ -178,38 +178,60 @@ class TestGitOps:
 
     @pytest.mark.unit
     def test_commit(self, mocker: MockerFixture) -> None:
-        """Test committing changes with the commit method."""
-        # Create mock repo
+        """Local commit pins config identity and skips repository hooks."""
         mock_repo = mocker.MagicMock()
-        # Mock index.diff() to return some changes
         mock_repo.index.diff.return_value = ["some_change"]
 
-        # Mock config reader
-        mock_config_reader = mocker.MagicMock()
-        mock_repo.config_reader.return_value = mock_config_reader
-        mock_config_reader.get_value.side_effect = ["Test User", "test@example.com"]
+        mock_config = mocker.MagicMock()
+        mock_config.get_value.side_effect = lambda _section, option: {
+            "email": "test@example.com",
+            "name": "Test User",
+        }[option]
+        mock_repo.config_reader.return_value.__enter__.return_value = mock_config
 
-        # Patch the Repo constructor and Actor
         mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
-        mock_actor = mocker.patch("auto_semver.git.ops.Actor")
 
-        # Create GitOps instance and call commit
         gitops = GitOps()
         message = "Test commit message"
         gitops.commit(message=message)
 
-        # Check config reader was used
-        assert mock_config_reader.get_value.call_count == 2
-        mock_config_reader.get_value.assert_any_call("user", "name")
-        mock_config_reader.get_value.assert_any_call("user", "email")
-        mock_config_reader.release.assert_called_once()
-
-        # Check that Actor was initialized
-        mock_actor.assert_called_once_with(name="Test User", email="test@example.com")
-
-        # Check that index.commit was called with the message and author/committer
+        assert gitops._identity.name == "Test User"
+        assert gitops._identity.email == "test@example.com"
         mock_repo.index.commit.assert_called_once_with(
-            message=message, author=mock_actor.return_value, committer=mock_actor.return_value
+            message,
+            author=gitops._identity,
+            committer=gitops._identity,
+            skip_hooks=True,
+        )
+
+    @pytest.mark.unit
+    def test_commit_uses_default_identity_when_config_write_fails(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Config write failure still commits with the default bot Actor."""
+        mock_repo = mocker.MagicMock()
+        mock_repo.index.diff.return_value = ["some_change"]
+
+        mock_reader = mocker.MagicMock()
+        mock_reader.get_value.side_effect = Exception("missing user identity")
+        mock_repo.config_reader.return_value.__enter__.return_value = mock_reader
+
+        mock_writer = mocker.MagicMock()
+        mock_writer.__enter__.side_effect = OSError("read-only filesystem")
+        mock_repo.config_writer.return_value = mock_writer
+
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+
+        gitops = GitOps()
+        gitops.commit(message="chore: bump")
+
+        assert gitops._identity.name == "auto-semver-bot[bot]"
+        assert gitops._identity.email == "256984269+auto-semver-bot[bot]@users.noreply.github.com"
+        mock_repo.index.commit.assert_called_once_with(
+            "chore: bump",
+            author=gitops._identity,
+            committer=gitops._identity,
+            skip_hooks=True,
         )
 
     @pytest.mark.unit

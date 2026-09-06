@@ -53,3 +53,4 @@ jobs:
         github-token: ${{ steps.app-token.outputs.token }}
         # repo-full-name: ${{ github.repository }}
         debug: true
+        signed-commits: true

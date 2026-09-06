@@ -108,6 +108,32 @@ With `commit_groups.summary_mode: header_only`, auto-semver classifies each merg
 
 Use conventional prefixes on PR titles when opening PRs: `feat:`, `fix:`, `docs:`, etc. Imperative titles (`Add …`, `Harden …`, `Migrate …`) work only when listed in `commit_groups.patterns` in `auto_semver_config.yml`.
 
+## Merging is blocked — Commits must have verified signatures
+
+**Symptom:** GitHub shows *Merging is blocked* with *Cannot update this protected ref* and *Commits must have verified signatures* when merging a release PR (merge commit or rebase). Squash merge may still work because GitHub authors and signs a fresh commit.
+
+**Cause:** The release branch head commit was created with plain `git commit` (or an API path that skipped App auto-signing), so it is **unsigned**. Rulesets with **Require signed commits** reject updating the protected branch with that commit.
+
+**Fix:**
+
+1. Ensure bump/promote runs use **`signed-commits: true`** (default on the reusable workflows). That path uses GraphQL `createCommitOnBranch`, which GitHub auto-signs.
+2. Confirm the workflow uses a **GitHub App** token (`vars.GH_APP_CLIENT_ID` + `secrets.GH_APP_PRIVATE_KEY`), not only `GITHUB_TOKEN`.
+3. Optionally grant the App **bypass** on the ruleset (defense in depth), matching Staging/Prod if those already bypass the integration.
+4. For an already-open release PR with an unsigned head: close it, re-run bump with signed commits enabled, or squash-merge if policy allows.
+
+### Why the committer shows as `GitHub <noreply@github.com>`
+
+Verified App commits intentionally show:
+
+- **Author:** `auto-semver-bot[bot]` (or your App's bot) — this is what appears in the UI, `git log`, blame, and contribution graphs.
+- **Committer:** `GitHub <noreply@github.com>` (web-flow) — this is GitHub's signing identity.
+
+GitHub signs bot commits with the `web-flow` GPG key, whose only UID email is `noreply@github.com`. Signature verification requires the committer email to appear in the signing key's identities; otherwise GitHub reports `verified: false` with reason `bad_email`. GitHub therefore substitutes the committer with web-flow when it auto-signs. That substituted committer *is* the signature.
+
+Supplying any custom committer (even the same web-flow values) makes GitHub skip signing. GraphQL `createCommitOnBranch` does not expose author or committer fields at all.
+
+Making the App bot the verified **committer** would require a machine-user account with its own GPG/SSH key and local `git commit -S`. Apps cannot hold signing keys. That trade-off (long-lived key material on runners, a user seat instead of installation tokens, loss of App attribution) is not used here.
+
 ## Releases page links `@v1` to an unrelated GitHub user
 
 GitHub autolinks bare `@v1` in release-note markdown to [github.com/v1](https://github.com/v1). That also populates the per-release Contributors box.

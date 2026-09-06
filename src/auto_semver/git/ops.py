@@ -37,7 +37,6 @@ from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 from github import Github
 from github.GithubException import GithubException
-from github.InputGitTreeElement import InputGitTreeElement
 
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.semver import SemverLock, Version
@@ -47,6 +46,7 @@ if TYPE_CHECKING:
 
     from github.PullRequest import PullRequest
     from github.Repository import Repository
+    from github.Requester import Requester
 
     from auto_semver.config import Config
 
@@ -54,6 +54,20 @@ logger = logging.getLogger(__package__)
 
 LEGACY_RELEASE_PREFIX = "release/"
 DEFAULT_RELEASE_PREFIX = "auto-semver/release/"
+
+# GraphQL mutation that GitHub auto-signs (verified) in one request for multiple
+# file changes. Prefer this over the Git Database REST blob/tree/commit/ref
+# sequence for signed mode; see #286 for REST fallback for symlink/executable
+# mode limits of createCommitOnBranch.
+_CREATE_COMMIT_ON_BRANCH_MUTATION = """
+mutation($input: CreateCommitOnBranchInput!) {
+  createCommitOnBranch(input: $input) {
+    commit {
+      oid
+    }
+  }
+}
+"""
 
 
 class GitOps:
@@ -93,7 +107,7 @@ class GitOps:
             raise ValueError("github_token is required when signed_commits=True")
         if ensure_safe:
             self.__ensure_git_safe_directory()
-        self.__ensure_git_identity()
+        self._identity = self.__ensure_git_identity()
 
     def __ensure_git_safe_directory(self) -> None:
         """
@@ -138,6 +152,11 @@ class GitOps:
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:
         return Github(github_token).get_repo(repo_full_name)
 
+    def _github_client(self) -> Github:
+        if not self.github_token:
+            raise ValueError("github_token is required for API git operations")
+        return Github(self.github_token)
+
     def _gh_repo(self) -> Repository:
         if not self.github_token:
             raise ValueError("github_token is required for API git operations")
@@ -146,79 +165,218 @@ class GitOps:
             repo_full_name=self._repo_full_name,
         )
 
+    def _github_requester(self) -> Requester:
+        return self._github_client().requester
+
     def _collect_staged_paths(self) -> list[str]:
-        """Return repository-relative paths staged for the next commit."""
-        output = self.repo.git.diff("--cached", "--name-only")
-        return [line.strip() for line in output.splitlines() if line.strip()]
+        """Return repository-relative paths staged for the next commit (all change types)."""
+        additions, deletions = self._collect_staged_file_changes()
+        return additions + deletions
+
+    def _collect_staged_file_changes(self) -> tuple[list[str], list[str]]:
+        """
+        Return staged paths split into additions/modifications and deletions.
+
+        Uses ``git diff --cached --diff-filter`` so GraphQL ``createCommitOnBranch``
+        receives correct ``fileChanges.additions`` and ``fileChanges.deletions``.
+        """
+        added = self.repo.git.diff("--cached", "--name-only", "--diff-filter=ACMR")
+        deleted = self.repo.git.diff("--cached", "--name-only", "--diff-filter=D")
+        additions = [line.strip() for line in added.splitlines() if line.strip()]
+        deletions = [line.strip() for line in deleted.splitlines() if line.strip()]
+        return additions, deletions
 
     def _collect_dirty_tracked_paths(self) -> list[str]:
         """Return tracked paths with unstaged modifications."""
         output = self.repo.git.diff("--name-only")
         return [line.strip() for line in output.splitlines() if line.strip()]
 
+    @staticmethod
+    def _normalize_repo_rel_path(rel_path: str) -> str:
+        return rel_path.replace("\\", "/")
+
+    @staticmethod
+    def _split_commit_message(message: str) -> tuple[str, str | None]:
+        """Split a commit message into GraphQL headline and optional body."""
+        headline, sep, body = message.partition("\n")
+        headline = headline.strip() or message.strip()
+        body_text = body.strip() if sep and body.strip() else None
+        return headline, body_text
+
+    def _reject_unsupported_file_modes(self, *, file_paths: list[str], repo_root: Path) -> None:
+        """
+        Raise if any path is a symlink or executable.
+
+        ``createCommitOnBranch`` only supports regular non-executable files.
+        """
+        for rel_path in file_paths:
+            full_path = repo_root / rel_path
+            if not full_path.exists():
+                continue
+            if full_path.is_symlink():
+                raise ValueError(
+                    f"Signed commits cannot include symlinks via createCommitOnBranch: {rel_path}"
+                )
+            if full_path.is_file() and full_path.stat().st_mode & 0o111:
+                raise ValueError(
+                    f"Signed commits cannot include executable files via createCommitOnBranch: "
+                    f"{rel_path}"
+                )
+
+    def _ensure_remote_branch(self, *, branch_name: str) -> str:
+        """
+        Ensure ``branch_name`` exists on the remote; return its tip OID.
+
+        When the branch is missing, create it at the local HEAD commit.
+        """
+        gh_repo = self._gh_repo()
+        ref_name = f"heads/{branch_name}"
+        try:
+            ref = gh_repo.get_git_ref(ref_name)
+            return str(ref.object.sha)
+        except GithubException:
+            parent_sha = self.repo.head.commit.hexsha
+            gh_repo.create_git_ref(f"refs/{ref_name}", parent_sha)
+            logger.info("Created remote branch %s at %s", branch_name, parent_sha)
+            return parent_sha
+
+    def _build_file_additions(
+        self, *, file_paths: list[str], repo_root: Path
+    ) -> list[dict[str, str]]:
+        """Build GraphQL ``FileAddition`` payloads (base64 contents)."""
+        self._reject_unsupported_file_modes(file_paths=file_paths, repo_root=repo_root)
+        additions: list[dict[str, str]] = []
+        for rel_path in file_paths:
+            full_path = repo_root / rel_path
+            content = full_path.read_bytes()
+            additions.append(
+                {
+                    "path": self._normalize_repo_rel_path(rel_path),
+                    "contents": base64.b64encode(content).decode("ascii"),
+                }
+            )
+        return additions
+
+    def _graphql_create_commit_on_branch(
+        self,
+        *,
+        branch_name: str,
+        message: str,
+        expected_head_oid: str,
+        additions: list[dict[str, str]],
+        deletions: list[dict[str, str]],
+    ) -> str:
+        """Run ``createCommitOnBranch`` and return the new commit OID."""
+        headline, body = self._split_commit_message(message)
+        message_input: dict[str, str] = {"headline": headline}
+        if body is not None:
+            message_input["body"] = body
+
+        variables = {
+            "input": {
+                "branch": {
+                    "repositoryNameWithOwner": self._repo_full_name,
+                    "branchName": branch_name,
+                },
+                "message": message_input,
+                "expectedHeadOid": expected_head_oid,
+                "fileChanges": {
+                    "additions": additions,
+                    "deletions": deletions,
+                },
+            }
+        }
+
+        _, data = self._github_requester().graphql_query(
+            _CREATE_COMMIT_ON_BRANCH_MUTATION,
+            variables,
+        )
+        try:
+            oid = data["data"]["createCommitOnBranch"]["commit"]["oid"]
+        except (KeyError, TypeError) as err:
+            raise RuntimeError(f"createCommitOnBranch returned unexpected payload: {data}") from err
+        return str(oid)
+
+    @staticmethod
+    def _is_expected_head_mismatch(exc: BaseException) -> bool:
+        text = str(exc).lower()
+        return "expectedheadoid" in text or "expected the head" in text
+
     def _api_commit_files_on_branch(
         self,
         *,
         branch_name: str,
         message: str,
-        file_paths: list[str],
+        file_paths: list[str] | None = None,
+        deletions: list[str] | None = None,
         force: bool = False,
     ) -> str:
-        """Create a verified commit on a branch via the GitHub Git Data API."""
-        if not file_paths:
-            raise ValueError("file_paths must not be empty for API commit")
+        """
+        Create a verified commit on a branch via GraphQL ``createCommitOnBranch``.
 
-        gh_repo = self._gh_repo()
+        GitHub auto-signs commits from this mutation. Prefer it for multi-file
+        signed updates in one request; the Git Database REST sequence can also
+        produce verified App commits when author/committer/signature are omitted,
+        but needs separate blob/tree/commit/ref calls (see #286).
+
+        Args:
+            branch_name: Target branch (created on the remote if missing).
+            message: Commit message (first line = headline, rest = body).
+            file_paths: Paths to add or update (read from the local worktree).
+            deletions: Paths to delete in the commit.
+            force: Kept for call-site compatibility; GraphQL commits always
+                require a matching ``expectedHeadOid`` (no force-push). Author
+                and committer are the token owner and cannot be overridden.
+        """
+        del force  # GraphQL path cannot force-update divergent refs.
+        addition_paths = list(file_paths or [])
+        deletion_paths = list(deletions or [])
+        if not addition_paths and not deletion_paths:
+            raise ValueError("file_paths/deletions must not be empty for API commit")
+
         repo_root = Path(self.repo.working_tree_dir or ".")
+        additions = self._build_file_additions(file_paths=addition_paths, repo_root=repo_root)
+        deletion_inputs = [{"path": self._normalize_repo_rel_path(path)} for path in deletion_paths]
 
-        parent_sha: str | None = None
-        base_tree = None
+        expected_head = self._ensure_remote_branch(branch_name=branch_name)
         try:
-            ref = gh_repo.get_git_ref(f"heads/{branch_name}")
-            parent_sha = ref.object.sha
-            base_tree = gh_repo.get_git_commit(parent_sha).tree
-        except GithubException:
-            parent_sha = self.repo.head.commit.hexsha
-            base_tree = gh_repo.get_git_commit(parent_sha).tree
-
-        elements = []
-        for rel_path in file_paths:
-            full_path = repo_root / rel_path
-            mode = "100755" if full_path.exists() and full_path.stat().st_mode & 0o111 else "100644"
-            content = full_path.read_bytes()
-            encoding = "utf-8" if mode == "100644" else "base64"
-            payload = (
-                content.decode("utf-8")
-                if encoding == "utf-8"
-                else base64.b64encode(content).decode("ascii")
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=branch_name,
+                message=message,
+                expected_head_oid=expected_head,
+                additions=additions,
+                deletions=deletion_inputs,
             )
-            blob = gh_repo.create_git_blob(payload, encoding)
-            elements.append(
-                InputGitTreeElement(
-                    path=rel_path.replace("\\", "/"),
-                    mode=mode,
-                    type="blob",
-                    sha=blob.sha,
-                )
+        except GithubException as err:
+            if not self._is_expected_head_mismatch(err):
+                raise
+            logger.warning(
+                "expectedHeadOid mismatch on %s; fetching and retrying once: %s",
+                branch_name,
+                err,
             )
-
-        tree = gh_repo.create_git_tree(elements, base_tree)
-        parents = [gh_repo.get_git_commit(parent_sha)] if parent_sha else []
-        commit = gh_repo.create_git_commit(message, tree, parents)
-
-        ref_name = f"heads/{branch_name}"
-        try:
-            ref = gh_repo.get_git_ref(ref_name)
-            ref.edit(sha=commit.sha, force=force)
-        except GithubException:
-            gh_repo.create_git_ref(f"refs/{ref_name}", commit.sha)
+            self.fetch()
+            expected_head = self._ensure_remote_branch(branch_name=branch_name)
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=branch_name,
+                message=message,
+                expected_head_oid=expected_head,
+                additions=additions,
+                deletions=deletion_inputs,
+            )
 
         self.fetch()
-        logger.info("Verified API commit %s on %s", commit.sha, branch_name)
-        return commit.sha
+        logger.info("Verified API commit %s on %s", commit_sha, branch_name)
+        return commit_sha
 
     def _api_merge(self, *, base: str, head: str, message: str) -> str:
-        """Merge ``head`` into ``base`` via the GitHub REST API (verified merge commit)."""
+        """
+        Merge ``head`` into ``base`` via the GitHub REST merges API.
+
+        Kept on REST (not GraphQL) because ``POST /repos/{owner}/{repo}/merges``
+        already produces a GitHub-signed, verified merge commit. There is no
+        GraphQL equivalent that preserves merge semantics.
+        """
         gh_repo = self._gh_repo()
         result = gh_repo.merge(base=base, head=head, commit_message=message)
         if result is None or not getattr(result, "sha", None):
@@ -345,8 +503,9 @@ class GitOps:
 
         Args:
             message (str): Commit message.
-            force (bool): When using signed commits, force-update the branch ref.
-
+            force (bool): Kept for compatibility with signed commits. GraphQL
+                ``createCommitOnBranch`` cannot force-update divergent refs;
+                concurrent updates retry once on ``expectedHeadOid`` mismatch.
         """
 
         logger.info(f"Committing changes with message: {message}")
@@ -354,34 +513,41 @@ class GitOps:
 
         if self.signed_commits:
             branch_name = self.repo.active_branch.name
-            file_paths = self._collect_staged_paths()
-            if not file_paths:
+            additions, deletions = self._collect_staged_file_changes()
+            if not additions and not deletions:
                 logger.warning("No staged files for signed commit")
                 return
-            self._api_commit_files_on_branch(
+            commit_sha = self._api_commit_files_on_branch(
                 branch_name=branch_name,
                 message=message,
-                file_paths=file_paths,
+                file_paths=additions,
+                deletions=deletions,
                 force=force,
             )
+            # GraphQL commits update the remote only; sync the runner worktree so
+            # later checkouts (e.g. auto-promote to staging) are not blocked by
+            # leftover dirty files such as .semver.lock.
+            self.repo.git.reset("--hard", commit_sha)
+            logger.info("Synced local worktree to signed commit %s", commit_sha)
             return
 
-        try:
-            # Explicitly set author and committer to ensure consistency (e.g., prevent "GitHub" as committer)
-            reader = self.repo.config_reader()
-            author = Actor(
-                name=str(reader.get_value("user", "name")),
-                email=str(reader.get_value("user", "email")),
-            )
-            reader.release()
+        self._local_commit(message)
+        logger.info("Committed changes.")
 
-            self.repo.index.commit(message=message, author=author, committer=author)
+    def _local_commit(self, message: str) -> Commit:
+        """
+        Create a local commit as the bot, bypassing repository hooks.
 
-            logger.info("Committed changes.")
-
-        except GitCommandError as err:
-            logger.error(f"Failed to commit changes: {err}")
-            raise
+        Two deliberate deviations from ``git commit``:
+        - ``GIT_AUTHOR_*``/``GIT_COMMITTER_*`` are ignored so bot attribution is
+          deterministic; ``user.*`` config is the override channel.
+        - Hooks are skipped (``git commit -n``). Lint/commit-msg policy belongs on
+          the PR, and the signed GraphQL path cannot run hooks, so skipping keeps
+          both paths symmetric.
+        """
+        return self.repo.index.commit(
+            message, author=self._identity, committer=self._identity, skip_hooks=True
+        )
 
     def push(self, *, branch_name: str, remote_name: str = "origin", force: bool = False) -> None:
         """
@@ -495,23 +661,27 @@ class GitOps:
         *,
         email: str = "256984269+auto-semver-bot[bot]@users.noreply.github.com",
         name: str = "auto-semver-bot[bot]",
-    ) -> None:
+    ) -> Actor:
         """
-        Ensure Git user identity is configured for commits.
+        Resolve and cache the bot Actor used for local commits.
 
-        This is required for merge operations that create commits.
-        If not already set, configures user.email and user.name locally.
+        Prefer an existing ``user.name`` / ``user.email`` from git config (CI
+        usually sets these from App token ``user-name`` / ``user-email``
+        outputs). Otherwise write the App bot defaults into repo config so
+        subprocess git operations (merge, etc.) also attribute correctly.
 
-        Prefer setting identity from the GitHub App token outputs in CI
-        (`user-name` / `user-email`). The defaults match this repo's App bot
-        noreply address so fallback commits attribute correctly on GitHub.
+        When the config write fails (read-only FS, permissions), still return
+        the in-memory defaults so ``_local_commit`` can proceed.
 
         Args:
-            email (str): Git user email (default: App bot users.noreply address).
-            name (str): Git user name (default: auto-semver-bot[bot]).
+            email: Git user email (default: App bot users.noreply address).
+            name: Git user name (default: auto-semver-bot[bot]).
+
+        Returns:
+            Actor to use as both author and committer for local commits.
         """
+        defaults = Actor(name=name, email=email)
         try:
-            # Check if identity is already configured
             with self.repo.config_reader() as config:
                 try:
                     existing_email = config.get_value("user", "email")
@@ -519,21 +689,26 @@ class GitOps:
                     logger.debug(
                         f"Git identity already configured: {existing_name} <{existing_email}>"
                     )
-                    return
+                    return Actor(name=str(existing_name), email=str(existing_email))
                 except Exception:
                     # Not configured, will set below
                     pass
 
-            # Configure identity locally
             logger.info(f"Configuring Git identity: {name} <{email}>")
             with self.repo.config_writer() as config:
                 config.set_value("user", "email", email)
                 config.set_value("user", "name", name)
 
             logger.debug("Git identity configured successfully")
+            return defaults
         except Exception as err:
-            logger.warning(f"Failed to configure Git identity: {err}")
-            # Don't raise - let the merge fail with clearer error if needed
+            logger.warning(
+                "Failed to configure Git identity: %s; using in-memory defaults %s <%s>",
+                err,
+                name,
+                email,
+            )
+            return defaults
 
     def pull(self, *, branch_name: str, remote_name: str = "origin") -> None:
         """
@@ -746,17 +921,79 @@ class GitOps:
         )
 
     def _api_squash_promote(self, *, base: str, head: str, message: str) -> str:
-        """Create a single verified commit on ``base`` with ``head``'s tree."""
+        """
+        Create a single verified commit on ``base`` whose tree matches ``head``.
+
+        Uses GraphQL ``createCommitOnBranch`` with the file diff from
+        ``base...head`` so the resulting commit is GitHub-signed.
+        """
         gh_repo = self._gh_repo()
         base_ref = gh_repo.get_git_ref(f"heads/{base}")
-        base_sha = base_ref.object.sha
+        base_sha = str(base_ref.object.sha)
         head_sha = self._resolve_ref_sha(head)
-        head_commit = gh_repo.get_git_commit(head_sha)
-        base_commit = gh_repo.get_git_commit(base_sha)
-        new_commit = gh_repo.create_git_commit(message, head_commit.tree, [base_commit])
-        base_ref.edit(sha=new_commit.sha)
-        logger.info("Verified squash promotion commit on %s (%s)", base, new_commit.sha)
-        return str(new_commit.sha)
+
+        comparison = gh_repo.compare(base_sha, head_sha)
+        additions: list[dict[str, str]] = []
+        deletions: list[dict[str, str]] = []
+
+        for file in comparison.files or []:
+            path = self._normalize_repo_rel_path(file.filename)
+            status = (file.status or "").lower()
+            if status == "removed":
+                deletions.append({"path": path})
+                continue
+            if status == "renamed" and file.previous_filename:
+                deletions.append({"path": self._normalize_repo_rel_path(file.previous_filename)})
+            content_file = gh_repo.get_contents(path, ref=head_sha)
+            if isinstance(content_file, list):
+                raise RuntimeError(f"Expected a file at {path}@{head_sha}, got a directory listing")
+            raw = bytes(content_file.decoded_content)
+            additions.append(
+                {
+                    "path": path,
+                    "contents": base64.b64encode(raw).decode("ascii"),
+                }
+            )
+
+        if not additions and not deletions:
+            logger.info(
+                "Squash promote %s -> %s has no file diff; leaving %s at %s",
+                head,
+                base,
+                base,
+                base_sha,
+            )
+            return base_sha
+
+        try:
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=base,
+                message=message,
+                expected_head_oid=base_sha,
+                additions=additions,
+                deletions=deletions,
+            )
+        except GithubException as err:
+            if not self._is_expected_head_mismatch(err):
+                raise
+            logger.warning(
+                "expectedHeadOid mismatch on squash promote to %s; retrying once: %s",
+                base,
+                err,
+            )
+            self.fetch()
+            base_ref = gh_repo.get_git_ref(f"heads/{base}")
+            base_sha = str(base_ref.object.sha)
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=base,
+                message=message,
+                expected_head_oid=base_sha,
+                additions=additions,
+                deletions=deletions,
+            )
+
+        logger.info("Verified squash promotion commit on %s (%s)", base, commit_sha)
+        return commit_sha
 
     def _integrate_source_for_promotion_api(
         self,
@@ -843,6 +1080,7 @@ class GitOps:
                 is_source_tag=is_source_tag,
                 post_merge_hook=post_merge_hook,
                 prefer_source_paths=prefer_source_paths,
+                remote_name=remote_name,
             )
 
         try:
@@ -886,7 +1124,7 @@ class GitOps:
                         )
                         for path in dirty_paths:
                             self.repo.git.add("--", path)
-                        self.repo.index.commit(f"chore: update version metadata for {version}")
+                        self._local_commit(f"chore: update version metadata for {version}")
                 except Exception as e:
                     logger.error(f"Post-merge hook failed: {e}")
                     raise RuntimeError(f"Post-merge hook failed: {e}") from e
@@ -916,6 +1154,121 @@ class GitOps:
             logger.error(f"Unexpected error during auto-promotion: {err}")
             raise RuntimeError(f"Auto-promotion failed unexpectedly: {err}") from err
 
+    def _diff_paths_between(
+        self, *, base_sha: str, head_ref: str = "HEAD"
+    ) -> tuple[list[str], list[str]]:
+        """Return (additions/modifications, deletions) between two commits."""
+        added = self.repo.git.diff(base_sha, head_ref, "--name-only", "--diff-filter=ACMR")
+        deleted = self.repo.git.diff(base_sha, head_ref, "--name-only", "--diff-filter=D")
+        additions = [line.strip() for line in added.splitlines() if line.strip()]
+        deletions = [line.strip() for line in deleted.splitlines() if line.strip()]
+        return additions, deletions
+
+    def _remote_has_commit(self, sha: str) -> bool:
+        """Return True when ``sha`` is already present on the GitHub remote."""
+        try:
+            self._gh_repo().get_git_commit(sha)
+        except GithubException:
+            return False
+        return True
+
+    def _publish_local_tip_once(
+        self,
+        *,
+        branch_name: str,
+        base_sha: str,
+        message: str,
+    ) -> str:
+        """
+        Move ``branch_name`` to the local tip with a single remote ref update.
+
+        Fast-forwards the branch when HEAD already exists on the remote and
+        matches ``base_sha``'s descendant with no unpublished local-only history
+        that needs signing. Otherwise publishes the final worktree as one
+        verified ``createCommitOnBranch`` commit so promote + metadata never
+        produce two push events on the integration branch.
+        """
+        local_tip = self.repo.head.commit.hexsha
+        if local_tip == base_sha:
+            logger.info("No promotion changes on %s; leaving branch at %s", branch_name, base_sha)
+            return base_sha
+
+        additions, deletions = self._diff_paths_between(base_sha=base_sha, head_ref=local_tip)
+        if not additions and not deletions:
+            if self._remote_has_commit(local_tip):
+                ref = self._gh_repo().get_git_ref(f"heads/{branch_name}")
+                ref.edit(sha=local_tip)
+                self.fetch()
+                logger.info(
+                    "Fast-forwarded %s to existing commit %s (single ref update)",
+                    branch_name,
+                    local_tip,
+                )
+                return local_tip
+            logger.info(
+                "Empty tree diff for %s but tip %s is local-only; leaving at %s",
+                branch_name,
+                local_tip,
+                base_sha,
+            )
+            return base_sha
+
+        # Prefer a true fast-forward when the tip is already on the remote and
+        # there are no local-only commits beyond that tip (e.g. tag promote ff).
+        if self._remote_has_commit(local_tip):
+            try:
+                self.repo.git.merge_base("--is-ancestor", base_sha, local_tip)
+                ref = self._gh_repo().get_git_ref(f"heads/{branch_name}")
+                ref.edit(sha=local_tip)
+                self.fetch()
+                logger.info(
+                    "Fast-forwarded %s to %s (single ref update)",
+                    branch_name,
+                    local_tip,
+                )
+                return local_tip
+            except GitCommandError:
+                pass
+
+        try:
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=branch_name,
+                message=message,
+                expected_head_oid=base_sha,
+                additions=self._build_file_additions(
+                    file_paths=additions,
+                    repo_root=Path(self.repo.working_tree_dir or "."),
+                ),
+                deletions=[{"path": self._normalize_repo_rel_path(path)} for path in deletions],
+            )
+        except GithubException as err:
+            if not self._is_expected_head_mismatch(err):
+                raise
+            logger.warning(
+                "expectedHeadOid mismatch publishing tip on %s; retrying once: %s",
+                branch_name,
+                err,
+            )
+            self.fetch()
+            expected_head = self._ensure_remote_branch(branch_name=branch_name)
+            commit_sha = self._graphql_create_commit_on_branch(
+                branch_name=branch_name,
+                message=message,
+                expected_head_oid=expected_head,
+                additions=self._build_file_additions(
+                    file_paths=additions,
+                    repo_root=Path(self.repo.working_tree_dir or "."),
+                ),
+                deletions=[{"path": self._normalize_repo_rel_path(path)} for path in deletions],
+            )
+        self.fetch()
+        logger.info(
+            "Published verified promotion tip %s on %s (single ref update)",
+            commit_sha,
+            branch_name,
+        )
+        return commit_sha
+
     def _auto_promote_api(
         self,
         *,
@@ -927,41 +1280,68 @@ class GitOps:
         is_source_tag: bool,
         post_merge_hook: Callable[[str, str], None] | None,
         prefer_source_paths: Collection[str] | None = None,
+        remote_name: str = "origin",
     ) -> str:
-        """Promote via verified GitHub merge/tag APIs."""
-        del prefer_source_paths  # API path uses ff merge or squash; conflicts handled upstream
-        merge_sha = self._integrate_source_for_promotion_api(
-            target_branch=target_branch,
+        """
+        Promote via local integrate + one verified remote tip update.
+
+        Builds promote (and optional metadata) commits locally, then moves the
+        target branch once so concurrent workflows (e.g. Secret Scan) are not
+        canceled by a second push from the same job.
+        """
+        self.fetch(remote_name=remote_name)
+        # Signed finalize may leave the worktree dirty if a prior sync was
+        # skipped; discard local dirt so checkout of the promote target works.
+        if self.repo.is_dirty(index=True, working_tree=True, untracked_files=False):
+            logger.warning(
+                "Dirty worktree before promote checkout; resetting to HEAD "
+                "(remote already has signed changes)"
+            )
+            self.repo.git.reset("--hard", "HEAD")
+        if target_branch in self.repo.heads:
+            self.checkout(branch_name=target_branch)
+        else:
+            self.checkout(
+                branch_name=target_branch,
+                create_from=f"{remote_name}/{target_branch}",
+            )
+        self.pull(branch_name=target_branch, remote_name=remote_name)
+        base_sha = self.repo.head.commit.hexsha
+
+        self._integrate_source_for_promotion(
             source_ref=source_branch,
             message=merge_message,
-            is_source_tag=is_source_tag,
+            remote_name=remote_name,
+            is_tag=is_source_tag,
+            prefer_source_paths=prefer_source_paths,
         )
 
         if post_merge_hook:
             logger.info("Executing post-merge hook")
             src_v = source_version if source_version else source_branch
             try:
-                self.fetch()
-                self.checkout(branch_name=target_branch)
-                self.repo.git.reset("--hard", merge_sha)
                 post_merge_hook(src_v, version)
                 dirty_paths = self._collect_dirty_tracked_paths()
                 if dirty_paths:
-                    logger.info("Changes detected after post-merge hook; creating verified commit")
-                    self._api_commit_files_on_branch(
-                        branch_name=target_branch,
-                        message=f"chore: update version metadata for {version}",
-                        file_paths=dirty_paths,
-                        force=False,
+                    logger.info(
+                        "Changes detected after post-merge hook; committing metadata locally: %s",
+                        ", ".join(dirty_paths),
                     )
-                    branch_ref = self._gh_repo().get_git_ref(f"heads/{target_branch}")
-                    merge_sha = branch_ref.object.sha
+                    for path in dirty_paths:
+                        self.repo.git.add("--", path)
+                    # Local-only; folded into the single verified tip published below.
+                    self._local_commit(f"chore: update version metadata for {version}")
             except Exception as exc:
                 logger.error(f"Post-merge hook failed: {exc}")
                 raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
 
-        self._api_create_lightweight_tag(tag=version, sha=merge_sha)
-        self.fetch()
+        tip_sha = self._publish_local_tip_once(
+            branch_name=target_branch,
+            base_sha=base_sha,
+            message=merge_message,
+        )
+        self._api_create_lightweight_tag(tag=version, sha=tip_sha)
+        self.fetch(remote_name=remote_name)
         logger.info(
             "✅ Verified auto-promotion complete: %s → %s (tagged: %s)",
             source_branch,

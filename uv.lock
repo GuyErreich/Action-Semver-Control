@@ -17,7 +17,7 @@ wheels = [
 
 [[package]]
 name = "auto-semver"
-version = "1.6.7.dev0"
+version = "1.6.9.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "gitpython" },

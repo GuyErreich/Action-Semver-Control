@@ -66,6 +66,7 @@ jobs:
         dry_run: true
         github-token: ${{ steps.app-token.outputs.token }}
         debug: true
+        signed-commits: true
 
     - name: Execute Promotion
       if: ${{ !inputs.dry_run }}
@@ -76,6 +77,7 @@ jobs:
         from_tag: ${{ inputs.from_tag }}
         github-token: ${{ steps.app-token.outputs.token }}
         debug: true
+        signed-commits: true
 
     - name: Summary
       if: always()
