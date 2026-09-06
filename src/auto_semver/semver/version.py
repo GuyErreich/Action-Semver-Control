@@ -62,11 +62,13 @@ UNQUOTED_VERSION_PART = r"""
 )
 """
 
-# --- Trailer (comment or semicolon) ---
+# --- Trailer (comma, semicolon, or comment) ---
+# JSON mid-object lines keep a trailing comma after the version value.
 TRAILER_PART = r"""
 (?P<trailer>
-    ;(?:[ \t]*(?:\#|//).*)?                 # semicolon + optional comment
-  | [ \t]*(?:\#|//).*              # comment-only (max 3 indent)
+    ,                                   # JSON trailing comma
+  | ;(?:[ \t]*(?:\#|//).*)?             # semicolon + optional comment
+  | [ \t]*(?:\#|//).*                   # comment-only
 )?
 """
 
@@ -165,14 +167,24 @@ class Version:
 
         logger.debug(f"Parsing version line: {version_line}")
 
-        match = _VERSION_PATTERN.match(version_line.strip())
+        # Match on a stripped body so bare versions like ``  1.2.3  `` still
+        # parse, but remember leading indentation for JSON/YAML round-trips.
+        raw = version_line.rstrip("\r\n")
+        indent_len = len(raw) - len(raw.lstrip(" \t"))
+        indent = raw[:indent_len]
+        body = raw[indent_len:].rstrip()
+
+        match = _VERSION_PATTERN.match(body)
         if not match:
             raise ValueError("Invalid version format")
 
         groups = match.groupdict()
+        title = groups["title"] if "title" in groups else None
+        if indent:
+            title = f"{indent}{title or ''}"
 
         version = Version(
-            title=groups["title"] if "title" in groups else None,
+            title=title,
             prefix=groups["prefix"] or groups["prefix2"] or None,
             major=int(groups["major"] or groups["major2"]),
             minor=int(groups["minor"] or groups["minor2"]),

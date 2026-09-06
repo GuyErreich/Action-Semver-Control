@@ -259,6 +259,29 @@ class TestVersionParsePatterns:
                 {"major": 1, "minor": 2, "patch": 3, "title": '"version": ', "quote": '"'},
             ),
             (
+                '"version": "1.2.3",',
+                {
+                    "major": 1,
+                    "minor": 2,
+                    "patch": 3,
+                    "title": '"version": ',
+                    "quote": '"',
+                    "trailer": ",",
+                },
+            ),
+            (
+                '  "version": "1.0.2-dev",',
+                {
+                    "major": 1,
+                    "minor": 0,
+                    "patch": 2,
+                    "title": '  "version": ',
+                    "suffix": "-dev",
+                    "quote": '"',
+                    "trailer": ",",
+                },
+            ),
+            (
                 'version= "1.2.3";',
                 {
                     "major": 1,
