@@ -27,6 +27,7 @@ class TestSignedGitOps:
         mock.active_branch.name = "release/1.0.0-dev"
         mock.working_tree_dir = "/github/workspace"
         mock.head.commit.hexsha = "localhead"
+        mock.is_dirty.return_value = False
         mock_remote = mocker.MagicMock()
         mock_remote.url = "git@github.com:owner/repo.git"
         mock.remote.return_value = mock_remote
@@ -98,6 +99,7 @@ class TestSignedGitOps:
         assert additions[0]["contents"] == base64.b64encode(file_content.encode()).decode("ascii")
         assert variables["input"]["fileChanges"]["deletions"] == []
         mock_gh_repo.create_git_commit.assert_not_called()
+        mock_repo.git.reset.assert_called_once_with("--hard", "commitsha")
 
     @pytest.mark.unit
     def test_api_commit_includes_staged_deletions(
@@ -138,6 +140,7 @@ class TestSignedGitOps:
         _, variables = mock_requester.graphql_query.call_args.args
         assert variables["input"]["fileChanges"]["deletions"] == [{"path": "obsolete.txt"}]
         assert variables["input"]["fileChanges"]["additions"][0]["path"] == "version.txt"
+        mock_repo.git.reset.assert_called_once_with("--hard", "newsha")
 
     @pytest.mark.unit
     def test_api_commit_retries_on_expected_head_mismatch(
@@ -183,6 +186,7 @@ class TestSignedGitOps:
         second_vars = mock_requester.graphql_query.call_args_list[1].args[1]
         assert second_vars["input"]["expectedHeadOid"] == "newtip"
         assert mock_fetch.call_count >= 1
+        mock_repo.git.reset.assert_called_once_with("--hard", "retriedsha")
 
     @pytest.mark.unit
     def test_api_commit_rejects_executable_files(
@@ -264,6 +268,47 @@ class TestSignedGitOps:
         )
         mock_tag.assert_called_once_with(tag="1.0.0-rc", sha="tip-sha")
         mock_merge_api.assert_not_called()
+
+    @pytest.mark.unit
+    def test_api_promote_resets_dirty_worktree_before_checkout(
+        self, mocker: MockerFixture, mock_repo: Any
+    ) -> None:
+        """Dirty .semver.lock must not block checkout of the promote target."""
+        mock_repo.head.commit.hexsha = "base-sha"
+        mock_repo.heads = mocker.MagicMock()
+        mock_repo.heads.__contains__.return_value = True
+        mock_repo.is_dirty.return_value = True
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "fetch")
+        mock_checkout = mocker.patch.object(gitops, "checkout")
+        mocker.patch.object(gitops, "pull")
+        mocker.patch.object(gitops, "_integrate_source_for_promotion")
+        mocker.patch.object(
+            gitops,
+            "_publish_local_tip_once",
+            return_value="tip-sha",
+        )
+        mocker.patch.object(
+            gitops,
+            "_api_create_lightweight_tag",
+            return_value="1.0.0-rc",
+        )
+
+        result = gitops._auto_promote_api(
+            source_branch="1.0.0-dev",
+            target_branch="staging",
+            version="1.0.0-rc",
+            source_version="1.0.0-dev",
+            merge_message="chore: promote",
+            is_source_tag=True,
+            post_merge_hook=None,
+        )
+
+        assert result == "1.0.0-rc"
+        mock_repo.is_dirty.assert_called()
+        mock_repo.git.reset.assert_any_call("--hard", "HEAD")
+        mock_checkout.assert_called_once_with(branch_name="staging")
 
     @pytest.mark.unit
     def test_api_promote_post_merge_creates_local_target_branch(
