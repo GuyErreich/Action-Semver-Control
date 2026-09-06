@@ -110,9 +110,7 @@ changelog:
         target_base_sha="stagingbase",
         finalized=True,
     )
-    seed_repo.index.add(
-        ["version.txt", "auto_semver_config.yml", ".semver.lock", "CHANGELOG.md"]
-    )
+    seed_repo.index.add(["version.txt", "auto_semver_config.yml", ".semver.lock", "CHANGELOG.md"])
     seed_repo.index.commit("chore: seed staging")
     seed_repo.create_head("staging")
     seed_repo.git.push("origin", "staging")
@@ -139,7 +137,7 @@ changelog:
     clone_repo.config_writer().set_value("user", "name", "auto-semver-bot").release()
     clone_repo.config_writer().set_value("user", "email", "bot@users.noreply.github.com").release()
     # GitOps requires a GitHub remote URL; map it back to the local bare repo.
-    clone_repo.delete_remote("origin")
+    clone_repo.delete_remote(clone_repo.remotes.origin)
     clone_repo.create_remote("origin", "https://github.com/owner/repo.git")
     clone_repo.git.config(f"url.{bare}.insteadOf", "https://github.com/owner/repo.git")
     clone_repo.git.fetch("--all", "--tags")
