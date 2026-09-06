@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 import yaml
 from git import Repo
+from git.exc import HookExecutionError
 from pytest_mock import MockerFixture
 
 from auto_semver.cli import finalize
@@ -149,6 +150,19 @@ changelog:
     return bare, clone, clone_repo.head.commit.hexsha
 
 
+def _install_failing_hooks(repo_path: Path) -> Path:
+    """Install ``core.hooksPath`` with a ``pre-commit`` that always fails."""
+    hooks_dir = repo_path / ".githooks-fail"
+    hooks_dir.mkdir(exist_ok=True)
+    pre_commit = hooks_dir / "pre-commit"
+    pre_commit.write_text(
+        "#!/bin/sh\necho 'hook deliberately fails' >&2\nexit 1\n", encoding="utf-8"
+    )
+    pre_commit.chmod(0o755)
+    Repo(repo_path).git.config("core.hooksPath", str(hooks_dir))
+    return hooks_dir
+
+
 @pytest.mark.integration
 def test_signed_commit_resets_worktree_after_graphql(tmp_path: Path, mocker: MockerFixture) -> None:
     """Signed commit must leave a clean worktree matching the published tip."""
@@ -179,6 +193,32 @@ def test_signed_commit_resets_worktree_after_graphql(tmp_path: Path, mocker: Moc
 
     assert not Repo(clone).is_dirty(index=True, working_tree=True, untracked_files=False)
     assert Repo(clone).head.commit.hexsha == published_sha
+
+
+@pytest.mark.integration
+def test_local_commit_skips_failing_pre_commit_hooks(tmp_path: Path) -> None:
+    """Unsigned local commits must ignore consumer pre-commit hooks (``git commit -n``)."""
+    _, clone, _ = _init_gha_style_repos(tmp_path)
+    os.chdir(clone)
+    _install_failing_hooks(Path(clone))
+
+    # Prove the hook is installed and would block a normal GitPython commit.
+    version_path = Path(clone) / "version.txt"
+    version_path.write_text("hook-probe\n", encoding="utf-8")
+    probe_repo = Repo(clone)
+    probe_repo.index.add(["version.txt"])
+    with pytest.raises(HookExecutionError):
+        probe_repo.index.commit("should fail under pre-commit")
+
+    version_path.write_text("1.0.0-dev-hooked\n", encoding="utf-8")
+    gitops = GitOps(repo_path=str(clone))
+    gitops.add(files=["version.txt"])
+    gitops.commit(message="chore: bump despite failing hooks")
+
+    head = Repo(clone).head.commit
+    assert "chore: bump despite failing hooks" in head.message
+    assert head.author.name == gitops._identity.name
+    assert head.author.email == gitops._identity.email
 
 
 @pytest.mark.integration
@@ -254,6 +294,8 @@ def test_gha_finalize_then_promote_with_signed_commits(
     """
     bare, clone, merge_sha = _init_gha_style_repos(tmp_path)
     os.chdir(clone)
+    # Consumer hooks must not abort finalize/promote (GraphQL + skip_hooks local path).
+    _install_failing_hooks(Path(clone))
 
     event_path = tmp_path / "event.json"
     event_path.write_text(
@@ -302,7 +344,8 @@ def test_gha_finalize_then_promote_with_signed_commits(
         repo = Repo(clone)
         if file_paths:
             repo.index.add(file_paths)
-        commit = repo.index.commit(message)
+        # GraphQL path never runs hooks; mirror that in the local stand-in.
+        commit = repo.index.commit(message, skip_hooks=True)
         # Push object + ref to bare the way createCommitOnBranch updates GitHub.
         repo.git.push("origin", f"{commit.hexsha}:refs/heads/{branch_name}", force=True)
         return commit.hexsha
@@ -344,7 +387,7 @@ def test_gha_finalize_then_promote_with_signed_commits(
     lock.version = Version.parse("1.0.0-dev")
     lock.save_to_file()
     Repo(clone).index.add([".semver.lock"])
-    Repo(clone).index.commit("chore: sync lock for finalize test")
+    Repo(clone).index.commit("chore: sync lock for finalize test", skip_hooks=True)
 
     finalize.run(gitops=gitops, event=event, config=config, github_token="token")
 

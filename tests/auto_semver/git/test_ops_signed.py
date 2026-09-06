@@ -408,7 +408,12 @@ class TestSignedGitOps:
 
         assert result == "1.0.0-rc"
         assert mock_repo.git.add.call_count == 2
-        mock_index.commit.assert_called_once_with("chore: update version metadata for 1.0.0-rc")
+        mock_index.commit.assert_called_once_with(
+            "chore: update version metadata for 1.0.0-rc",
+            author=gitops._identity,
+            committer=gitops._identity,
+            skip_hooks=True,
+        )
         mock_publish.assert_called_once_with(
             branch_name="staging",
             base_sha="base-sha",
