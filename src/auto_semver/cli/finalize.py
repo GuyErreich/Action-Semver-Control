@@ -6,7 +6,8 @@ Handles the finalization step of the auto-semver workflow.
 
 This script is responsible for verifying that the merged PR is
 an auto-generated release PR and, if so, creating and pushing a Git tag.
-After tagging, it checks for auto-promotion rules and creates promotion PRs automatically.
+After tagging, it checks for auto-promotion rules and promotes directly
+(App bypass + verified tip update + destination tag), not via a promotion PR.
 """
 
 import logging
@@ -106,7 +107,11 @@ def create_auto_promotion_prs(
     github_token: str | None = None,
 ) -> None:
     """
-    Create auto-promotion PRs based on configuration rules.
+    Auto-promote to configured target branches after tagging.
+
+    Despite the historical name, this does **not** open promotion PRs. It calls
+    ``gitops.auto_promote`` so the App token can update each target branch and
+    create the destination tag in one shot.
 
     Args:
         gitops (GitOps): Git operations handler.
@@ -114,7 +119,7 @@ def create_auto_promotion_prs(
         config (Config): Loaded configuration object.
         target_branch (str): The branch that was just tagged.
         version (str): The version that was just tagged.
-        github_token (str, optional): GitHub token for creating promotion PRs.
+        github_token (str, optional): Reserved for release-branch cleanup callers.
     """
     logger.info(f"Successfully tagged {target_branch} with {version}")
 
@@ -171,13 +176,13 @@ def run(
     """
     Finalize the release process by tagging the merged version.
 
-    After tagging, check for auto-promotion rules and create promotion PRs if configured.
+    After tagging, check for auto-promotion rules and promote directly when configured.
 
     Args:
         gitops (GitOps): Git operations handler.
         event (GitHubEvent): GitHub event wrapper for PR metadata.
         config (Config): Loaded configuration object.
-        github_token (str, optional): GitHub token for creating promotion PRs.
+        github_token (str, optional): GitHub token for App-backed git ops / cleanup.
 
     """
     target_branch, version = create_and_push_tag(gitops=gitops, event=event, config=config)

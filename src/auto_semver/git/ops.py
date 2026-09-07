@@ -37,6 +37,7 @@ from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 from github import Github
 from github.GithubException import GithubException
+from github.InputGitTreeElement import InputGitTreeElement
 
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.semver import SemverLock, Version
@@ -55,10 +56,16 @@ logger = logging.getLogger(__package__)
 LEGACY_RELEASE_PREFIX = "release/"
 DEFAULT_RELEASE_PREFIX = "auto-semver/release/"
 
+# Git tree modes that GraphQL createCommitOnBranch cannot express (FileAddition
+# always lands as 100644). REST Git Data is required for these.
+_REST_TREE_MODES = frozenset({"100755", "120000"})
+_KNOWN_GIT_FILE_MODES = frozenset({"100644", "100755", "120000", "040000", "160000"})
+_RAW_DIFF_MIN_MODE_FIELDS = 2
+
 # GraphQL mutation that GitHub auto-signs (verified) in one request for multiple
-# file changes. Prefer this over the Git Database REST blob/tree/commit/ref
-# sequence for signed mode; see #286 for REST fallback for symlink/executable
-# mode limits of createCommitOnBranch.
+# file changes. Default for ordinary 100644 metadata. When the tree needs
+# 100755/120000 or a dest↔source mode change, use the REST Git Data fallback
+# (#286) which must still produce verification.verified=true.
 _CREATE_COMMIT_ON_BRANCH_MUTATION = """
 mutation($input: CreateCommitOnBranchInput!) {
   createCommitOnBranch(input: $input) {
@@ -203,25 +210,110 @@ class GitOps:
         body_text = body.strip() if sep and body.strip() else None
         return headline, body_text
 
-    def _reject_unsupported_file_modes(self, *, file_paths: list[str], repo_root: Path) -> None:
-        """
-        Raise if any path is a symlink or executable.
+    def _worktree_git_mode(self, *, rel_path: str, repo_root: Path) -> str | None:
+        """Return git mode for a worktree path, or None if missing."""
+        full_path = repo_root / rel_path
+        if not full_path.exists() and not full_path.is_symlink():
+            return None
+        if full_path.is_symlink():
+            return "120000"
+        if full_path.is_file() and full_path.stat().st_mode & 0o111:
+            return "100755"
+        if full_path.is_file():
+            return "100644"
+        return None
 
-        ``createCommitOnBranch`` only supports regular non-executable files.
-        """
-        for rel_path in file_paths:
-            full_path = repo_root / rel_path
-            if not full_path.exists():
+    def _ls_tree_mode(self, *, ref: str, rel_path: str) -> str | None:
+        """Return ``git ls-tree`` mode for ``rel_path`` at ``ref``, or None."""
+        norm = self._normalize_repo_rel_path(rel_path)
+        try:
+            output = self.repo.git.ls_tree(ref, "--", norm)
+        except GitCommandError:
+            return None
+        if not isinstance(output, str) or not output.strip():
+            return None
+        line = output.strip().splitlines()[0]
+        # Format: <mode> <type> <sha>\t<path>
+        mode = line.split(maxsplit=1)[0]
+        if mode not in _KNOWN_GIT_FILE_MODES:
+            return None
+        return mode
+
+    def _raw_diff_has_special_modes(self, *, base_sha: str, head_ref: str = "HEAD") -> bool:
+        """True when ``git diff --raw`` shows 100755/120000 or a mode change."""
+        try:
+            raw = self.repo.git.diff(base_sha, head_ref, "--raw")
+        except GitCommandError:
+            return False
+        if not isinstance(raw, str):
+            return False
+        for line in raw.splitlines():
+            if not line.startswith(":"):
                 continue
-            if full_path.is_symlink():
-                raise ValueError(
-                    f"Signed commits cannot include symlinks via createCommitOnBranch: {rel_path}"
-                )
-            if full_path.is_file() and full_path.stat().st_mode & 0o111:
-                raise ValueError(
-                    f"Signed commits cannot include executable files via createCommitOnBranch: "
-                    f"{rel_path}"
-                )
+            # :oldmode newmode oldsha newsha status\tpath
+            meta, _, _path = line.partition("\t")
+            parts = meta.split()
+            if len(parts) < _RAW_DIFF_MIN_MODE_FIELDS:
+                continue
+            old_mode = parts[0][1:]  # strip leading ':'
+            new_mode = parts[1]
+            if old_mode not in _KNOWN_GIT_FILE_MODES or new_mode not in _KNOWN_GIT_FILE_MODES:
+                continue
+            if old_mode in _REST_TREE_MODES or new_mode in _REST_TREE_MODES:
+                return True
+            if old_mode != new_mode:
+                return True
+        return False
+
+    def _worktree_paths_require_rest(self, *, file_paths: list[str], repo_root: Path) -> bool:
+        """True when any path is a symlink or executable in the worktree."""
+        for rel_path in file_paths:
+            mode = self._worktree_git_mode(rel_path=rel_path, repo_root=repo_root)
+            if mode in _REST_TREE_MODES:
+                return True
+        return False
+
+    def _paths_mode_conflict_with_base(
+        self, *, base_sha: str, file_paths: list[str], repo_root: Path
+    ) -> bool:
+        """True when worktree mode differs from ``base_sha`` for any path."""
+        for rel_path in file_paths:
+            desired = self._worktree_git_mode(rel_path=rel_path, repo_root=repo_root)
+            if desired is None:
+                continue
+            base_mode = self._ls_tree_mode(ref=base_sha, rel_path=rel_path)
+            if base_mode is not None and base_mode != desired:
+                return True
+            if desired in _REST_TREE_MODES:
+                return True
+        return False
+
+    def _tree_diff_requires_rest(self, *, base_sha: str, head_ref: str = "HEAD") -> bool:
+        """True when publishing ``head_ref`` over ``base_sha`` needs REST modes."""
+        if self._raw_diff_has_special_modes(base_sha=base_sha, head_ref=head_ref):
+            return True
+        additions, _deletions = self._diff_paths_between(base_sha=base_sha, head_ref=head_ref)
+        repo_root = Path(self.repo.working_tree_dir or ".")
+        return self._worktree_paths_require_rest(file_paths=additions, repo_root=repo_root)
+
+    def _require_commit_verified(self, sha: str) -> None:
+        """
+        Abort unless GitHub reports ``verification.verified`` for ``sha``.
+
+        Required for the REST Git Data fallback under ``signed-commits: true``.
+        """
+        git_commit = self._gh_repo().get_git_commit(sha)
+        verification = git_commit.verification
+        verified = bool(getattr(verification, "verified", False))
+        reason = getattr(verification, "reason", "unknown")
+        if not verified:
+            raise RuntimeError(
+                f"Signed REST commit {sha} is not GitHub-verified "
+                f"(reason={reason}). Refusing to update the branch. "
+                "Omit author/committer/signature on create_git_commit and use "
+                "an App installation token."
+            )
+        logger.info("REST commit %s verified (reason=%s)", sha, reason)
 
     def _ensure_remote_branch(self, *, branch_name: str) -> str:
         """
@@ -243,8 +335,7 @@ class GitOps:
     def _build_file_additions(
         self, *, file_paths: list[str], repo_root: Path
     ) -> list[dict[str, str]]:
-        """Build GraphQL ``FileAddition`` payloads (base64 contents)."""
-        self._reject_unsupported_file_modes(file_paths=file_paths, repo_root=repo_root)
+        """Build GraphQL ``FileAddition`` payloads (base64 contents, always 100644)."""
         additions: list[dict[str, str]] = []
         for rel_path in file_paths:
             full_path = repo_root / rel_path
@@ -256,6 +347,94 @@ class GitOps:
                 }
             )
         return additions
+
+    def _rest_blob_for_path(self, *, rel_path: str, repo_root: Path) -> tuple[str, str]:
+        """Return ``(mode, blob_sha)`` for a worktree path via Git Data ``create_git_blob``."""
+        gh_repo = self._gh_repo()
+        full_path = repo_root / rel_path
+        mode = self._worktree_git_mode(rel_path=rel_path, repo_root=repo_root)
+        if mode is None:
+            raise ValueError(f"Cannot create REST blob for missing path: {rel_path}")
+
+        if mode == "120000":
+            target = str(full_path.readlink())
+            blob = gh_repo.create_git_blob(target, "utf-8")
+            return mode, str(blob.sha)
+
+        raw = full_path.read_bytes()
+        if mode == "100755":
+            payload = base64.b64encode(raw).decode("ascii")
+            blob = gh_repo.create_git_blob(payload, "base64")
+            return mode, str(blob.sha)
+
+        try:
+            text = raw.decode("utf-8")
+            blob = gh_repo.create_git_blob(text, "utf-8")
+        except UnicodeDecodeError:
+            payload = base64.b64encode(raw).decode("ascii")
+            blob = gh_repo.create_git_blob(payload, "base64")
+        return mode, str(blob.sha)
+
+    def _rest_create_commit_on_branch(
+        self,
+        *,
+        branch_name: str,
+        message: str,
+        expected_head_oid: str,
+        file_paths: list[str],
+        deletions: list[str],
+    ) -> str:
+        """
+        Create a verified commit via Git Database REST (blob → tree → commit → ref).
+
+        Used when GraphQL ``createCommitOnBranch`` cannot represent the tree
+        (executables, symlinks, or mode changes). Omits author/committer/signature
+        so GitHub App-signs the commit; refuses to move the ref unless
+        ``verification.verified`` is true.
+        """
+        if not file_paths and not deletions:
+            raise ValueError("file_paths/deletions must not be empty for REST commit")
+
+        gh_repo = self._gh_repo()
+        repo_root = Path(self.repo.working_tree_dir or ".")
+        parent = gh_repo.get_git_commit(expected_head_oid)
+        elements: list[InputGitTreeElement] = []
+
+        for rel_path in file_paths:
+            norm = self._normalize_repo_rel_path(rel_path)
+            mode, blob_sha = self._rest_blob_for_path(rel_path=rel_path, repo_root=repo_root)
+            elements.append(InputGitTreeElement(path=norm, mode=mode, type="blob", sha=blob_sha))
+
+        for rel_path in deletions:
+            norm = self._normalize_repo_rel_path(rel_path)
+            elements.append(InputGitTreeElement(path=norm, mode="100644", type="blob", sha=None))
+
+        tree = gh_repo.create_git_tree(elements, parent.tree)
+        # Do not pass author/committer/signature — required for App auto-signing.
+        commit = gh_repo.create_git_commit(message, tree, [parent])
+        commit_sha = str(commit.sha)
+        self._require_commit_verified(commit_sha)
+
+        ref = gh_repo.get_git_ref(f"heads/{branch_name}")
+        current = str(ref.object.sha)
+        if current != expected_head_oid:
+            raise GithubException(
+                409,
+                {
+                    "message": (
+                        f"expectedHeadOid mismatch on {branch_name}: "
+                        f"expected {expected_head_oid}, remote is {current}"
+                    )
+                },
+                None,
+            )
+        ref.edit(sha=commit_sha, force=False)
+        logger.info(
+            "Verified REST commit %s on %s (modes via Git Data API)",
+            commit_sha,
+            branch_name,
+        )
+        return commit_sha
 
     def _graphql_create_commit_on_branch(
         self,
@@ -312,41 +491,65 @@ class GitOps:
         force: bool = False,
     ) -> str:
         """
-        Create a verified commit on a branch via GraphQL ``createCommitOnBranch``.
+        Create a verified commit on a branch (GraphQL or REST Git Data).
 
-        GitHub auto-signs commits from this mutation. Prefer it for multi-file
-        signed updates in one request; the Git Database REST sequence can also
-        produce verified App commits when author/committer/signature are omitted,
-        but needs separate blob/tree/commit/ref calls (see #286).
+        Default: GraphQL ``createCommitOnBranch`` for ordinary ``100644`` files.
+        Falls back to REST when the change includes executables, symlinks, or a
+        mode change GraphQL cannot apply. Both paths must be GitHub-verified;
+        REST refuses to update the ref if ``verification.verified`` is false.
 
         Args:
             branch_name: Target branch (created on the remote if missing).
             message: Commit message (first line = headline, rest = body).
             file_paths: Paths to add or update (read from the local worktree).
             deletions: Paths to delete in the commit.
-            force: Kept for call-site compatibility; GraphQL commits always
-                require a matching ``expectedHeadOid`` (no force-push). Author
-                and committer are the token owner and cannot be overridden.
+            force: Kept for call-site compatibility; both paths require a
+                matching expected head (no force-push of divergent history).
         """
-        del force  # GraphQL path cannot force-update divergent refs.
+        del force  # Signed API paths cannot force-update divergent refs.
         addition_paths = list(file_paths or [])
         deletion_paths = list(deletions or [])
         if not addition_paths and not deletion_paths:
             raise ValueError("file_paths/deletions must not be empty for API commit")
 
         repo_root = Path(self.repo.working_tree_dir or ".")
-        additions = self._build_file_additions(file_paths=addition_paths, repo_root=repo_root)
-        deletion_inputs = [{"path": self._normalize_repo_rel_path(path)} for path in deletion_paths]
-
         expected_head = self._ensure_remote_branch(branch_name=branch_name)
-        try:
-            commit_sha = self._graphql_create_commit_on_branch(
+        use_rest = self._worktree_paths_require_rest(
+            file_paths=addition_paths, repo_root=repo_root
+        ) or self._paths_mode_conflict_with_base(
+            base_sha=expected_head,
+            file_paths=addition_paths,
+            repo_root=repo_root,
+        )
+
+        def _publish(expected: str) -> str:
+            if use_rest:
+                logger.info(
+                    "Using verified REST Git Data commit on %s (GraphQL cannot "
+                    "represent executable/symlink/mode changes)",
+                    branch_name,
+                )
+                return self._rest_create_commit_on_branch(
+                    branch_name=branch_name,
+                    message=message,
+                    expected_head_oid=expected,
+                    file_paths=addition_paths,
+                    deletions=deletion_paths,
+                )
+            return self._graphql_create_commit_on_branch(
                 branch_name=branch_name,
                 message=message,
-                expected_head_oid=expected_head,
-                additions=additions,
-                deletions=deletion_inputs,
+                expected_head_oid=expected,
+                additions=self._build_file_additions(
+                    file_paths=addition_paths, repo_root=repo_root
+                ),
+                deletions=[
+                    {"path": self._normalize_repo_rel_path(path)} for path in deletion_paths
+                ],
             )
+
+        try:
+            commit_sha = _publish(expected_head)
         except GithubException as err:
             if not self._is_expected_head_mismatch(err):
                 raise
@@ -357,13 +560,7 @@ class GitOps:
             )
             self.fetch()
             expected_head = self._ensure_remote_branch(branch_name=branch_name)
-            commit_sha = self._graphql_create_commit_on_branch(
-                branch_name=branch_name,
-                message=message,
-                expected_head_oid=expected_head,
-                additions=additions,
-                deletions=deletion_inputs,
-            )
+            commit_sha = _publish(expected_head)
 
         self.fetch()
         logger.info("Verified API commit %s on %s", commit_sha, branch_name)
@@ -1185,8 +1382,10 @@ class GitOps:
         Fast-forwards the branch when HEAD already exists on the remote and
         matches ``base_sha``'s descendant with no unpublished local-only history
         that needs signing. Otherwise publishes the final worktree as one
-        verified ``createCommitOnBranch`` commit so promote + metadata never
-        produce two push events on the integration branch.
+        verified ``createCommitOnBranch`` or REST Git Data commit so promote +
+        metadata never produce two push events on the integration branch. REST
+        is used when the tip needs executable/symlink modes GraphQL cannot
+        express.
         """
         local_tip = self.repo.head.commit.hexsha
         if local_tip == base_sha:
@@ -1230,17 +1429,36 @@ class GitOps:
             except GitCommandError:
                 pass
 
-        try:
-            commit_sha = self._graphql_create_commit_on_branch(
+        repo_root = Path(self.repo.working_tree_dir or ".")
+        use_rest = self._tree_diff_requires_rest(base_sha=base_sha, head_ref=local_tip)
+
+        def _publish_tip(expected: str) -> str:
+            if use_rest:
+                logger.info(
+                    "Publishing promotion tip on %s via verified REST "
+                    "(GraphQL cannot represent executable/symlink/mode changes)",
+                    branch_name,
+                )
+                return self._rest_create_commit_on_branch(
+                    branch_name=branch_name,
+                    message=message,
+                    expected_head_oid=expected,
+                    file_paths=additions,
+                    deletions=deletions,
+                )
+            return self._graphql_create_commit_on_branch(
                 branch_name=branch_name,
                 message=message,
-                expected_head_oid=base_sha,
+                expected_head_oid=expected,
                 additions=self._build_file_additions(
                     file_paths=additions,
-                    repo_root=Path(self.repo.working_tree_dir or "."),
+                    repo_root=repo_root,
                 ),
                 deletions=[{"path": self._normalize_repo_rel_path(path)} for path in deletions],
             )
+
+        try:
+            commit_sha = _publish_tip(base_sha)
         except GithubException as err:
             if not self._is_expected_head_mismatch(err):
                 raise
@@ -1251,16 +1469,7 @@ class GitOps:
             )
             self.fetch()
             expected_head = self._ensure_remote_branch(branch_name=branch_name)
-            commit_sha = self._graphql_create_commit_on_branch(
-                branch_name=branch_name,
-                message=message,
-                expected_head_oid=expected_head,
-                additions=self._build_file_additions(
-                    file_paths=additions,
-                    repo_root=Path(self.repo.working_tree_dir or "."),
-                ),
-                deletions=[{"path": self._normalize_repo_rel_path(path)} for path in deletions],
-            )
+            commit_sha = _publish_tip(expected_head)
         self.fetch()
         logger.info(
             "Published verified promotion tip %s on %s (single ref update)",
