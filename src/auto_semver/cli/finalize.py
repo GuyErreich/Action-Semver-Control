@@ -14,6 +14,7 @@ import logging
 
 from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
+from auto_semver.config.constants import FINALIZE_LOCK_COMMIT
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.semver import SemverLock, Version
@@ -62,7 +63,7 @@ def _rewrite_baseline_lock(*, gitops: GitOps, event: GitHubEvent, version: str) 
     lock.as_finalized_baseline(merge_sha=merge_sha)
     lock.save_to_file()
     gitops.add([lock.path])
-    gitops.commit(f"chore: finalize semver lock for {version}")
+    gitops.commit(FINALIZE_LOCK_COMMIT.format(version=version))
 
 
 def _cleanup_release_branch(
