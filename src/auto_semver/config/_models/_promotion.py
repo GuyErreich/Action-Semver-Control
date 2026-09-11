@@ -42,7 +42,10 @@ class PromotionRule(BaseModel):
 
     auto_promote: bool = Field(
         default=False,
-        description="Whether to automatically create promotion PR after tagging source branch",
+        description=(
+            "Whether to automatically promote (direct branch update + tag) after "
+            "tagging the source branch. Does not open a promotion PR."
+        ),
     )
 
     @field_validator("from_branch", "to_branch")
