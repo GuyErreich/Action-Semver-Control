@@ -210,13 +210,24 @@ The `v1` tag is created on the first **production** release of Action-Semver-Con
 
 ### Commits blocked by branch protection
 
-Reusable bump/promote workflows default **`signed-commits: true`**, which creates commits through GraphQL `createCommitOnBranch`. GitHub auto-signs those commits (verified in the UI), so they satisfy rulesets that require verified signatures.
+Reusable bump/promote workflows default **`signed-commits: true`**, which creates GitHub-verified App commits:
+
+- **Default:** GraphQL `createCommitOnBranch` for ordinary `100644` files (lock, changelog, version files).
+- **Fallback ([#286](https://github.com/GuyErreich/Action-Semver-Control/issues/286)):** Git Database REST (`blob` → `tree` with explicit `100644` / `100755` / `120000` → `commit` → `ref`) when the change includes executables, symlinks, or a destination↔source **mode** change GraphQL cannot apply. Author/committer/signature are omitted so GitHub App-signs the commit; ASC refuses to move the branch unless `verification.verified` is true.
 
 - Use a **GitHub App** installation token (not `GITHUB_TOKEN` alone).
 - The Docker action input `signed-commits` still defaults to `false` for backward compatibility when you call `uses: GuyErreich/Action-Semver-Control@v1` directly — pass `signed-commits: true` (or use the reusable workflows).
 - Opt out in a reusable caller with `signed-commits: false` only if you do not need verified signatures.
 
 If merges still fail with **Cannot update this protected ref** / **Commits must have verified signatures**, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#merging-is-blocked--commits-must-have-verified-signatures).
+
+### Auto-promote is not a PR that waits on checks
+
+With `promotions[].auto_promote: true`, finalize does **not** open a promotion PR. After tagging the source (e.g. `X.Y.Z-dev`), ASC uses the App installation token (ruleset **bypass**) to update the target branch and create the destination tag (e.g. `X.Y.Z-rc`) in one shot — GraphQL or verified REST as above.
+
+Required status checks on the destination branch therefore **cannot** block the promote. Consumer publish workflows that gate on `*.*.*-rc` can refuse to create a GitHub Release, but the branch and tag already exist. Source CI on `-dev` also does not prove the `-rc` tree (promote rewrites version metadata and may change file modes).
+
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#auto-promotion-failed-or-staging-did-not-deploy).
 
 ### License check before Auto Semver
 

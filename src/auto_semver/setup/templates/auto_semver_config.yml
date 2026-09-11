@@ -8,7 +8,7 @@ suffixes:
 promotions:
   - from_branch: dev
     to_branch: staging
-    auto_promote: true
+    auto_promote: true  # Direct promote + tag (App bypass); not a PR
   - from_branch: staging
     to_branch: master
     auto_promote: false

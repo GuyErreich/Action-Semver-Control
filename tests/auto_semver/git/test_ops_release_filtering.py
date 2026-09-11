@@ -1,4 +1,4 @@
-"""Tests for release commit filtering logic in GitOps."""
+"""Tests for internal/release commit filtering logic in GitOps."""
 
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock
@@ -12,8 +12,8 @@ if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
 
-class TestGitOpsReleaseFiltering:
-    """Test suite for release commit filtering in GitOps."""
+class TestGitOpsInternalCommitFiltering:
+    """Test suite for internal commit filtering in GitOps."""
 
     @pytest.fixture
     def mock_repo(self, mocker: "MockerFixture") -> MagicMock:
@@ -38,7 +38,7 @@ class TestGitOpsReleaseFiltering:
         return cast("MagicMock", mock_repo)
 
     @pytest.mark.unit
-    def test_filter_release_commits_with_config_prefix(self, mock_repo: MagicMock) -> None:
+    def test_filter_internal_commits_with_config_prefix(self, mock_repo: MagicMock) -> None:
         """Test filtering when config provides a specific prefix."""
         # Initialize GitOps
         # The __init__ will call Repo(), which returns mock_repo.
@@ -53,7 +53,7 @@ class TestGitOpsReleaseFiltering:
 
         messages = ["feat: new feature", "MyRelease 1.2.0", "fix: bug fix", "MyRelease 1.1.0"]
 
-        filtered = gitops._filter_release_commits(messages, mock_config)
+        filtered = gitops._filter_internal_commits(messages, mock_config)
 
         assert len(filtered) == 2
         assert "feat: new feature" in filtered
@@ -61,7 +61,7 @@ class TestGitOpsReleaseFiltering:
         assert "MyRelease 1.2.0" not in filtered
 
     @pytest.mark.unit
-    def test_filter_release_commits_fallback(self, mock_repo: MagicMock) -> None:
+    def test_filter_internal_commits_fallback(self, mock_repo: MagicMock) -> None:
         """Test filtering falls back to 'Release ' when config returns None."""
         gitops = GitOps(repo_path=".", ensure_safe=False)
 
@@ -73,7 +73,7 @@ class TestGitOpsReleaseFiltering:
 
         messages = ["feat: cool stuff", "Release 1.2.0", "chore: cleanup", "Release 1.0.0"]
 
-        filtered = gitops._filter_release_commits(messages, mock_config)
+        filtered = gitops._filter_internal_commits(messages, mock_config)
 
         assert len(filtered) == 2
 
@@ -82,3 +82,28 @@ class TestGitOpsReleaseFiltering:
         assert "chore: cleanup" in filtered
         assert "Release 1.2.0" not in filtered
         assert "Release 1.0.0" not in filtered
+
+    @pytest.mark.unit
+    def test_filter_internal_commits_drops_housekeeping(self, mock_repo: MagicMock) -> None:
+        """Housekeeping finalize/metadata commits are dropped; unrelated chores stay."""
+        gitops = GitOps(repo_path=".", ensure_safe=False)
+
+        mock_config = MagicMock(spec=Config)
+        mock_config.data = MagicMock()
+        mock_config.data.pull_request = MagicMock()
+        mock_config.data.pull_request.get_release_commit_prefix.return_value = "Release "
+
+        messages = [
+            "feat: add verified REST fallback",
+            "chore: finalize semver lock for 1.6.15-dev",
+            "chore: update version metadata for 1.6.16-rc",
+            "chore: cleanup",
+            "Release 1.6.15-dev",
+        ]
+
+        filtered = gitops._filter_internal_commits(messages, mock_config)
+
+        assert filtered == [
+            "feat: add verified REST fallback",
+            "chore: cleanup",
+        ]
