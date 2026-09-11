@@ -189,10 +189,10 @@ class TestSignedGitOps:
         mock_repo.git.reset.assert_called_once_with("--hard", "retriedsha")
 
     @pytest.mark.unit
-    def test_api_commit_rejects_executable_files(
+    def test_api_commit_routes_executable_to_verified_rest(
         self, mocker: MockerFixture, mock_repo: Any, tmp_path: Any
     ) -> None:
-        """Executable staged files must fail with a clear error."""
+        """Executable staged files use verified REST instead of GraphQL."""
         mock_repo.working_tree_dir = str(tmp_path)
         script = tmp_path / "tool.sh"
         script.write_text("#!/bin/sh\necho hi\n", encoding="utf-8")
@@ -212,11 +212,152 @@ class TestSignedGitOps:
 
         gitops = GitOps(signed_commits=True, github_token="token")
         mocker.patch.object(gitops, "_gh_repo", return_value=mock_gh_repo)
-        mocker.patch.object(gitops, "_github_requester", return_value=mocker.MagicMock())
+        mock_rest = mocker.patch.object(
+            gitops, "_rest_create_commit_on_branch", return_value="rest-sha"
+        )
+        mock_gql = mocker.patch.object(gitops, "_graphql_create_commit_on_branch")
         mocker.patch.object(gitops, "fetch")
 
-        with pytest.raises(ValueError, match="executable"):
-            gitops.commit("chore: add tool")
+        gitops.commit("chore: add tool")
+
+        mock_rest.assert_called_once()
+        assert mock_rest.call_args.kwargs["file_paths"] == ["tool.sh"]
+        mock_gql.assert_not_called()
+        mock_repo.git.reset.assert_called_once_with("--hard", "rest-sha")
+
+    @pytest.mark.unit
+    def test_rest_commit_requires_verified_before_ref_update(
+        self, mocker: MockerFixture, mock_repo: Any, tmp_path: Any
+    ) -> None:
+        """REST path must not move the branch when verification.verified is false."""
+        mock_repo.working_tree_dir = str(tmp_path)
+        script = tmp_path / "tool.sh"
+        script.write_text("#!/bin/sh\n", encoding="utf-8")
+        script.chmod(0o755)
+
+        mock_gh_repo = mocker.MagicMock()
+        mock_parent = mocker.MagicMock()
+        mock_parent.tree = mocker.MagicMock()
+        mock_gh_repo.get_git_commit.side_effect = [
+            mock_parent,  # parent for create
+            mocker.MagicMock(  # verification lookup
+                verification=mocker.MagicMock(verified=False, reason="unsigned")
+            ),
+        ]
+        mock_blob = mocker.MagicMock()
+        mock_blob.sha = "blobsha"
+        mock_gh_repo.create_git_blob.return_value = mock_blob
+        mock_tree = mocker.MagicMock()
+        mock_gh_repo.create_git_tree.return_value = mock_tree
+        mock_commit = mocker.MagicMock()
+        mock_commit.sha = "unsigned-sha"
+        mock_gh_repo.create_git_commit.return_value = mock_commit
+        mock_ref = mocker.MagicMock()
+        mock_ref.object.sha = "base-sha"
+        mock_gh_repo.get_git_ref.return_value = mock_ref
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "_gh_repo", return_value=mock_gh_repo)
+
+        with pytest.raises(RuntimeError, match="not GitHub-verified"):
+            gitops._rest_create_commit_on_branch(
+                branch_name="staging",
+                message="chore: tool",
+                expected_head_oid="base-sha",
+                file_paths=["tool.sh"],
+                deletions=[],
+            )
+
+        mock_ref.edit.assert_not_called()
+        # author/committer must be omitted for App signing
+        _args, kwargs = mock_gh_repo.create_git_commit.call_args
+        assert "author" not in kwargs
+        assert "committer" not in kwargs
+
+    @pytest.mark.unit
+    def test_rest_commit_updates_ref_when_verified(
+        self, mocker: MockerFixture, mock_repo: Any, tmp_path: Any
+    ) -> None:
+        """Verified REST commits may update the branch ref."""
+        mock_repo.working_tree_dir = str(tmp_path)
+        script = tmp_path / "tool.sh"
+        script.write_text("#!/bin/sh\n", encoding="utf-8")
+        script.chmod(0o755)
+
+        mock_gh_repo = mocker.MagicMock()
+        mock_parent = mocker.MagicMock()
+        mock_parent.tree = mocker.MagicMock()
+        mock_verified = mocker.MagicMock(
+            verification=mocker.MagicMock(verified=True, reason="valid")
+        )
+        mock_gh_repo.get_git_commit.side_effect = [mock_parent, mock_verified]
+        mock_blob = mocker.MagicMock()
+        mock_blob.sha = "blobsha"
+        mock_gh_repo.create_git_blob.return_value = mock_blob
+        mock_gh_repo.create_git_tree.return_value = mocker.MagicMock()
+        mock_commit = mocker.MagicMock()
+        mock_commit.sha = "verified-sha"
+        mock_gh_repo.create_git_commit.return_value = mock_commit
+        mock_ref = mocker.MagicMock()
+        mock_ref.object.sha = "base-sha"
+        mock_gh_repo.get_git_ref.return_value = mock_ref
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "_gh_repo", return_value=mock_gh_repo)
+
+        sha = gitops._rest_create_commit_on_branch(
+            branch_name="staging",
+            message="chore: tool",
+            expected_head_oid="base-sha",
+            file_paths=["tool.sh"],
+            deletions=[],
+        )
+
+        assert sha == "verified-sha"
+        mock_ref.edit.assert_called_once_with(sha="verified-sha", force=False)
+        blob_args = mock_gh_repo.create_git_blob.call_args.args
+        assert blob_args[1] == "base64"
+
+    @pytest.mark.unit
+    def test_publish_tip_routes_mode_change_to_rest(
+        self, mocker: MockerFixture, mock_repo: Any, tmp_path: Any
+    ) -> None:
+        """Mode-only 100755→100644 diffs publish via verified REST."""
+        mock_repo.working_tree_dir = str(tmp_path)
+        hook = tmp_path / "hook.py"
+        hook.write_text("print('hi')\n", encoding="utf-8")
+        # 100644 in worktree; base was 100755
+        mock_repo.head.commit.hexsha = "local-tip"
+
+        def diff_side_effect(*args: str, **_kwargs: Any) -> str:
+            if "--raw" in args:
+                return ":100755 100644 abc def M\thook.py\n"
+            if "--diff-filter=D" in args:
+                return ""
+            if "--diff-filter=ACMR" in args:
+                return "hook.py\n"
+            return "hook.py\n"
+
+        mock_repo.git.diff.side_effect = diff_side_effect
+
+        gitops = GitOps(signed_commits=True, github_token="token")
+        mocker.patch.object(gitops, "_remote_has_commit", return_value=False)
+        mock_rest = mocker.patch.object(
+            gitops, "_rest_create_commit_on_branch", return_value="rest-tip"
+        )
+        mock_gql = mocker.patch.object(gitops, "_graphql_create_commit_on_branch")
+        mocker.patch.object(gitops, "fetch")
+
+        result = gitops._publish_local_tip_once(
+            branch_name="staging",
+            base_sha="base-sha",
+            message="chore: promote",
+        )
+
+        assert result == "rest-tip"
+        mock_rest.assert_called_once()
+        assert mock_rest.call_args.kwargs["file_paths"] == ["hook.py"]
+        mock_gql.assert_not_called()
 
     @pytest.mark.unit
     def test_api_merge_promotion(self, mocker: MockerFixture, mock_repo: Any) -> None:

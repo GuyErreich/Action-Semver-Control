@@ -89,16 +89,19 @@ Major bumps always reset to `X.0.0`.
 **Expected behavior:**
 
 1. Merging the **release PR** to `dev` tags `X.Y.Z-dev` and auto-promotes to `staging`.
-2. Promotion merges the **dev tag** into `staging` (not `staging` into `dev`).
-3. On metadata conflicts (`.semver.lock`, `CHANGELOG.md`, `version_files`), **dev/rc wins**.
-4. A metadata commit rewrites headers and version files to `-rc`, then tags `X.Y.Z-rc`.
-5. Pushing `*.*.*-rc` triggers **Publish Release - Staging**.
+2. Auto-promote is **not** a merge that waits on checks. With the App as a ruleset bypass actor, ASC updates `staging` and tags `X.Y.Z-rc` in one shot (GraphQL `createCommitOnBranch`, or verified REST Git Data when modes require it).
+3. Promotion integrates the **dev tag** into `staging` (not `staging` into `dev`).
+4. On metadata conflicts (`.semver.lock`, `CHANGELOG.md`, `version_files`), **dev/rc wins**.
+5. A metadata rewrite folds into that single tip (suffix headers/version files to `-rc`), then tags `X.Y.Z-rc`.
+6. Pushing `*.*.*-rc` triggers **Publish Release - Staging** (consumer gate). If that gate fails, the GitHub prerelease is skipped — but **`staging` and the tag already exist**.
 
 **If promotion failed with merge conflicts:** check whether the conflict is outside semver metadata (e.g. `README.md`). Those require a manual merge. Metadata conflicts should auto-resolve.
 
 **If the workflow was green but staging did not update:** older versions swallowed promotion errors; ensure you are on a build that fails finalize when auto-promote fails.
 
-**If staging rules block direct push:** promotion uses fast-forward when possible, otherwise a single squash-style commit (no merge commit). Tag creation may require the **Create Release Tag** workflow with the GitHub App token.
+**If staging rules block direct push:** grant the GitHub App **bypass** on the staging ruleset (and require signed commits). Promotion uses fast-forward when possible, otherwise one verified tip commit (GraphQL or REST). Tag creation may require the **Create Release Tag** workflow with the GitHub App token.
+
+**Executable / symlink / mode changes:** GraphQL FileAdditions always land as `100644`. ASC routes those trees through the REST Git Data fallback and requires `verification.verified` before moving the branch. If REST signing fails, promote aborts rather than landing an unsigned or wrong-mode tip.
 
 **Do not reset/rebase staging to dev** to promote — that rewrites history. Merge-based promotion preserves the git graph.
 
@@ -116,7 +119,7 @@ Use conventional prefixes on PR titles when opening PRs: `feat:`, `fix:`, `docs:
 
 **Fix:**
 
-1. Ensure bump/promote runs use **`signed-commits: true`** (default on the reusable workflows). That path uses GraphQL `createCommitOnBranch`, which GitHub auto-signs.
+1. Ensure bump/promote runs use **`signed-commits: true`** (default on the reusable workflows). Ordinary files use GraphQL `createCommitOnBranch`; executables/symlinks/mode changes use the verified REST Git Data fallback. Both are GitHub App-signed.
 2. Confirm the workflow uses a **GitHub App** token (`vars.GH_APP_CLIENT_ID` + `secrets.GH_APP_PRIVATE_KEY`), not only `GITHUB_TOKEN`.
 3. Optionally grant the App **bypass** on the ruleset (defense in depth), matching Staging/Prod if those already bypass the integration.
 4. For an already-open release PR with an unsigned head: close it, re-run bump with signed commits enabled, or squash-merge if policy allows.
@@ -130,7 +133,7 @@ Verified App commits intentionally show:
 
 GitHub signs bot commits with the `web-flow` GPG key, whose only UID email is `noreply@github.com`. Signature verification requires the committer email to appear in the signing key's identities; otherwise GitHub reports `verified: false` with reason `bad_email`. GitHub therefore substitutes the committer with web-flow when it auto-signs. That substituted committer *is* the signature.
 
-Supplying any custom committer (even the same web-flow values) makes GitHub skip signing. GraphQL `createCommitOnBranch` does not expose author or committer fields at all.
+Supplying any custom committer (even the same web-flow values) makes GitHub skip signing. GraphQL `createCommitOnBranch` does not expose author or committer fields at all. The REST Git Data fallback likewise **omits** `author` / `committer` / `signature` on `POST .../git/commits` and requires `verification.verified` before updating the branch ref.
 
 Making the App bot the verified **committer** would require a machine-user account with its own GPG/SSH key and local `git commit -S`. Apps cannot hold signing keys. That trade-off (long-lived key material on runners, a user seat instead of installation tokens, loss of App attribution) is not used here.
 
