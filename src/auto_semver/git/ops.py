@@ -39,7 +39,11 @@ from github import Github
 from github.GithubException import GithubException
 from github.InputGitTreeElement import InputGitTreeElement
 
-from auto_semver.config.constants import PR_HIDDEN_MARKER
+from auto_semver.config.constants import (
+    INTERNAL_COMMIT_PREFIXES,
+    PR_HIDDEN_MARKER,
+    VERSION_METADATA_COMMIT,
+)
 from auto_semver.semver import SemverLock, Version
 
 if TYPE_CHECKING:
@@ -1321,7 +1325,7 @@ class GitOps:
                         )
                         for path in dirty_paths:
                             self.repo.git.add("--", path)
-                        self._local_commit(f"chore: update version metadata for {version}")
+                        self._local_commit(VERSION_METADATA_COMMIT.format(version=version))
                 except Exception as e:
                     logger.error(f"Post-merge hook failed: {e}")
                     raise RuntimeError(f"Post-merge hook failed: {e}") from e
@@ -1539,7 +1543,7 @@ class GitOps:
                     for path in dirty_paths:
                         self.repo.git.add("--", path)
                     # Local-only; folded into the single verified tip published below.
-                    self._local_commit(f"chore: update version metadata for {version}")
+                    self._local_commit(VERSION_METADATA_COMMIT.format(version=version))
             except Exception as exc:
                 logger.error(f"Post-merge hook failed: {exc}")
                 raise RuntimeError(f"Post-merge hook failed: {exc}") from exc
@@ -2047,13 +2051,13 @@ class GitOps:
 
             if filter_release_commits and config:
                 original_count = len(messages)
-                messages = self._filter_release_commits(messages, config)
+                messages = self._filter_internal_commits(messages, config)
                 filtered_count = original_count - len(messages)
 
                 if filtered_count > 0:
-                    logger.debug(f"Filtered out {filtered_count} release-related commits")
+                    logger.debug(f"Filtered out {filtered_count} auto-semver commits")
                 else:
-                    logger.debug("No release-related commits found to filter out.")
+                    logger.debug("No auto-semver commits found to filter out.")
             elif not filter_release_commits:
                 logger.debug("Filtering of release commits is disabled.")
             elif not config:
@@ -2146,16 +2150,19 @@ class GitOps:
             logger.warning(f"No lockfile in tag {tag_name}: {err}")
             return None
 
-    def _filter_release_commits(self, messages: list[str], config: Config) -> list[str]:
+    def _filter_internal_commits(self, messages: list[str], config: Config) -> list[str]:
         """
-        Filter out release-related commit messages.
+        Filter out auto-semver housekeeping and release commit messages.
+
+        Drops release title commits plus finalize/promote lock metadata commits so
+        they never appear in generated changelogs or release PR bodies.
 
         Args:
             messages (list[str]): List of commit messages to filter.
             config (Config): Configuration object to get release title template.
 
         Returns:
-            list[str]: Filtered list of commit messages with release commits removed.
+            list[str]: Filtered list of commit messages with internal commits removed.
 
         """
 
@@ -2172,14 +2179,15 @@ class GitOps:
         else:
             logger.debug(f"Using config-based release prefix: '{release_prefix}'")
 
+        prefixes = [release_prefix, *INTERNAL_COMMIT_PREFIXES]
         filtered_messages = []
 
         for message in messages:
             # Normalize message for checking - only check the first line (title)
             first_line = message.splitlines()[0].strip() if message else ""
 
-            if release_prefix and first_line.startswith(release_prefix):
-                logger.debug(f"Filtering out release commit: {first_line}")
+            if any(first_line.startswith(prefix) for prefix in prefixes if prefix):
+                logger.debug(f"Filtering out auto-semver commit: {first_line}")
             else:
                 filtered_messages.append(message)
 
