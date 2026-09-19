@@ -7,11 +7,16 @@ GitHub-specific PRBuilder implementation.
 Handles GitHub pull request generation with specific templates and configuration.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.config.models.commit_group import CommitGroup
 from auto_semver.domain.pr.builder import BasePRTemplateVariables, PRBuilder
+
+if TYPE_CHECKING:
+    from auto_semver.config._models.commit_group import CommitGroup
 
 
 @dataclass

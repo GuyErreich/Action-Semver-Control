@@ -8,15 +8,16 @@ Defines the interface for building PR title, body, and labels from templates and
 Provider-specific builders should inherit from this class and implement the build methods.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from auto_semver.config.models.commit_group import CommitGroups
 from auto_semver.templates.engine import get_template_engine
 
 if TYPE_CHECKING:
-    pass
+    from auto_semver.config._models.commit_group import CommitGroups
 
 
 # Base template variables for PR builders

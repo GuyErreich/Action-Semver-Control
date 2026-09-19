@@ -5,7 +5,7 @@ import pytest
 from auto_semver.config import Config
 
 # Import private model for testing purposes only
-from auto_semver.config.models.commit_group import CommitGroupConfig
+from auto_semver.config._models.commit_group import CommitGroupConfig
 from auto_semver.domain.commits.grouper import CommitGrouper
 from tests.fixtures.config_fixture import ConfigFixture
 

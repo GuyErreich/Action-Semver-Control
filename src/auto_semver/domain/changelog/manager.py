@@ -14,15 +14,20 @@ Typical usage::
     manager.write("1.0.1", ["Fix bug", "Improve logging"])
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from auto_semver.config import Config
-from auto_semver.config.models.commit_group import CommitGroupConfig
 from auto_semver.domain.commits.grouper import CommitGrouper
 from auto_semver.templates.engine import get_template_engine
 from auto_semver.templates.utils import format_date_iso_to_custom
+
+if TYPE_CHECKING:
+    from auto_semver.config._models.commit_group import CommitGroupConfig
 
 logger = logging.getLogger(__package__)
 
@@ -91,7 +96,7 @@ class ChangelogManager:
         return format_date_iso_to_custom(date_str, fmt)
 
     @classmethod
-    def from_config(cls, config: Config) -> "ChangelogManager":
+    def from_config(cls, config: Config) -> ChangelogManager:
         """
         Instantiate the manager using values from a Config instance.
 

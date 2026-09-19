@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 from auto_semver.config import Config
-from auto_semver.config.models.changelog import ChangelogTemplateVars
-from auto_semver.config.models.pull_request import PullRequestTemplateVars
+from auto_semver.config._models.changelog import ChangelogTemplateVars
+from auto_semver.config._models.pull_request import PullRequestTemplateVars
 from auto_semver.domain.changelog.manager import ChangelogManager
 from auto_semver.domain.commits.grouper import CommitGrouper
 from tests.fixtures.config_fixture import ConfigFixture

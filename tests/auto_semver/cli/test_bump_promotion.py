@@ -15,8 +15,12 @@ from pytest_mock import MockerFixture
 from auto_semver.adapters.git import GitOps
 from auto_semver.adapters.github import GitHubEvent
 from auto_semver.cli.bump import _detect_tag_source_branch, _is_tag_promotion_scenario, run
-from auto_semver.config import ChangelogConfig, Config, ConfigData, PromotionRule, PullRequestConfig
-from auto_semver.config.models.commit_groups import CommitGroupsConfig
+from auto_semver.config import Config
+from auto_semver.config._models.changelog import ChangelogConfig
+from auto_semver.config._models.commit_groups import CommitGroupsConfig
+from auto_semver.config._models.config import ConfigData
+from auto_semver.config._models.promotion import PromotionRule
+from auto_semver.config._models.pull_request import PullRequestConfig
 from auto_semver.domain.changelog.manager import ChangelogManager
 from auto_semver.domain.semver import Version
 from auto_semver.domain.semver.lock import SemverLock

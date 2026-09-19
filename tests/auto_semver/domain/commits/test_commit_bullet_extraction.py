@@ -1,7 +1,7 @@
 """Test commit bullet point extraction for grouping."""
 
-from auto_semver.config.models.commit_group import CommitGroupConfig
-from auto_semver.config.models.commit_groups import CommitGroupsConfig
+from auto_semver.config._models.commit_group import CommitGroupConfig
+from auto_semver.config._models.commit_groups import CommitGroupsConfig
 from auto_semver.domain.commits.grouper import CommitGrouper
 from auto_semver.domain.commits.parser import CommitParser
 

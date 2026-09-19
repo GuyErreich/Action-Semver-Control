@@ -7,7 +7,8 @@ import pytest
 
 from auto_semver.adapters.git import GitOps
 from auto_semver.cli.promote import run
-from auto_semver.config import Config, PromotionRule
+from auto_semver.config import Config
+from auto_semver.config._models.promotion import PromotionRule
 from auto_semver.domain.semver import Version
 
 

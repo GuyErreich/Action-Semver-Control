@@ -9,13 +9,13 @@ import logging
 
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
-from auto_semver.config.models.bump import BumpConfig
-from auto_semver.config.models.changelog import ChangelogConfig
-from auto_semver.config.models.commit_group import CommitGroups
-from auto_semver.config.models.commit_groups import CommitGroupsConfig
-from auto_semver.config.models.promotion import PromotionRule
-from auto_semver.config.models.pull_request import PullRequestConfig
-from auto_semver.config.models.release import ReleaseConfig
+from auto_semver.config._models.bump import BumpConfig
+from auto_semver.config._models.changelog import ChangelogConfig
+from auto_semver.config._models.commit_group import CommitGroups
+from auto_semver.config._models.commit_groups import CommitGroupsConfig
+from auto_semver.config._models.promotion import PromotionRule
+from auto_semver.config._models.pull_request import PullRequestConfig
+from auto_semver.config._models.release import ReleaseConfig
 from auto_semver.domain.commits.grouper import CommitGrouper
 from auto_semver.domain.semver import Version
 
