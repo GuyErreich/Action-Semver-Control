@@ -16,7 +16,7 @@ from auto_semver.config._models.commit_groups import CommitGroupsConfig
 from auto_semver.config._models.promotion import PromotionRule
 from auto_semver.config._models.pull_request import PullRequestConfig
 from auto_semver.config._models.release import ReleaseConfig
-from auto_semver.domain.semver import Version
+from auto_semver.core.semver import Version
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +159,8 @@ class ConfigData(BaseModel):
         Returns:
             CommitGroups: list of CommitGroup dataclasses for template rendering.
         """
-        from auto_semver.domain.commits.grouper import CommitGrouper
+        # Lazy import: config package init must not pull core.commits at module load.
+        from auto_semver.core.commits.grouper import CommitGrouper  # noqa: PLC0415
 
         return CommitGrouper.group_messages(messages, self.commit_groups)
 

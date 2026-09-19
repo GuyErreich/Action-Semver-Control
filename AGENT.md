@@ -6,7 +6,7 @@ This file defines global working rules for the repository.
 
 - Reuse before creating: check existing modules, helpers, and patterns before adding new ones.
 - Prefer absolute imports under `auto_semver.*` (no forced relative imports inside the package).
-- Keep domain logic in `domain/`, VCS I/O in `adapters/git/`, and YAML schema in `config/`.
+- Keep product logic in `core/`, VCS I/O in `adapters/git/`, and YAML schema in `config/`.
 
 ## Config entry point
 
@@ -19,7 +19,7 @@ This file defines global working rules for the repository.
 ## Folder map (src/auto_semver)
 
 - `config/` — `Config` loader + private `_models` schema (public via `__init__.py`)
-- `domain/` — commits, semver, changelog, PR content
+- `core/` — commits, semver, changelog, PR content
 - `adapters/git/` — git operations (`GitOpsBase` + focused ops modules)
 - `cli/` — CLI entrypoints
 - `templates/` — Jinja engine + shared template utils

@@ -23,9 +23,9 @@ from auto_semver.config import (
     PromotionRule,
     PullRequestConfig,
 )
-from auto_semver.domain.changelog.manager import ChangelogManager
-from auto_semver.domain.semver import Version
-from auto_semver.domain.semver.lock import SemverLock
+from auto_semver.core.changelog.manager import ChangelogManager
+from auto_semver.core.semver import Version
+from auto_semver.core.semver.lock import SemverLock
 from tests.fixtures.config_fixture import ConfigFixture
 from tests.fixtures.github_event_fixture import GitHubEventFixture
 

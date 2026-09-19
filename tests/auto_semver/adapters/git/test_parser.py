@@ -1,6 +1,6 @@
 """Tests for the CommitParser class."""
 
-from auto_semver.domain.commits.parser import CommitParser
+from auto_semver.core.commits.parser import CommitParser
 
 
 class TestCommitParser:

@@ -23,7 +23,7 @@ from auto_semver.config.constants import (
     INTERNAL_COMMIT_PREFIXES,
     PR_HIDDEN_MARKER,
 )
-from auto_semver.domain.semver import SemverLock, Version
+from auto_semver.core.semver import SemverLock, Version
 
 if TYPE_CHECKING:
     from github.PullRequest import PullRequest

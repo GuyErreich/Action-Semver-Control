@@ -5,7 +5,7 @@ from pytest_mock import MockerFixture
 
 from auto_semver.cli import bump as bump_module
 from auto_semver.config import BumpConfig
-from auto_semver.domain.semver import Version
+from auto_semver.core.semver import Version
 
 
 @pytest.mark.unit

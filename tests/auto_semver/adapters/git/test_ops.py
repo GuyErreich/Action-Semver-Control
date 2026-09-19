@@ -14,7 +14,7 @@ from pytest_mock import MockerFixture
 
 from auto_semver.adapters.git.ops import GitOps
 from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.domain.semver import Version
+from auto_semver.core.semver import Version
 
 
 class TestGitOps:

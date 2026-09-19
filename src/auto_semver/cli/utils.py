@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING
 from auto_semver.adapters.github import GitHubEvent
 from auto_semver.config import Config
 from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.domain.changelog.manager import ChangelogManager
-from auto_semver.domain.semver import SemverLock, Version
-from auto_semver.domain.semver.updater import VersionFileUpdater
+from auto_semver.core.changelog.manager import ChangelogManager
+from auto_semver.core.semver import SemverLock, Version
+from auto_semver.core.semver.updater import VersionFileUpdater
 
 if TYPE_CHECKING:
     from auto_semver.adapters.git import GitOps

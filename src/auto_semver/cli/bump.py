@@ -11,13 +11,13 @@ import yaml
 from auto_semver.adapters.git import GitOps
 from auto_semver.adapters.github import GitHubEvent
 from auto_semver.config import Config
-from auto_semver.domain.changelog.manager import ChangelogManager
-from auto_semver.domain.commits.grouper import CommitGrouper
-from auto_semver.domain.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
-from auto_semver.domain.semver import Version
-from auto_semver.domain.semver.lock import SemverLock
-from auto_semver.domain.semver.updater import VersionFileUpdater
-from auto_semver.domain.semver.version import BumpCounts
+from auto_semver.core.changelog.manager import ChangelogManager
+from auto_semver.core.commits.grouper import CommitGrouper
+from auto_semver.core.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
+from auto_semver.core.semver import Version
+from auto_semver.core.semver.lock import SemverLock
+from auto_semver.core.semver.updater import VersionFileUpdater
+from auto_semver.core.semver.version import BumpCounts
 
 logger = logging.getLogger(__package__)
 

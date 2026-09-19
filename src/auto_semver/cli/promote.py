@@ -13,7 +13,7 @@ import logging
 from auto_semver.adapters.git import GitOps
 from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
-from auto_semver.domain.semver import Version
+from auto_semver.core.semver import Version
 
 logger = logging.getLogger(__name__)
 

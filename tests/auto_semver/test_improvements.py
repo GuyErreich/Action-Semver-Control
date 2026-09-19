@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.domain.changelog.manager import ChangelogManager
-from auto_semver.domain.pr.github_builder import (
+from auto_semver.core.changelog.manager import ChangelogManager
+from auto_semver.core.pr.github_builder import (
     GitHubPRBuilder,
     GitHubPRTemplateVariables,
 )

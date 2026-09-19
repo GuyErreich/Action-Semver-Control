@@ -26,7 +26,7 @@ from auto_semver.adapters.github import GitHubEvent
 from auto_semver.adapters.github.event import _GITHUB_EVENT_PATH_ENV
 from auto_semver.cli import finalize
 from auto_semver.config import Config
-from auto_semver.domain.semver import SemverLock, Version
+from auto_semver.core.semver import SemverLock, Version
 
 
 def _write_lock(

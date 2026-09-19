@@ -15,7 +15,7 @@ from auto_semver.adapters.github.event import GitHubEvent
 from auto_semver.cli.utils import is_finalized, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.domain.semver import SemverLock, Version
+from auto_semver.core.semver import SemverLock, Version
 
 
 class TestIsFinalized:

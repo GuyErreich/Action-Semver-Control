@@ -35,7 +35,7 @@ from auto_semver.config._models.config import ConfigData
 from auto_semver.config._models.promotion import PromotionRule
 from auto_semver.config._models.pull_request import PullRequestConfig
 from auto_semver.config.constants import CONFIG_FILE
-from auto_semver.domain.semver import Version
+from auto_semver.core.semver import Version
 
 # Union type for all possible ConfigData attribute return types
 type ConfigValue = (
