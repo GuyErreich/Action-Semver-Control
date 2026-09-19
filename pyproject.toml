@@ -29,7 +29,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"auto_semver.setup.templates" = ["*.yml"]
+"auto_semver.setup.scaffolds" = ["*.yml"]
 
 [tool.pytest.ini_options]
 minversion  = "6.0"
@@ -132,6 +132,16 @@ no_implicit_optional = true
 allow_redefinition = false
 install_types = false
 non_interactive = false
+
+[[tool.mypy.overrides]]
+module = [
+  "auto_semver.adapters.git.local",
+  "auto_semver.adapters.git.verified",
+  "auto_semver.adapters.git.promote",
+  "auto_semver.adapters.git.release_pr",
+]
+# Composition parts intentionally call sibling methods on self.
+disable_error_code = ["attr-defined", "no-any-return"]
 
 [dependency-groups]
 dev = [
