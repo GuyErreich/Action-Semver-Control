@@ -29,13 +29,13 @@ from typing import cast
 import yaml
 from pydantic import ValidationError
 
-from ..semver import Version
-from ._models._changelog import ChangelogConfig
-from ._models._commit_group import CommitGroupConfig
-from ._models._config import ConfigData
-from ._models._promotion import PromotionRule
-from ._models._pull_request import PullRequestConfig
+from ..domain.semver import Version
 from .constants import CONFIG_FILE
+from .models.changelog import ChangelogConfig
+from .models.commit_group import CommitGroupConfig
+from .models.config import ConfigData
+from .models.promotion import PromotionRule
+from .models.pull_request import PullRequestConfig
 
 # Union type for all possible ConfigData attribute return types
 type ConfigValue = (

@@ -2,8 +2,8 @@
 
 import pytest
 
-from auto_semver.config._models._commit_group import CommitGroupConfig
-from auto_semver.config._models._commit_groups import CommitGroupsConfig
+from auto_semver.config.models.commit_group import CommitGroupConfig
+from auto_semver.config.models.commit_groups import CommitGroupsConfig
 
 
 @pytest.mark.unit

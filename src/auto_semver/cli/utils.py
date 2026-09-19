@@ -9,15 +9,15 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from auto_semver.changelog.manager import ChangelogManager
-from auto_semver.config import Config
-from auto_semver.config.constants import PR_HIDDEN_MARKER
-from auto_semver.gh import GitHubEvent
-from auto_semver.semver import SemverLock, Version
-from auto_semver.semver.updater import VersionFileUpdater
+from ..adapters.github import GitHubEvent
+from ..config import Config
+from ..config.constants import PR_HIDDEN_MARKER
+from ..domain.changelog.manager import ChangelogManager
+from ..domain.semver import SemverLock, Version
+from ..domain.semver.updater import VersionFileUpdater
 
 if TYPE_CHECKING:
-    from auto_semver.git import GitOps
+    from auto_semver.adapters.git import GitOps
 
 logger = logging.getLogger(__package__)
 

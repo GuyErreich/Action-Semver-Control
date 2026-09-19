@@ -9,8 +9,8 @@ import pytest
 from pydantic import ValidationError
 
 from auto_semver.config import Config
-from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.config.constants import PR_HIDDEN_MARKER
+from auto_semver.config.models.pull_request import PullRequestTemplateVars
 from tests.fixtures.config_fixture import ConfigFixture
 
 
