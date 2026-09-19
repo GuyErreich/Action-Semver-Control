@@ -242,6 +242,30 @@ Configure under **Settings → Rules → Rulesets** (or classic branch protectio
 
 The **Copyright Year Update** workflow (`copyright-year.yml`) opens a PR to `dev` each New Year; merge it only after `license-check` is green.
 
+#### Why license-check uses Docker (SHA pinning)
+
+This repository keeps **Settings → Actions → SHA pinning required** on for Marketplace/OSS supply-chain hardening. GitHub enforces that policy on **every** resolved `uses:` in the job graph, including nested actions inside third-party composites. There is no “trust the parent SHA” escape hatch.
+
+[`apache/skywalking-eyes`](https://github.com/apache/skywalking-eyes) is a composite that still pins nested actions by tag (`actions/setup-go@v5` in the 0.8.0 tree; still `@v6` on upstream main). We cannot change Apache’s action, so CI runs the same checker via **digest-pinned Docker** instead of `uses:`:
+
+```bash
+docker run --rm -v "$PWD:/github/workspace" -w /github/workspace \
+  apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
+  header check -c .licenserc.yaml
+```
+
+Local parity: `task license-check` / `task license-fix` use the same image pin.
+
+**Do not** turn off repo-wide SHA pinning just to keep one composite — that weakens every workflow. Stay on Docker until upstream SHA-pins nested `uses:`; then reconsider switching back. Policy background: [#263](https://github.com/GuyErreich/Action-Semver-Control/issues/263).
+
+Refresh the multi-arch **index** digest when bumping the image tag:
+
+```bash
+docker buildx imagetools inspect apache/skywalking-eyes:0.8.0
+```
+
+**Nested-tag audit (this repo):** third-party workflow `uses:` are JS/Node actions already SHA-pinned (`actions/checkout`, `astral-sh/setup-uv`, `actions/cache`, `gitleaks/gitleaks-action`). Local composite `app-authentication` nests `actions/create-github-app-token` at a full SHA. Local composites `gh-release` and `preflight-app-secrets` are shell-only. No other third-party composite with nested tag pins remains.
+
 ## Architecture
 
 ```mermaid
