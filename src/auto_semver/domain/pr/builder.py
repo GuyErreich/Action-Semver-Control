@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from auto_semver.templates.engine import get_template_engine
 
 if TYPE_CHECKING:
-    from auto_semver.config._models.commit_group import CommitGroups
+    from auto_semver.config import CommitGroups
 
 
 # Base template variables for PR builders

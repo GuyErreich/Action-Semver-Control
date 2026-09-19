@@ -25,5 +25,3 @@ mutation($input: CreateCommitOnBranchInput!) {
   }
 }
 """
-
-

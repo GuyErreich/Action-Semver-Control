@@ -31,7 +31,9 @@ def test_get_open_release_version_returns_highest(mocker: MockerFixture) -> None
 
     mock_repo = mocker.MagicMock()
     mock_repo.get_pulls.return_value = [mock_pr_low, mock_pr_high]
-    mocker.patch("auto_semver.adapters.git.verified.Github").return_value.get_repo.return_value = mock_repo
+    mocker.patch(
+        "auto_semver.adapters.git.verified.Github"
+    ).return_value.get_repo.return_value = mock_repo
 
     def lock_side_effect(ref: str) -> SemverLock | None:
         version_str = ref.split("/")[-1]
@@ -71,7 +73,9 @@ def test_get_merged_source_branches_since(mocker: MockerFixture) -> None:
 
     gh_repo = mocker.MagicMock()
     gh_repo.get_pulls.return_value = [mock_pr]
-    mocker.patch("auto_semver.adapters.git.verified.Github").return_value.get_repo.return_value = gh_repo
+    mocker.patch(
+        "auto_semver.adapters.git.verified.Github"
+    ).return_value.get_repo.return_value = gh_repo
 
     branches = gitops.get_merged_source_branches_since(
         base_sha="base",
@@ -99,7 +103,9 @@ def test_get_merged_source_branches_skips_non_ancestor(mocker: MockerFixture) ->
 
     gh_repo = mocker.MagicMock()
     gh_repo.get_pulls.return_value = [mock_pr]
-    mocker.patch("auto_semver.adapters.git.verified.Github").return_value.get_repo.return_value = gh_repo
+    mocker.patch(
+        "auto_semver.adapters.git.verified.Github"
+    ).return_value.get_repo.return_value = gh_repo
 
     branches = gitops.get_merged_source_branches_since(
         base_sha="base",

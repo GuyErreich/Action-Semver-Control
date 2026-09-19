@@ -10,15 +10,15 @@ This file defines global working rules for the repository.
 
 ## Config entry point
 
-- **Public entry:** `from auto_semver.config import Config` (load / access configuration).
-- **Private schema:** `auto_semver.config._models` holds pydantic / dataclass schema types.
-- Outside `config/`, import `_models` **only as types** — put those imports under `TYPE_CHECKING` (with `from __future__ import annotations`) so they enforce variable/parameter annotations without becoming a second runtime API.
-- **Allowed runtime exception:** a module that must *construct* schema value objects while applying `Config` (today: `domain/commits/grouper.py`) may import the needed `_models` at runtime. Keep that list tiny; do not grow it casually.
-- Do not re-export `_models` symbols from `config/__init__.py`. Tests may import `_models` directly when building fixtures.
+- **Only public import path:** `from auto_semver.config import Config, …`
+- `Config` is the runtime entry point (load / access configuration).
+- Schema types (`CommitGroupConfig`, `ConfigData`, `PromotionRule`, …) are re-exported from `config/__init__.py` for **typing** annotations (prefer `TYPE_CHECKING`) and for the rare cases that must construct those values while applying config.
+- **Never** import `auto_semver.config._models` (or any submodule of it) outside the `config/` package. `_models` is private packaging for schema definitions; consumers must not reach into it.
+- Inside `config/` only: `config.py` and `_models/*` may import `_models` modules directly.
 
 ## Folder map (src/auto_semver)
 
-- `config/` — `Config` loader + `_models` schema
+- `config/` — `Config` loader + private `_models` schema (public via `__init__.py`)
 - `domain/` — commits, semver, changelog, PR content
 - `adapters/git/` — git operations (`GitOpsBase` + focused ops modules)
 - `cli/` — CLI entrypoints

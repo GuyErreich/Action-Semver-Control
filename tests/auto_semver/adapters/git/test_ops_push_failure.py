@@ -34,7 +34,8 @@ class TestGitOpsPushFailure:
     def patch_parse_repository_name(self, mocker: MockerFixture) -> Any:
         """Patch _parse_repository_name."""
         return mocker.patch(
-            "auto_semver.adapters.git.local.GitLocal._parse_repository_name", return_value="owner/repo"
+            "auto_semver.adapters.git.local.GitLocal._parse_repository_name",
+            return_value="owner/repo",
         )
 
     def test_push_rejected(self, mocker: MockerFixture, mock_repo: Any) -> None:

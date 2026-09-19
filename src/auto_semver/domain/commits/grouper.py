@@ -16,12 +16,11 @@ import re
 from typing import TYPE_CHECKING
 
 # Runtime construction of schema value objects when applying Config — see AGENT.md.
-from auto_semver.config._models.commit_group import Commit, CommitGroup
-from auto_semver.config._models.commit_groups import CommitGroupsConfig
+from auto_semver.config import Commit, CommitGroup, CommitGroupsConfig
 from auto_semver.domain.commits.parser import CommitParser
 
 if TYPE_CHECKING:
-    from auto_semver.config._models.commit_group import CommitGroupConfig, CommitGroups
+    from auto_semver.config import CommitGroupConfig, CommitGroups
 
 logger = logging.getLogger(__name__)
 

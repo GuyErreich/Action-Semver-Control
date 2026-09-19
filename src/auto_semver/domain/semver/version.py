@@ -464,4 +464,3 @@ class Version:
             return NotImplemented
 
         return self._precedence_key() < other._precedence_key()
-

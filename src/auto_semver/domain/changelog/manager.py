@@ -27,7 +27,7 @@ from auto_semver.templates.engine import get_template_engine
 from auto_semver.templates.utils import format_date_iso_to_custom
 
 if TYPE_CHECKING:
-    from auto_semver.config._models.commit_group import CommitGroupConfig
+    from auto_semver.config import CommitGroupConfig
 
 logger = logging.getLogger(__package__)
 

@@ -21,7 +21,6 @@ from auto_semver.config.constants import (
 )
 
 if TYPE_CHECKING:
-
     pass
 
 logger = logging.getLogger(__package__)
@@ -660,4 +659,3 @@ class GitPromote(GitOpsBase):
             version,
         )
         return version
-

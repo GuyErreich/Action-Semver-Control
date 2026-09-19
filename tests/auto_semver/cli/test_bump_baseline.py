@@ -4,7 +4,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from auto_semver.cli import bump as bump_module
-from auto_semver.config._models.release import ReleaseConfig
+from auto_semver.config import ReleaseConfig
 from auto_semver.domain.semver import Version
 
 

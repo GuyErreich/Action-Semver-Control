@@ -16,7 +16,7 @@ from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.domain.pr.builder import BasePRTemplateVariables, PRBuilder
 
 if TYPE_CHECKING:
-    from auto_semver.config._models.commit_group import CommitGroup
+    from auto_semver.config import CommitGroup
 
 
 @dataclass

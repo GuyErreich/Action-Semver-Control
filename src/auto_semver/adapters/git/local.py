@@ -17,7 +17,6 @@ from git.remote import PushInfo, Remote
 from auto_semver.adapters.git.base import GitOpsBase
 
 if TYPE_CHECKING:
-
     pass
 
 logger = logging.getLogger(__package__)
@@ -449,4 +448,3 @@ class GitLocal(GitOpsBase):
         except GitCommandError as err:
             logger.error(f"Failed to pull '{branch_name}' from '{remote_name}': {err}")
             raise
-

@@ -487,4 +487,3 @@ class GitVerifiedCommits(GitOpsBase):
             gh_repo.create_git_ref(f"refs/{ref_name}", sha)
         logger.info("Verified API tag %s -> %s", tag, sha)
         return tag
-

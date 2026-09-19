@@ -16,7 +16,6 @@ from auto_semver.config._models.commit_groups import CommitGroupsConfig
 from auto_semver.config._models.promotion import PromotionRule
 from auto_semver.config._models.pull_request import PullRequestConfig
 from auto_semver.config._models.release import ReleaseConfig
-from auto_semver.domain.commits.grouper import CommitGrouper
 from auto_semver.domain.semver import Version
 
 logger = logging.getLogger(__name__)
@@ -67,9 +66,7 @@ class ConfigData(BaseModel):
 
     @field_validator("commit_groups", mode="before")
     @classmethod
-    def parse_commit_groups(
-        cls, value: CommitGroupsConfig | object | None
-    ) -> CommitGroupsConfig:
+    def parse_commit_groups(cls, value: CommitGroupsConfig | object | None) -> CommitGroupsConfig:
         """Accept legacy YAML list format or structured commit_groups mapping."""
         if isinstance(value, CommitGroupsConfig):
             return value
@@ -162,6 +159,7 @@ class ConfigData(BaseModel):
         Returns:
             CommitGroups: list of CommitGroup dataclasses for template rendering.
         """
+        from auto_semver.domain.commits.grouper import CommitGrouper
 
         return CommitGrouper.group_messages(messages, self.commit_groups)
 

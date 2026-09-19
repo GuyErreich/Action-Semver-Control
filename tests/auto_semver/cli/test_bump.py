@@ -17,10 +17,7 @@ from pytest_mock import MockerFixture
 from auto_semver.adapters.git import GitOps
 from auto_semver.adapters.github.event import GitHubEvent
 from auto_semver.cli.bump import run
-from auto_semver.config import Config
-from auto_semver.config._models.commit_groups import CommitGroupsConfig
-from auto_semver.config._models.config import ConfigData
-from auto_semver.config._models.release import ReleaseConfig
+from auto_semver.config import CommitGroupsConfig, Config, ConfigData, ReleaseConfig
 from auto_semver.domain.changelog.manager import ChangelogManager
 from auto_semver.domain.semver import Version
 from auto_semver.domain.semver.lock import SemverLock

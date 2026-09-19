@@ -13,9 +13,7 @@ from pytest_mock import MockerFixture
 from auto_semver.adapters.git import GitOps
 from auto_semver.adapters.github.event import GitHubEvent
 from auto_semver.cli.finalize import create_auto_promotion_prs, run
-from auto_semver.config import Config
-from auto_semver.config._models.config import ConfigData
-from auto_semver.config._models.release import ReleaseConfig
+from auto_semver.config import Config, ConfigData, ReleaseConfig
 from auto_semver.domain.semver import Version
 from auto_semver.domain.semver.lock import SemverLock
 

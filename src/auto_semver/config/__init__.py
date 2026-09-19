@@ -3,11 +3,44 @@
 # SPDX-License-Identifier: MIT
 """Public config package entry point.
 
-Import ``Config`` from here. Schema / pydantic model classes live in
-``auto_semver.config._models`` and are for typing (and rare runtime construction
-when applying config) — not a second public API surface.
+Import ``Config`` and schema types from here — never from ``config._models``.
+``_models`` is a private implementation detail of this package.
 """
 
+from auto_semver.config._models import (
+    BranchName,
+    BumpConfig,
+    ChangelogConfig,
+    Commit,
+    CommitGroup,
+    CommitGroupConfig,
+    CommitGroups,
+    CommitGroupsConfig,
+    ConfigData,
+    PromotionRule,
+    PullRequestConfig,
+    RegexPattern,
+    ReleaseConfig,
+)
+from auto_semver.config._models.changelog import ChangelogTemplateVars
+from auto_semver.config._models.pull_request import PullRequestTemplateVars
 from auto_semver.config.config import Config
 
-__all__ = ["Config"]
+__all__ = [
+    "BranchName",
+    "BumpConfig",
+    "ChangelogConfig",
+    "ChangelogTemplateVars",
+    "Commit",
+    "CommitGroup",
+    "CommitGroupConfig",
+    "CommitGroups",
+    "CommitGroupsConfig",
+    "Config",
+    "ConfigData",
+    "PromotionRule",
+    "PullRequestConfig",
+    "PullRequestTemplateVars",
+    "RegexPattern",
+    "ReleaseConfig",
+]

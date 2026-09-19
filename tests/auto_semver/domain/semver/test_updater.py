@@ -393,9 +393,7 @@ class TestVersionFileUpdaterIntegration:
     @pytest.mark.integration
     def test_update_package_json_trailing_comma(self, file_fixture: FileFixture) -> None:
         """Mid-object JSON version lines keep their trailing comma after bump."""
-        path = file_fixture.create_version_file(
-            "package_json", version="1.0.0", filename="package"
-        )
+        path = file_fixture.create_version_file("package_json", version="1.0.0", filename="package")
         VersionFileUpdater(file_path=str(path), version=Version(major=1, minor=2, patch=3)).update()
         content = path.read_text(encoding="utf-8")
         assert '"version": "1.2.3",' in content

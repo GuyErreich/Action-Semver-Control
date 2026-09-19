@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from auto_semver.config._models.changelog import ChangelogConfig, ChangelogTemplateVars
-from auto_semver.config._models.commit_group import CommitGroupConfig
+from auto_semver.config import ChangelogConfig, ChangelogTemplateVars, CommitGroupConfig
 from auto_semver.domain.changelog.manager import ChangelogManager
 from auto_semver.domain.commits.grouper import CommitGrouper
 from auto_semver.templates.engine import reset_template_engine

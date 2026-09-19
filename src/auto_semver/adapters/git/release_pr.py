@@ -666,4 +666,3 @@ class GitReleasePr(GitOpsBase):
                 filtered_messages.append(message)
 
         return filtered_messages
-

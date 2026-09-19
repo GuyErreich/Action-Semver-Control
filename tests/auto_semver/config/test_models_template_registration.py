@@ -10,8 +10,7 @@ from pathlib import Path
 import pytest
 from jinja2 import TemplateSyntaxError
 
-from auto_semver.config._models.changelog import ChangelogConfig
-from auto_semver.config._models.pull_request import PullRequestConfig, PullRequestTemplateVars
+from auto_semver.config import ChangelogConfig, PullRequestConfig, PullRequestTemplateVars
 from auto_semver.domain.changelog.manager import ChangelogManager
 from auto_semver.templates.engine import get_template_engine, reset_template_engine
 

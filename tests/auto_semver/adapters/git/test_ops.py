@@ -62,7 +62,8 @@ class TestGitOps:
     def patch_parse_repository_name(self, mocker: MockerFixture) -> Any:
         """Patch _parse_repository_name to avoid needing real remote URLs in all tests."""
         return mocker.patch(
-            "auto_semver.adapters.git.local.GitLocal._parse_repository_name", return_value="owner/repo"
+            "auto_semver.adapters.git.local.GitLocal._parse_repository_name",
+            return_value="owner/repo",
         )
 
     @pytest.mark.unit
@@ -448,7 +449,10 @@ class TestGitOps:
         # Mock SemverLock
         mock_version = mocker.MagicMock(spec=Version)
         mock_semver_lock = mocker.MagicMock(version=mock_version)
-        mocker.patch("auto_semver.adapters.git.release_pr.SemverLock.from_dict", return_value=mock_semver_lock)
+        mocker.patch(
+            "auto_semver.adapters.git.release_pr.SemverLock.from_dict",
+            return_value=mock_semver_lock,
+        )
 
         # Create GitOps instance
         gitops = GitOps()

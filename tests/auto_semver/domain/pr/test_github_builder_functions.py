@@ -1,6 +1,6 @@
 """Unit tests for GitHubPRBuilder template functions."""
 
-from auto_semver.config._models.commit_group import Commit, CommitGroup
+from auto_semver.config import Commit, CommitGroup
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.domain.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 
