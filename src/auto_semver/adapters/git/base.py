@@ -1,7 +1,7 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
-"""Shared attribute declarations for GitOps mixins."""
+"""Shared attribute declarations for the GitOps composition."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ if TYPE_CHECKING:
     from github import Github
 
 
-class GitOpsMixinBase:
-    """Attribute surface every GitOps mixin may read/write on ``self``."""
+class GitOpsBase:
+    """Attribute surface shared by the GitOps composition on ``self``."""
 
     repo: Repo
     github_token: str | None

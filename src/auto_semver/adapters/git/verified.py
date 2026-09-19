@@ -15,7 +15,7 @@ from github import Github
 from github.GithubException import GithubException
 from github.InputGitTreeElement import InputGitTreeElement
 
-from .base import GitOpsMixinBase
+from .base import GitOpsBase
 from .constants import (
     _CREATE_COMMIT_ON_BRANCH_MUTATION,
     _KNOWN_GIT_FILE_MODES,
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitVerifiedCommitMixin(GitOpsMixinBase):
+class GitVerifiedCommitMixin(GitOpsBase):
     """Mixin: Verified commit transport (GraphQL + REST)."""
 
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:

@@ -18,7 +18,7 @@ from github.GithubException import GithubException
 from ...config.constants import (
     VERSION_METADATA_COMMIT,
 )
-from .base import GitOpsMixinBase
+from .base import GitOpsBase
 
 if TYPE_CHECKING:
 
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitPromoteMixin(GitOpsMixinBase):
+class GitPromoteMixin(GitOpsBase):
     """Mixin: Promotion orchestration."""
 
     def merge(

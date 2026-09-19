@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 
-from .base import GitOpsMixinBase
+from .base import GitOpsBase
 
 if TYPE_CHECKING:
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitLocalMixin(GitOpsMixinBase):
+class GitLocalMixin(GitOpsBase):
     """Mixin: Local GitPython plumbing."""
 
     def __init__(

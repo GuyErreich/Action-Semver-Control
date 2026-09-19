@@ -19,7 +19,7 @@ from ...config.constants import (
     PR_HIDDEN_MARKER,
 )
 from ...domain.semver import SemverLock, Version
-from .base import GitOpsMixinBase
+from .base import GitOpsBase
 from .constants import (
     DEFAULT_RELEASE_PREFIX,
     LEGACY_RELEASE_PREFIX,
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitReleasePrMixin(GitOpsMixinBase):
+class GitReleasePrMixin(GitOpsBase):
     """Mixin: Release PR ownership and discovery."""
 
     def get_lock_at_ref(self, ref: str) -> SemverLock | None:
