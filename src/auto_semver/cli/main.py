@@ -13,13 +13,13 @@ import logging
 import sys
 from pathlib import Path
 
+from auto_semver.adapters.git import GitOps
+from auto_semver.adapters.github import GitHubEvent
 from auto_semver.cli import bump, finalize, promote, setup
 from auto_semver.cli.utils import is_finalized
 from auto_semver.config import Config
-from auto_semver.gh import GitHubEvent
-from auto_semver.git import GitOps
+from auto_semver.log import setup_logger
 from auto_semver.setup.check import run_check
-from auto_semver.utils import setup_logger
 
 logger = logging.getLogger(__name__)
 

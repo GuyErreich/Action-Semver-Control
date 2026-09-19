@@ -40,9 +40,7 @@ def check_workflow_concurrency(workflows_dir: Path | None = None) -> list[str]:
 
     workflow_files = list(root.glob("*.yml")) + list(root.glob("*.yaml"))
     bump_files = [
-        path
-        for path in workflow_files
-        if "auto-semver" in path.name or "semver" in path.name
+        path for path in workflow_files if "auto-semver" in path.name or "semver" in path.name
     ]
 
     if not bump_files:
