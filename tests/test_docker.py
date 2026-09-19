@@ -9,6 +9,7 @@ They validate that the module can be imported and executed within the container 
 
 import tempfile
 import time
+import tomllib
 from collections.abc import Generator
 from pathlib import Path
 
@@ -18,6 +19,23 @@ from docker import errors as docker_errors
 from docker import from_env as docker_from_env
 from docker.models.images import Image as DockerImage
 from git import Repo
+
+_PROJECT_ROOT = Path(__file__).parent.parent
+
+
+def _locked_package_version(package_name: str) -> str:
+    """Return the exact version pinned for ``package_name`` in ``uv.lock``."""
+    with (_PROJECT_ROOT / "uv.lock").open("rb") as lock_file:
+        lock_data = tomllib.load(lock_file)
+
+    for package in lock_data.get("package", []):
+        if package.get("name") == package_name:
+            version = package.get("version")
+            if isinstance(version, str):
+                return version
+
+    msg = f"Package {package_name!r} not found in uv.lock"
+    raise KeyError(msg)
 
 
 class TestDockerBuild:
@@ -209,6 +227,26 @@ class TestDockerBuild:
             assert package.lower() in output.lower(), (
                 f"Required package '{package}' not found in container. Output: {output}"
             )
+
+    def test_docker_runtime_deps_match_lockfile(
+        self, docker_client: DockerClient, docker_image: DockerImage
+    ) -> None:
+        """Runtime packages must match uv.lock (no floating ~= resolution)."""
+        expected_version = _locked_package_version("pydantic")
+        python_code = "import importlib.metadata; print(importlib.metadata.version('pydantic'))"
+        container = docker_client.containers.run(
+            image=docker_image.id,
+            command=["python", "-c", python_code],
+            remove=True,
+            detach=False,
+            entrypoint="",  # Override the entrypoint to use plain python
+        )
+
+        installed_version = container.decode("utf-8").strip()
+        assert installed_version == expected_version, (
+            f"Container pydantic=={installed_version} does not match "
+            f"uv.lock pydantic=={expected_version}"
+        )
 
 
 class TestDockerWithMountedVolume:
