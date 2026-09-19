@@ -31,6 +31,7 @@ import re
 from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 from git import Actor, Commit, GitCommandError, Head, Repo
@@ -597,6 +598,21 @@ class GitOps:
         logger.info("Verified API tag %s -> %s", tag, sha)
         return tag
 
+    @staticmethod
+    def _redact_remote_url(url: str) -> str:
+        """Strip userinfo (e.g. tokens) from a remote URL before logging or raising."""
+        try:
+            parts = urlsplit(url)
+            if parts.scheme in {"http", "https"} and (parts.username or parts.password):
+                host = parts.hostname or ""
+                if parts.port:
+                    host = f"{host}:{parts.port}"
+                return urlunsplit((parts.scheme, host, parts.path, parts.query, parts.fragment))
+        except ValueError:
+            pass
+        # Fallback for non-standard URLs that still embed userinfo before '@'
+        return re.sub(r"(https?://)[^/@\s]+@", r"\1", url)
+
     def _parse_repository_name(self, *, remote_name: str = "origin") -> str:
         """
         Extract the repository name from the Git remote URL.
@@ -629,8 +645,11 @@ class GitOps:
                     owner, repo = match.groups()
                     return f"{owner}/{repo}"
 
-            raise ValueError(f"Unable to parse GitHub repository from remote URL: {remote_url}")
+            safe_url = self._redact_remote_url(remote_url)
+            raise ValueError(f"Unable to parse GitHub repository from remote URL: {safe_url}")
 
+        except ValueError:
+            raise
         except Exception as e:
             raise ValueError(
                 f"Failed to get repository name from remote '{remote_name}': {e}"

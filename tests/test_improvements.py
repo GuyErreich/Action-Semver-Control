@@ -21,6 +21,7 @@ from auto_semver.templates.utils import (
     extract_prefix_before_delimiter,
     format_date_iso_to_custom,
     has_keyword_in_group_titles,
+    truncate_commit,
     truncate_text,
 )
 
@@ -136,8 +137,9 @@ def test_comprehensive_docstrings() -> None:
         base_branch="main",
     )
     builder = GitHubPRBuilder(data)
-    assert builder.truncate_commit.__doc__ is not None
-    assert "Truncate commit message" in builder.truncate_commit.__doc__
+    _ = builder  # ensure builder still constructs with shared engine functions
+    assert truncate_commit.__doc__ is not None
+    assert "Truncate" in truncate_commit.__doc__
 
 
 def test_integration_with_shared_utilities() -> None:

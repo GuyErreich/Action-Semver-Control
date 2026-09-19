@@ -822,15 +822,53 @@ class TestVersionComparison:
                 op(version, "1.2.3")
 
     @pytest.mark.unit
-    def test_suffix_ignored_in_numerical_comparison(self) -> None:
-        """Test that suffixes are ignored in numerical comparisons."""
-
+    def test_suffix_respected_in_prerelease_ordering(self) -> None:
+        """Same core version: prerelease sorts below release; suffixes compare lexicographically."""
         version1 = Version(major=1, minor=2, patch=3, suffix="-dev")
         version2 = Version(major=1, minor=2, patch=4, suffix="-rc1")
 
-        # Only the numerical parts should be compared
         assert version1 < version2
         assert version2 > version1
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        ("lower", "higher"),
+        [
+            ("1.2.3-dev", "1.2.3-rc"),
+            ("1.2.3-rc", "1.2.3"),
+            ("1.2.3-dev", "1.2.3"),
+            ("1.0.0-alpha", "1.0.0-alpha.1"),
+            ("1.0.0-alpha.1", "1.0.0-alpha.beta"),
+            ("1.0.0-alpha.beta", "1.0.0-beta"),
+            ("1.0.0-beta", "1.0.0-beta.2"),
+            ("1.0.0-beta.2", "1.0.0-beta.11"),
+            ("1.0.0-beta.11", "1.0.0-rc.1"),
+            ("1.0.0-rc.1", "1.0.0"),
+        ],
+    )
+    def test_semver_prerelease_precedence_table(self, lower: str, higher: str) -> None:
+        """Table-driven coverage of semver §11 prerelease precedence."""
+        left = Version.parse(lower)
+        right = Version.parse(higher)
+        assert left < right
+        assert right > left
+        assert left <= right
+        assert right >= left
+        assert left != right
+
+    @pytest.mark.unit
+    def test_baseline_prefers_higher_open_release_with_prerelease(self) -> None:
+        """bump._resolve_baseline_version uses > ; prerelease must not outrank a release."""
+        baseline = Version.parse("1.2.3")
+        open_release = Version.parse("1.2.3-rc.1")
+        assert not (open_release > baseline)
+
+    @pytest.mark.unit
+    def test_promote_rejects_equal_or_lower_including_prerelease(self) -> None:
+        """promote._validate_target_version uses <= ; 1.2.3-rc must not beat 1.2.3."""
+        source = Version.parse("1.2.3-rc.1")
+        target = Version.parse("1.2.3")
+        assert source <= target
 
 
 class TestVersionEdgeCases:

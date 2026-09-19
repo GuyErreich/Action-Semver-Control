@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.config import Config
-from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.gh import GitHubEvent
 from auto_semver.semver import SemverLock, Version
@@ -110,19 +109,10 @@ def is_finalized(*, config: Config, event: GitHubEvent) -> bool:
     """
     logger.info("Checking if the merged PR matches the finalized state")
 
-    title: str = event.get_title()
     body: str = event.get_body()
     labels: list[str] = event.get_labels_safe()
 
-    semver_lock = SemverLock.load_from_file()
-    version: str = str(semver_lock.version)
-
     expected_labels: list[str] = config.data.pull_request.labels
-    # Use the dataclass for template vars
-
-    expected_title: str = config.data.pull_request.render_title(
-        PullRequestTemplateVars(version=version, date="", messages=[])
-    )
 
     reasons = []
 
@@ -133,11 +123,8 @@ def is_finalized(*, config: Config, event: GitHubEvent) -> bool:
         reasons.append(f"   All PR labels: {sorted(labels)}")
         reasons.append(f"   Expected labels: {sorted(expected_labels)}")
 
-    # Title
-    if title != expected_title:
-        reasons.append("Title mismatch:")
-        reasons.append(f"   Expected: {expected_title}")
-        reasons.append(f"   Actual:   {title}")
+    # Identity: marker + labels only. Title templates may include {{date}} and other
+    # runtime vars that cannot be re-rendered identically at finalize time.
 
     # Body
     if PR_HIDDEN_MARKER not in body:

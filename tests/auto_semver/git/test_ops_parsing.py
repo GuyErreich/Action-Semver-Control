@@ -98,3 +98,21 @@ class TestGitOpsParsing:
 
         with pytest.raises(ValueError, match="Unable to parse GitHub repository"):
             GitOps()
+
+    def test_parse_repository_name_failure_redacts_token(self, mocker: MockerFixture) -> None:
+        """Tokens in remote URLs must never appear in raised ValueError messages."""
+        token = "x-access-token:ghs_SUPER_SECRET_TOKEN_DO_NOT_LEAK"
+        mock_repo = mocker.MagicMock(spec=Repo)
+        mock_remote = mocker.MagicMock()
+        mock_remote.url = f"https://{token}@gitlab.com/owner/repo.git"
+        mock_repo.remote.return_value = mock_remote
+        mocker.patch("auto_semver.git.ops.Repo", return_value=mock_repo)
+        mocker.patch("auto_semver.git.ops.Github")
+
+        with pytest.raises(ValueError) as exc_info:
+            GitOps()
+
+        message = str(exc_info.value)
+        assert "ghs_SUPER_SECRET_TOKEN_DO_NOT_LEAK" not in message
+        assert "x-access-token" not in message
+        assert "gitlab.com/owner/repo.git" in message

@@ -337,3 +337,46 @@ class TestChangelogManagerComposeUpdatedChangelog:
         result = manager._compose_updated_changelog(existing="## [0.9.0]", rendered="## [1.0.0]")
         expected = "# Changelog\n\n## [1.0.0]\n\n## [0.9.0]\n\n## License"
         assert result == expected
+
+    @pytest.mark.unit
+    def test_compose_updated_changelog_strips_existing_header_footer(
+        self, empty_changelog_path: Path
+    ) -> None:
+        """Existing content that already has header/footer must not re-wrap them."""
+        manager = ChangelogManager(
+            path=empty_changelog_path,
+            truncate=False,
+            template="",
+            header="# Changelog",
+            footer="## License",
+        )
+
+        existing = "# Changelog\n\n## [0.9.0]\n\n## License"
+        result = manager._compose_updated_changelog(existing=existing, rendered="## [1.0.0]")
+        assert result.count("# Changelog") == 1
+        assert result.count("## License") == 1
+        assert "## [1.0.0]" in result
+        assert "## [0.9.0]" in result
+
+    @pytest.mark.unit
+    def test_update_three_releases_no_header_footer_duplication(
+        self, empty_changelog_path: Path
+    ) -> None:
+        """Three consecutive updates with truncate=False keep a single header and footer."""
+        manager = ChangelogManager(
+            path=empty_changelog_path,
+            truncate=False,
+            template="## [{{ version }}]",
+            header="# Changelog",
+            footer="## License",
+        )
+
+        for version in ("1.0.0", "1.1.0", "1.2.0"):
+            manager.update(version=version, messages=[f"msg-{version}"])
+
+        content = empty_changelog_path.read_text(encoding="utf-8")
+        assert content.count("# Changelog") == 1
+        assert content.count("## License") == 1
+        assert "## [1.2.0]" in content
+        assert "## [1.1.0]" in content
+        assert "## [1.0.0]" in content
