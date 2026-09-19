@@ -25,6 +25,11 @@ release:
 bump:
   mode: classic
 
+# Restrict lock sync to uv (this repo). Omit ecosystems to auto-detect all known locks.
+lock_sync:
+  ecosystems:
+    - uv
+
 # Commit grouping configuration for PR and changelog templates
 commit_groups:
   summary_mode: header_only

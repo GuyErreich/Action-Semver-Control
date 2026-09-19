@@ -5,6 +5,7 @@
 
 import datetime
 import logging
+from pathlib import Path
 
 import yaml
 
@@ -13,6 +14,7 @@ from auto_semver.config import Config
 from auto_semver.gh import GitHubEvent
 from auto_semver.git import GitOps
 from auto_semver.git.grouper import CommitGrouper
+from auto_semver.lock_sync import sync_package_locks
 from auto_semver.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 from auto_semver.semver import Version
 from auto_semver.semver.lock import SemverLock
@@ -284,6 +286,9 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     for path in files_to_update:
         VersionFileUpdater(file_path=path, version=version).update()
 
+    repo_root = Path(gitops.repo.working_tree_dir or ".")
+    synced_locks = sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
+
     release_branch_name = f"{release_cfg.branch_prefix.rstrip('/')}/{new_version}"
 
     lockfile.version = version
@@ -318,7 +323,7 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
     lockfile.save_to_file()
 
     gitops.create_branch(branch_name=release_branch_name, force=True)
-    gitops.add(files_to_update)
+    gitops.add([*files_to_update, *synced_locks])
     gitops.add([lockfile.path])
     gitops.add([changelog.path])
     gitops.commit(f"Release {new_version}", force=True)

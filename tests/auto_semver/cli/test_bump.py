@@ -18,6 +18,7 @@ from auto_semver.changelog.manager import ChangelogManager
 from auto_semver.cli.bump import run
 from auto_semver.config import Config, ConfigData
 from auto_semver.config._models._commit_groups import CommitGroupsConfig
+from auto_semver.config._models._lock_sync import LockSyncConfig
 from auto_semver.config._models._release import ReleaseConfig
 from auto_semver.gh.event import GitHubEvent
 from auto_semver.git import GitOps
@@ -38,6 +39,7 @@ class TestBump:
         mock.get_open_release_version.return_value = None
         mock.get_recent_commits.return_value = ["feat: add new feature", "fix: bug fix"]
         mock.fetch.return_value = None
+        mock.repo = mocker.Mock(working_tree_dir=".")
         return mock
 
     @pytest.fixture
@@ -56,6 +58,7 @@ class TestBump:
         mock.data.commit_groups = CommitGroupsConfig()
         mock.data.release = ReleaseConfig()
         mock.data.bump = mocker.Mock(mode="classic")
+        mock.data.lock_sync = LockSyncConfig(enabled=False)
 
         mock_pr_config = mocker.Mock()
         mock_pr_config.title = "Release {{ version }}"
@@ -176,3 +179,56 @@ class TestBump:
 
         # Verify PR was created
         mock_gitops.create_pr.assert_called_once()
+
+
+@pytest.mark.unit
+def test_bump_stages_synced_lockfiles(
+    mocker: MockerFixture,
+    github_event: GitHubEventFixture,
+    file_fixture: FileFixture,
+) -> None:
+    """Bump should git-add paths returned by sync_package_locks."""
+    mock_gitops = mocker.Mock(spec=GitOps)
+    mock_gitops.get_lock_version_from_branch.return_value = None
+    mock_gitops.get_open_release_version.return_value = None
+    mock_gitops.get_recent_commits.return_value = ["feat: add feature"]
+    mock_gitops.fetch.return_value = None
+    mock_gitops.repo = mocker.Mock(working_tree_dir=".")
+    mock_gitops.get_file_content_at_commit.return_value = None
+
+    mock_config = mocker.Mock(spec=Config)
+    mock_data = mocker.Mock(spec=ConfigData)
+    mock_config.data = mock_data
+    mock_data.suffixes = {"main": ""}
+    mock_data.start_version = Version.parse("0.1.0")
+    mock_data.version_files = ["version.txt"]
+    mock_data.promotions = []
+    mock_data.commit_groups = CommitGroupsConfig()
+    mock_data.release = ReleaseConfig()
+    mock_data.bump = mocker.Mock(mode="classic")
+    mock_data.lock_sync = LockSyncConfig(enabled=True, ecosystems=["uv"])
+    mock_pr = mocker.Mock()
+    mock_pr.title = "Release {{ version }}"
+    mock_pr.body = "notes"
+    mock_pr.labels = ["semver-bump"]
+    mock_data.pull_request = mock_pr
+
+    mock_changelog = mocker.Mock(spec=ChangelogManager)
+    mock_changelog.path = Path("CHANGELOG.md")
+    mocker.patch.object(ChangelogManager, "from_config", return_value=mock_changelog)
+
+    mock_lock = mocker.Mock(spec=SemverLock)
+    mock_lock.version = Version.parse("0.1.0")
+    mock_lock.path = ".semver.lock"
+    mock_lock.target_base_sha = None
+    mocker.patch("auto_semver.cli.bump.SemverLock", return_value=mock_lock)
+    mocker.patch.object(SemverLock, "load_from_file", return_value=mock_lock)
+    mocker.patch("auto_semver.cli.bump.VersionFileUpdater")
+    mocker.patch("auto_semver.cli.bump.sync_package_locks", return_value=["uv.lock"])
+
+    file_fixture.create_version_file(filename="version.txt")
+    github_event.for_bump()
+    run(gitops=mock_gitops, event=GitHubEvent(), config=mock_config, github_token="fake-token")
+
+    add_calls = [call.args[0] for call in mock_gitops.add.call_args_list]
+    assert any("uv.lock" in paths for paths in add_calls)

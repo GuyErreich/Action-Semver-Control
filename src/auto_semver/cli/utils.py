@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from auto_semver.changelog.manager import ChangelogManager
@@ -14,6 +15,7 @@ from auto_semver.config import Config
 from auto_semver.config._models._pull_request import PullRequestTemplateVars
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.gh import GitHubEvent
+from auto_semver.lock_sync import sync_package_locks
 from auto_semver.semver import SemverLock, Version
 from auto_semver.semver.updater import VersionFileUpdater
 
@@ -60,6 +62,8 @@ def apply_promotion_metadata(
     promoted = Version.parse(target_version)
     for file_path in config.data.version_files:
         VersionFileUpdater(file_path=str(file_path), version=promoted).update()
+
+    sync_package_locks(repo_root=Path.cwd(), config=config.data.lock_sync)
 
     try:
         lock = SemverLock.load_from_file()

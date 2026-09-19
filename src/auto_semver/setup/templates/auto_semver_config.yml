@@ -16,6 +16,14 @@ promotions:
 version_files:
   - "version.txt"
 
+# Optional: sync package lockfiles after version bumps (defaults shown).
+# Omit the block to auto-detect known lockfiles (uv.lock, package-lock.json).
+# lock_sync:
+#   enabled: true
+#   on_missing: skip   # or fail when the lock CLI is missing
+#   ecosystems:        # omit = auto-detect; set to restrict (e.g. monorepos)
+#     - uv
+
 release:
   strategy: single
   branch_prefix: auto-semver/release/

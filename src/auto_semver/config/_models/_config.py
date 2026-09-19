@@ -15,6 +15,7 @@ from ._bump import BumpConfig
 from ._changelog import ChangelogConfig
 from ._commit_group import CommitGroups
 from ._commit_groups import CommitGroupsConfig
+from ._lock_sync import LockSyncConfig
 from ._promotion import PromotionRule
 from ._pull_request import PullRequestConfig
 from ._release import ReleaseConfig
@@ -61,6 +62,10 @@ class ConfigData(BaseModel):
     bump: BumpConfig = Field(
         default_factory=BumpConfig,
         description="Version bump mode (classic semver vs cumulative)",
+    )
+    lock_sync: LockSyncConfig = Field(
+        default_factory=LockSyncConfig,
+        description="Package-manager lockfile sync after version-file rewrites",
     )
     pull_request: PullRequestConfig
     changelog: ChangelogConfig

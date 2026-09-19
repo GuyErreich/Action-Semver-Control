@@ -54,7 +54,7 @@ Pin reusable workflows at the floating major tag `v1` (for example `.../semver-b
 - Auto-close old release PRs (single branch mode)
 - Label bump PRs automatically (`semver-bump`)
 - 100% typed Python (>=3.12)
-- No subprocess — uses GitPython and Requests libraries only
+- No subprocess for git — uses GitPython and Requests; bump/promote may invoke official lock CLIs (`uv lock`, `npm install --package-lock-only`) when `lock_sync` is enabled
 - Fully Dockerized for clean CI/CD usage
 - Comprehensive test coverage with pytest and pyfakefs
 - Modern Python tooling (ruff, mypy, pre-commit, gitleaks secret scan)

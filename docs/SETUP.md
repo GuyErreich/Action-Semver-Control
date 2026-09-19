@@ -141,7 +141,13 @@ jobs:
 Start from [`src/auto_semver/setup/templates/auto_semver_config.yml`](../src/auto_semver/setup/templates/auto_semver_config.yml). Adjust:
 
 - `suffixes` — map your branch names (`dev`, `staging`, `master`, etc.)
-- `version_files` — files Action-Semver-Control may update directly (`version.txt`, `pyproject.toml`, JSON manifests such as `package.json` / Cursor `plugin.json`). Lines like `"version": "1.2.3",` (trailing comma) are supported. **`uv.lock` is not included** — after a version bump, run `uv lock` (or Dependabot) so the editable package version in the lockfile matches `pyproject.toml`.
+- `version_files` — files Action-Semver-Control may update directly (`version.txt`, `pyproject.toml`, JSON manifests such as `package.json` / Cursor `plugin.json`). Lines like `"version": "1.2.3",` (trailing comma) are supported.
+- `lock_sync` — after rewriting `version_files`, regenerate known package lockfiles that already exist at the repo root (`uv.lock` → `uv lock`; `package-lock.json` → `npm install --package-lock-only`). Defaults to enabled with auto-detect. Options:
+  - `enabled: false` — never run
+  - `on_missing: skip` (default) or `fail` — when the lock CLI is not on PATH
+  - `ecosystems: [uv]` — allow-list (monorepos: sync only the ecosystems you own; omit to auto-detect all known lockfiles present)
+  - Never invents a lockfile that is not already present. Non-zero lock command exits fail the bump.
+  - The Docker action image includes **uv** only; npm sync skips unless the runner has `npm` (or `on_missing: fail` aborts).
 - `promotions` — which channels auto-promote
 - `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
 - `release.strategy` — `single` (default) or `multi` for multiple open release PRs
