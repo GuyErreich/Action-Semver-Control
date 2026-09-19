@@ -30,7 +30,7 @@ tasks:
         docker run --rm \
           -v "$PWD:/github/workspace" \
           -w /github/workspace \
-          apache/skywalking-eyes:0.8.0 \
+          apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
           header check -c .licenserc.yaml
 
   license-fix:
@@ -40,7 +40,7 @@ tasks:
         docker run --rm \
           -v "$PWD:/github/workspace" \
           -w /github/workspace \
-          apache/skywalking-eyes:0.8.0 \
+          apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
           header fix -c .licenserc.yaml
 
   format:
