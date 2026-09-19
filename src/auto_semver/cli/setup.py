@@ -9,13 +9,13 @@ import logging
 import webbrowser
 from pathlib import Path
 
-from ..setup.links import (
+from auto_semver.setup.links import (
     SETUP_DOC_URL,
     app_registration_url,
     workflow_bump_deep_link,
     workflow_promote_deep_link,
 )
-from ..setup.scaffold import (
+from auto_semver.setup.scaffold import (
     RepoRef,
     detect_repo,
     scaffold_files,

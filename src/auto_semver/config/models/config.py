@@ -9,15 +9,15 @@ import logging
 
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 
-from ...domain.commits.grouper import CommitGrouper
-from ...domain.semver import Version
-from .bump import BumpConfig
-from .changelog import ChangelogConfig
-from .commit_group import CommitGroups
-from .commit_groups import CommitGroupsConfig
-from .promotion import PromotionRule
-from .pull_request import PullRequestConfig
-from .release import ReleaseConfig
+from auto_semver.config.models.bump import BumpConfig
+from auto_semver.config.models.changelog import ChangelogConfig
+from auto_semver.config.models.commit_group import CommitGroups
+from auto_semver.config.models.commit_groups import CommitGroupsConfig
+from auto_semver.config.models.promotion import PromotionRule
+from auto_semver.config.models.pull_request import PullRequestConfig
+from auto_semver.config.models.release import ReleaseConfig
+from auto_semver.domain.commits.grouper import CommitGrouper
+from auto_semver.domain.semver import Version
 
 logger = logging.getLogger(__name__)
 

@@ -141,7 +141,7 @@ module = [
   "auto_semver.adapters.git.release_pr",
 ]
 # Composition parts intentionally call sibling methods on self.
-disable_error_code = ["attr-defined"]
+disable_error_code = ["attr-defined", "no-any-return"]
 
 [dependency-groups]
 dev = [

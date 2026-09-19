@@ -9,9 +9,9 @@ Handles GitHub pull request generation with specific templates and configuration
 
 from dataclasses import dataclass
 
-from ...config.constants import PR_HIDDEN_MARKER
-from ...config.models.commit_group import CommitGroup
-from .builder import BasePRTemplateVariables, PRBuilder
+from auto_semver.config.constants import PR_HIDDEN_MARKER
+from auto_semver.config.models.commit_group import CommitGroup
+from auto_semver.domain.pr.builder import BasePRTemplateVariables, PRBuilder
 
 
 @dataclass

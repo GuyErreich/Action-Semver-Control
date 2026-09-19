@@ -15,7 +15,7 @@ Typical use case:
 
 import logging
 
-from .version import Version
+from auto_semver.domain.semver.version import Version
 
 logger = logging.getLogger(__package__)
 

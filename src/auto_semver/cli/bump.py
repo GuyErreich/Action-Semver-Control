@@ -8,16 +8,16 @@ import logging
 
 import yaml
 
-from ..adapters.git import GitOps
-from ..adapters.github import GitHubEvent
-from ..config import Config
-from ..domain.changelog.manager import ChangelogManager
-from ..domain.commits.grouper import CommitGrouper
-from ..domain.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
-from ..domain.semver import Version
-from ..domain.semver.lock import SemverLock
-from ..domain.semver.updater import VersionFileUpdater
-from ..domain.semver.version import BumpCounts
+from auto_semver.adapters.git import GitOps
+from auto_semver.adapters.github import GitHubEvent
+from auto_semver.config import Config
+from auto_semver.domain.changelog.manager import ChangelogManager
+from auto_semver.domain.commits.grouper import CommitGrouper
+from auto_semver.domain.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
+from auto_semver.domain.semver import Version
+from auto_semver.domain.semver.lock import SemverLock
+from auto_semver.domain.semver.updater import VersionFileUpdater
+from auto_semver.domain.semver.version import BumpCounts
 
 logger = logging.getLogger(__package__)
 

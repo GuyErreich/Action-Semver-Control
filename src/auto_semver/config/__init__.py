@@ -1,8 +1,8 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
-from .config import Config
-from .models import (
+from auto_semver.config.config import Config
+from auto_semver.config.models import (
     BranchName,
     BumpConfig,
     ChangelogConfig,
@@ -17,8 +17,8 @@ from .models import (
     RegexPattern,
     ReleaseConfig,
 )
-from .models.changelog import ChangelogTemplateVars
-from .models.pull_request import PullRequestTemplateVars
+from auto_semver.config.models.changelog import ChangelogTemplateVars
+from auto_semver.config.models.pull_request import PullRequestTemplateVars
 
 __all__ = [
     "BranchName",

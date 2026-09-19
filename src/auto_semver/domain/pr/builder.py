@@ -12,8 +12,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ...config.models.commit_group import CommitGroups
-from ...templates.engine import get_template_engine
+from auto_semver.config.models.commit_group import CommitGroups
+from auto_semver.templates.engine import get_template_engine
 
 if TYPE_CHECKING:
     pass

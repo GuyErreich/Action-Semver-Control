@@ -15,8 +15,8 @@ from github import Github
 from github.GithubException import GithubException
 from github.InputGitTreeElement import InputGitTreeElement
 
-from .base import GitOpsBase
-from .constants import (
+from auto_semver.adapters.git.base import GitOpsBase
+from auto_semver.adapters.git.constants import (
     _CREATE_COMMIT_ON_BRANCH_MUTATION,
     _KNOWN_GIT_FILE_MODES,
     _RAW_DIFF_MIN_MODE_FIELDS,

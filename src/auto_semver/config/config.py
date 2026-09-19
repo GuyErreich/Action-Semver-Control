@@ -29,13 +29,13 @@ from typing import cast
 import yaml
 from pydantic import ValidationError
 
-from ..domain.semver import Version
-from .constants import CONFIG_FILE
-from .models.changelog import ChangelogConfig
-from .models.commit_group import CommitGroupConfig
-from .models.config import ConfigData
-from .models.promotion import PromotionRule
-from .models.pull_request import PullRequestConfig
+from auto_semver.config.constants import CONFIG_FILE
+from auto_semver.config.models.changelog import ChangelogConfig
+from auto_semver.config.models.commit_group import CommitGroupConfig
+from auto_semver.config.models.config import ConfigData
+from auto_semver.config.models.promotion import PromotionRule
+from auto_semver.config.models.pull_request import PullRequestConfig
+from auto_semver.domain.semver import Version
 
 # Union type for all possible ConfigData attribute return types
 type ConfigValue = (

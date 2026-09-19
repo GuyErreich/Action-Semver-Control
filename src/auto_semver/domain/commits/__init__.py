@@ -1,7 +1,7 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
-from .grouper import CommitGrouper
-from .parser import CommitParser
+from auto_semver.domain.commits.grouper import CommitGrouper
+from auto_semver.domain.commits.parser import CommitParser
 
 __all__ = ["CommitGrouper", "CommitParser"]

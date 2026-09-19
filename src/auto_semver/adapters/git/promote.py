@@ -15,10 +15,10 @@ from git import GitCommandError
 from git.remote import Remote
 from github.GithubException import GithubException
 
-from ...config.constants import (
+from auto_semver.adapters.git.base import GitOpsBase
+from auto_semver.config.constants import (
     VERSION_METADATA_COMMIT,
 )
-from .base import GitOpsBase
 
 if TYPE_CHECKING:
 

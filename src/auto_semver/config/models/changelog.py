@@ -10,8 +10,8 @@ from textwrap import dedent
 from jinja2 import Template, TemplateSyntaxError
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
-from ..constants import DEFAULT_CHANGELOG
-from .commit_group import CommitGroups
+from auto_semver.config.constants import DEFAULT_CHANGELOG
+from auto_semver.config.models.commit_group import CommitGroups
 
 
 @dataclass

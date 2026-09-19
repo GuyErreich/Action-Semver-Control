@@ -12,12 +12,12 @@ After tagging, it checks for auto-promotion rules and promotes directly
 
 import logging
 
-from ..adapters.git import GitOps
-from ..adapters.github import GitHubEvent
-from ..config import Config
-from ..config.constants import FINALIZE_LOCK_COMMIT
-from ..domain.semver import SemverLock, Version
-from .utils import build_promotion_metadata_hook, promotion_prefer_source_paths
+from auto_semver.adapters.git import GitOps
+from auto_semver.adapters.github import GitHubEvent
+from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
+from auto_semver.config import Config
+from auto_semver.config.constants import FINALIZE_LOCK_COMMIT
+from auto_semver.domain.semver import SemverLock, Version
 
 logger = logging.getLogger(__package__)
 

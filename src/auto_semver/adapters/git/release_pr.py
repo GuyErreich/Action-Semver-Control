@@ -14,16 +14,16 @@ from git import Commit, GitCommandError
 from git.remote import PushInfo, Remote
 from github.GithubException import GithubException
 
-from ...config.constants import (
-    INTERNAL_COMMIT_PREFIXES,
-    PR_HIDDEN_MARKER,
-)
-from ...domain.semver import SemverLock, Version
-from .base import GitOpsBase
-from .constants import (
+from auto_semver.adapters.git.base import GitOpsBase
+from auto_semver.adapters.git.constants import (
     DEFAULT_RELEASE_PREFIX,
     LEGACY_RELEASE_PREFIX,
 )
+from auto_semver.config.constants import (
+    INTERNAL_COMMIT_PREFIXES,
+    PR_HIDDEN_MARKER,
+)
+from auto_semver.domain.semver import SemverLock, Version
 
 if TYPE_CHECKING:
     from github.PullRequest import PullRequest

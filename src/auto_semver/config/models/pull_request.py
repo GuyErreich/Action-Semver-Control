@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 from jinja2 import TemplateSyntaxError
 from pydantic import BaseModel, Field, field_validator
 
-from ...templates.engine import get_template_engine
-from ..constants import PR_HIDDEN_MARKER
-from .commit_group import CommitGroups
+from auto_semver.config.constants import PR_HIDDEN_MARKER
+from auto_semver.config.models.commit_group import CommitGroups
+from auto_semver.templates.engine import get_template_engine
 
 if TYPE_CHECKING:
-    from ...templates.types import TemplateVariables
+    from auto_semver.templates.types import TemplateVariables
 
 # Constants
 MIN_LABELS_COUNT = 1

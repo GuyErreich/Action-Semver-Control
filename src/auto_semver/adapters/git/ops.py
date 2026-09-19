@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from .local import GitLocal
-from .promote import GitPromote
-from .release_pr import GitReleasePr
-from .verified import GitVerifiedCommits
+from auto_semver.adapters.git.local import GitLocal
+from auto_semver.adapters.git.promote import GitPromote
+from auto_semver.adapters.git.release_pr import GitReleasePr
+from auto_semver.adapters.git.verified import GitVerifiedCommits
 
 
 class GitOps(GitLocal, GitVerifiedCommits, GitPromote, GitReleasePr):

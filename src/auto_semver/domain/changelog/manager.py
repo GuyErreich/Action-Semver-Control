@@ -18,11 +18,11 @@ import logging
 from datetime import date
 from pathlib import Path
 
-from ...config import Config
-from ...config.models.commit_group import CommitGroupConfig
-from ...templates.engine import get_template_engine
-from ...templates.utils import format_date_iso_to_custom
-from ..commits.grouper import CommitGrouper
+from auto_semver.config import Config
+from auto_semver.config.models.commit_group import CommitGroupConfig
+from auto_semver.domain.commits.grouper import CommitGrouper
+from auto_semver.templates.engine import get_template_engine
+from auto_semver.templates.utils import format_date_iso_to_custom
 
 logger = logging.getLogger(__package__)
 

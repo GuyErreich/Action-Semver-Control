@@ -1,14 +1,20 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
-from .bump import BumpConfig
-from .changelog import ChangelogConfig
-from .commit_group import Commit, CommitGroup, CommitGroupConfig, CommitGroups, RegexPattern
-from .commit_groups import CommitGroupsConfig
-from .config import ConfigData
-from .promotion import BranchName, PromotionRule
-from .pull_request import PullRequestConfig
-from .release import ReleaseConfig
+from auto_semver.config.models.bump import BumpConfig
+from auto_semver.config.models.changelog import ChangelogConfig
+from auto_semver.config.models.commit_group import (
+    Commit,
+    CommitGroup,
+    CommitGroupConfig,
+    CommitGroups,
+    RegexPattern,
+)
+from auto_semver.config.models.commit_groups import CommitGroupsConfig
+from auto_semver.config.models.config import ConfigData
+from auto_semver.config.models.promotion import BranchName, PromotionRule
+from auto_semver.config.models.pull_request import PullRequestConfig
+from auto_semver.config.models.release import ReleaseConfig
 
 __all__ = [
     "BranchName",

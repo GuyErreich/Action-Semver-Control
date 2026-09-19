@@ -15,9 +15,9 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from ...config.models.commit_group import Commit, CommitGroup
-from ...config.models.commit_groups import CommitGroupsConfig
-from .parser import CommitParser
+from auto_semver.config.models.commit_group import Commit, CommitGroup
+from auto_semver.config.models.commit_groups import CommitGroupsConfig
+from auto_semver.domain.commits.parser import CommitParser
 
 if TYPE_CHECKING:
     from auto_semver.config.models.commit_group import CommitGroupConfig, CommitGroups

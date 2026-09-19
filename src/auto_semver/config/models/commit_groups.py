@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from .commit_group import CommitGroupConfig
+from auto_semver.config.models.commit_group import CommitGroupConfig
 
 DEFAULT_IGNORE_LINE_PATTERNS: list[str] = [
     r"^\[[ xX]\]",

@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 from git import Actor, Commit, GitCommandError, Head, Repo
 from git.remote import PushInfo, Remote
 
-from .base import GitOpsBase
+from auto_semver.adapters.git.base import GitOpsBase
 
 if TYPE_CHECKING:
 
