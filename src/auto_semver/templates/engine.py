@@ -46,10 +46,10 @@ from jinja2 import DictLoader, Template, TemplateSyntaxError, nodes
 from jinja2.exceptions import SecurityError
 from jinja2.sandbox import SandboxedEnvironment
 
-from .utils import get_pr_template_functions
+from auto_semver.templates.utils import get_pr_template_functions
 
 if TYPE_CHECKING:
-    from .types import (
+    from auto_semver.templates.types import (
         FunctionDict,
         TemplateFunction,
         TemplateValue,
