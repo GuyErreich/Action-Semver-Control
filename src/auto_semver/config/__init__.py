@@ -24,7 +24,6 @@ __all__ = [
     "CommitGroups",
     "Config",
     "ConfigData",
-    "GroupedMessages",
     "PromotionRule",
     "PullRequestConfig",
     "RegexPattern",

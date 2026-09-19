@@ -20,6 +20,8 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from functools import total_ordering
+from typing import Any
 
 logger = logging.getLogger(__package__)
 
@@ -97,6 +99,7 @@ class BumpCounts:
     has_major: bool = False
 
 
+@total_ordering
 class Version:
     """
     Represents a semantic version, optionally with prefix, suffix, or title.
@@ -431,30 +434,34 @@ class Version:
         """Return hash value for the version object."""
         return hash((self.major, self.minor, self.patch, self.suffix))
 
+    def _prerelease_identifiers(self) -> tuple[tuple[int, int | str], ...] | None:
+        """Parse suffix into semver §11 prerelease identifiers, or None if release."""
+        if not self.suffix:
+            return None
+        raw = self.suffix[1:] if self.suffix.startswith("-") else self.suffix
+        if not raw:
+            return None
+        identifiers: list[tuple[int, int | str]] = []
+        for part in raw.split("."):
+            if part.isdigit():
+                # Numeric identifiers sort before non-numeric (tag 0 vs 1)
+                identifiers.append((0, int(part)))
+            else:
+                identifiers.append((1, part))
+        return tuple(identifiers)
+
+    def _precedence_key(self) -> tuple[Any, ...]:
+        """Build a comparable key per semver §11 (prerelease sorts below release)."""
+        pre = self._prerelease_identifiers()
+        # is_prerelease=0 sorts before is_prerelease=1 so 1.0.0-rc < 1.0.0
+        if pre is None:
+            return (self.major, self.minor, self.patch, 1, ())
+        return (self.major, self.minor, self.patch, 0, pre)
+
     def __lt__(self, other: object) -> bool:
         """Check if the current instance of the version is smaller than the given version."""
         if not isinstance(other, Version):
             return NotImplemented
 
-        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
+        return self._precedence_key() < other._precedence_key()
 
-    def __gt__(self, other: object) -> bool:
-        """Check if the current instance of the version is greater than the given version."""
-        if not isinstance(other, Version):
-            return NotImplemented
-
-        return (self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)
-
-    def __le__(self, other: object) -> bool:
-        """Check if the current instance of the version is less than or equal to the given version."""
-        if not isinstance(other, Version):
-            return NotImplemented
-
-        return (self.major, self.minor, self.patch) <= (other.major, other.minor, other.patch)
-
-    def __ge__(self, other: object) -> bool:
-        """Check if the current instance of the version is greater than or equal to the given version."""
-        if not isinstance(other, Version):
-            return NotImplemented
-
-        return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)

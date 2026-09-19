@@ -4,7 +4,6 @@
 """Pull request configuration models."""
 
 from dataclasses import dataclass
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from jinja2 import TemplateSyntaxError
@@ -15,7 +14,7 @@ from ..constants import PR_HIDDEN_MARKER
 from ._commit_group import CommitGroups
 
 if TYPE_CHECKING:
-    from ...templates.types import FunctionDict, TemplateVariables
+    from ...templates.types import TemplateVariables
 
 # Constants
 MIN_LABELS_COUNT = 1
@@ -70,14 +69,9 @@ class PullRequestConfig(BaseModel):
         - commit_groups (CommitGroups): Pre-processed commit groups (optional)
 
     Template Functions:
-        The following functions are available for use in templates:
-        - truncate_commit(msg, length=72): Truncate commit messages to specified length
-        - format_date_custom(date_str, fmt="%Y-%m-%d"): Format date strings with custom format
-        - conventional_type(msg): Extract conventional commit type from message
-        - capitalize_first(text): Capitalize first letter of text
-        - count_commits(groups): Count total commits across groups
-        - has_breaking(groups): Check if there are breaking changes in groups
-        - count_groups(groups): Count number of commit groups
+        Registered once on the global template engine (see templates.utils):
+        - truncate_commit, format_date_custom, conventional_type, capitalize_first,
+          count_commits, has_breaking, count_groups
     """
 
     labels: list[GitHubLabel] = Field(
@@ -93,57 +87,6 @@ class PullRequestConfig(BaseModel):
         default=DEFAULT_BODY_TEMPLATE,
         description="Body template for the pull request.",
     )
-
-    def model_post_init(self, __context: dict[str, object] | None) -> None:
-        """
-        Post-initialization hook to register PR-specific template functions.
-
-        This ensures that the template functions are available whenever an instance
-        of this class is created, without requiring manual registration.
-        """
-        self._register_pr_template_functions()
-
-    def _register_pr_template_functions(self) -> None:
-        """
-        Register PR-specific template functions with the global template engine.
-
-        This method adds domain-specific functions that are useful for PR templates:
-        - truncate_commit: Truncate commit messages to a specific length
-        - format_date: Format date strings with custom formats
-        - conventional_type: Extract conventional commit type
-        - capitalize_first: Capitalize first letter of text
-        - count_commits: Count total commits across groups
-        - has_breaking: Check if there are breaking changes
-        - count_groups: Count number of commit groups
-        """
-        engine = get_template_engine()
-
-        # Register PR-specific filters and functions
-        pr_functions: FunctionDict = {
-            "truncate_commit": lambda msg, length=72: (
-                msg[: length - 3] + "..." if len(msg) > length else msg
-            ),
-            "format_date_custom": lambda date_str, fmt="%Y-%m-%d": (
-                datetime.strptime(date_str, "%Y-%m-%d").strftime(fmt)
-                if isinstance(date_str, str)
-                else date_str
-            ),
-            "conventional_type": lambda msg: (msg.split(":")[0].strip() if ":" in msg else "other"),
-            "capitalize_first": lambda text: (text[0].upper() + text[1:] if text else text),
-            "count_commits": lambda groups: (sum(len(g.commits) for g in groups) if groups else 0),
-            "has_breaking": lambda groups: (
-                any("breaking" in g.title.lower() or "🔥" in g.title for g in groups)
-                if groups
-                else False
-            ),
-            "count_groups": lambda groups: len(groups) if groups else 0,
-            # Note: removed get_commit_types and group_commits as they return complex types
-            # These can be handled at the application level if needed
-        }
-
-        # Register as functions (for explicit function calls like count_commits(groups))
-        # Note: Function syntax is more explicit and readable than filter syntax
-        engine.register_functions(pr_functions)
 
     @field_validator("title", "body")
     @classmethod

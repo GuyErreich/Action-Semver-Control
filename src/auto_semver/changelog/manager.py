@@ -231,8 +231,20 @@ class ChangelogManager:
             logger.debug("Truncating the file")
             return self._compose_new_changelog(rendered)
 
-        parts = [self.header.strip(), rendered.strip(), existing.strip(), self.footer.strip()]
+        body = self._strip_header_footer(existing)
+        parts = [self.header.strip(), rendered.strip(), body, self.footer.strip()]
         return "\n\n".join(part for part in parts if part)
+
+    def _strip_header_footer(self, content: str) -> str:
+        """Remove a known header/footer so recomposition does not duplicate them."""
+        text = content.strip()
+        header = self.header.strip()
+        footer = self.footer.strip()
+        if header and text.startswith(header):
+            text = text[len(header) :].lstrip("\n")
+        if footer and text.endswith(footer):
+            text = text[: -len(footer)].rstrip("\n")
+        return text.strip()
 
     def update_version_in_header(self, *, old_version: str, new_version: str) -> bool:
         """
