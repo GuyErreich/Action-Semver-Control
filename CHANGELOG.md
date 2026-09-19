@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.17-rc] - 11-09-2026
+## [1.6.17-dev] - 11-09-2026
 
 ### ✨ Features & Enhancements
 - Add verified REST fallback for signed executable/symlink modes (#291)
