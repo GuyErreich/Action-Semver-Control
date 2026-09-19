@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitPromoteMixin(GitOpsBase):
-    """Mixin: Promotion orchestration."""
+class GitPromote(GitOpsBase):
+    """Promotion orchestration."""
 
     def merge(
         self,

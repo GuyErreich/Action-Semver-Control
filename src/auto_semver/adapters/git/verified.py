@@ -31,8 +31,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitVerifiedCommitMixin(GitOpsBase):
-    """Mixin: Verified commit transport (GraphQL + REST)."""
+class GitVerifiedCommits(GitOpsBase):
+    """Verified commit transport (GraphQL + REST)."""
 
     def _get_github_repo(self, *, github_token: str, repo_full_name: str) -> Repository:
         return self._github_client_for(github_token).get_repo(repo_full_name)

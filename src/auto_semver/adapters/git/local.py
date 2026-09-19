@@ -23,8 +23,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitLocalMixin(GitOpsBase):
-    """Mixin: Local GitPython plumbing."""
+class GitLocal(GitOpsBase):
+    """Local GitPython plumbing."""
 
     def __init__(
         self,

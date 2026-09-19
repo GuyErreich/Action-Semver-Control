@@ -1,17 +1,17 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: MIT
-"""GitOps facade composing local, verified, promote, and release-PR mixins."""
+"""GitOps facade composing local, verified, promote, and release-PR parts."""
 
 from __future__ import annotations
 
-from .local import GitLocalMixin
-from .promote import GitPromoteMixin
-from .release_pr import GitReleasePrMixin
-from .verified import GitVerifiedCommitMixin
+from .local import GitLocal
+from .promote import GitPromote
+from .release_pr import GitReleasePr
+from .verified import GitVerifiedCommits
 
 
-class GitOps(GitLocalMixin, GitVerifiedCommitMixin, GitPromoteMixin, GitReleasePrMixin):
+class GitOps(GitLocal, GitVerifiedCommits, GitPromote, GitReleasePr):
     """Unified Git / GitHub operations for auto-semver pipelines."""
 
     pass

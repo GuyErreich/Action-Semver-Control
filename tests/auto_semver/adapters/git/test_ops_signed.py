@@ -49,7 +49,7 @@ class TestSignedGitOps:
         """Patch Repo construction for every signed GitOps test."""
         mocker.patch("auto_semver.adapters.git.local.Repo", return_value=mock_repo)
         mocker.patch(
-            "auto_semver.adapters.git.local.GitLocalMixin._parse_repository_name",
+            "auto_semver.adapters.git.local.GitLocal._parse_repository_name",
             return_value="owner/repo",
         )
 

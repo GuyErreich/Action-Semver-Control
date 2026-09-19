@@ -34,8 +34,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__package__)
 
 
-class GitReleasePrMixin(GitOpsBase):
-    """Mixin: Release PR ownership and discovery."""
+class GitReleasePr(GitOpsBase):
+    """Release PR ownership and discovery."""
 
     def get_lock_at_ref(self, ref: str) -> SemverLock | None:
         """Load `.semver.lock` from a branch or tag ref."""

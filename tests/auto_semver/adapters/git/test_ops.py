@@ -62,7 +62,7 @@ class TestGitOps:
     def patch_parse_repository_name(self, mocker: MockerFixture) -> Any:
         """Patch _parse_repository_name to avoid needing real remote URLs in all tests."""
         return mocker.patch(
-            "auto_semver.adapters.git.local.GitLocalMixin._parse_repository_name", return_value="owner/repo"
+            "auto_semver.adapters.git.local.GitLocal._parse_repository_name", return_value="owner/repo"
         )
 
     @pytest.mark.unit

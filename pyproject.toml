@@ -140,7 +140,7 @@ module = [
   "auto_semver.adapters.git.promote",
   "auto_semver.adapters.git.release_pr",
 ]
-# Mixins intentionally call sibling-mixin methods on self.
+# Composition parts intentionally call sibling methods on self.
 disable_error_code = ["attr-defined"]
 
 [dependency-groups]
