@@ -24,6 +24,22 @@ old_factory = logging.getLogRecordFactory()
 DEFAULT_LOG_FILE = "auto-semver.log"
 _ENV_LOG_FILE = "AUTO_SEMVER_LOG_FILE"
 
+# Third-party loggers that drown Actions job logs when root is DEBUG.
+_NOISY_THIRD_PARTY_LOGGERS: tuple[str, ...] = (
+    "urllib3",
+    "git",
+    "git.cmd",
+    "github",
+    "httpcore",
+    "httpx",
+)
+
+
+def _quiet_third_party_loggers() -> None:
+    """Keep HTTP/GitPython chatter out of the operator-facing console."""
+    for name in _NOISY_THIRD_PARTY_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
 
 class _SummaryState:
     """Mutable holder so we avoid module-level ``global`` statements."""
@@ -114,10 +130,14 @@ def setup_logger(
 
     On a TTY, Live owns the console (no StreamHandler). When Live does not
     start (GitHub Actions / non-TTY), a plain stdout StreamHandler is attached
-    so ``logger.info`` lines appear inside ``::group::`` sections.
+    so milestone ``INFO`` lines appear inside ``::group::`` sections.
+
+    ``--debug`` raises the file (and Live) level to DEBUG for forensics, but
+    the Actions stdout stream stays at INFO with message-only formatting so
+    job logs stay readable.
 
     Args:
-        debug: Enable DEBUG level and DEBUG lines in the Live pane.
+        debug: Enable DEBUG level for file/Live forensics.
         log_file: Optional forensic log path.
         command: Short command name for the Live outer title.
         start_live: When True and stdout is a TTY, start the Live dashboard.
@@ -134,6 +154,7 @@ def setup_logger(
     root = logging.getLogger()
     root.handlers.clear()
     root.setLevel(logging.DEBUG if debug else logging.INFO)
+    _quiet_third_party_loggers()
 
     view_handler = LogViewHandler(view)
     view_handler.setLevel(logging.DEBUG if debug else logging.INFO)
@@ -148,16 +169,12 @@ def setup_logger(
     if start_live:
         view.start()
 
-    # Actions / pipes: Live never starts, so mirror logs to stdout for job groups.
+    # Actions / pipes: Live never starts — mirror operator INFO to stdout.
     if not view.is_running:
         stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setLevel(logging.DEBUG if debug else logging.INFO)
-        stream_handler.setFormatter(
-            logging.Formatter(
-                fmt="{levelname:<7} | {qualname} | {message}",
-                style="{",
-            )
-        )
+        # Job logs stay narrative even when --debug feeds the file logger.
+        stream_handler.setLevel(logging.INFO)
+        stream_handler.setFormatter(logging.Formatter("{message}", style="{"))
         root.addHandler(stream_handler)
 
     return root

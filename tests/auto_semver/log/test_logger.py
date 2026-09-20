@@ -107,23 +107,39 @@ class TestSetupLogger:
         mocker: MockerFixture,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        """Non-TTY setup prints INFO lines to stdout between group markers."""
+        """Non-TTY setup prints plain INFO lines to stdout between group markers."""
         monkeypatch.setenv("GITHUB_ACTIONS", "true")
         mocker.patch.object(LiveView, "start")
-        setup_logger(debug=False, log_file=tmp_path / "gha.log", start_live=False)
+        setup_logger(debug=True, log_file=tmp_path / "gha.log", start_live=False)
         view = get_view()
         assert view is not None
         attach_github_adapter(view)
 
         with log_group("Tag"):
             logging.getLogger("auto_semver").info("Tagging branch")
+            logging.getLogger("auto_semver").debug("hidden from stdout")
 
         out = capsys.readouterr().out
         assert "::group::Tag" in out
         assert "Tagging branch" in out
+        assert "hidden from stdout" not in out
+        # Operator stream is message-only (no level/qualname prefix).
+        assert " | " not in out.split("Tagging branch")[0].splitlines()[-1]
         assert "::endgroup::" in out
-        # Line order: group open, then log, then endgroup
         assert out.index("::group::Tag") < out.index("Tagging branch") < out.index("::endgroup::")
+
+    @pytest.mark.unit
+    def test_stream_stays_info_when_debug_enabled(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """--debug raises file level but Actions stdout stays INFO."""
+        mocker.patch.object(LiveView, "start")
+        logger = setup_logger(debug=True, log_file=tmp_path / "dbg.log", start_live=False)
+        streams = [h for h in logger.handlers if type(h) is logging.StreamHandler]
+        assert len(streams) == 1
+        assert streams[0].level == logging.INFO
+        files = [h for h in logger.handlers if isinstance(h, FileLogHandler)]
+        assert files[0].level == logging.DEBUG
 
 
 class TestLogViewHandler:
