@@ -1,0 +1,150 @@
+# Copyright (c) 2025-2026 Guy Erreich
+#
+# SPDX-License-Identifier: MIT
+"""Logger configuration: record factory and setup_logger."""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+import types
+from logging import LogRecord
+from pathlib import Path
+from typing import Any
+
+from rich.console import Console
+
+from auto_semver.log.handler import FileLogHandler, LogViewHandler
+from auto_semver.log.summary import JobSummary
+from auto_semver.log.view import LiveView, set_view
+
+old_factory = logging.getLogRecordFactory()
+
+DEFAULT_LOG_FILE = "auto-semver.log"
+_ENV_LOG_FILE = "AUTO_SEMVER_LOG_FILE"
+
+
+class _SummaryState:
+    """Mutable holder so we avoid module-level ``global`` statements."""
+
+    current: JobSummary | None = None
+
+
+def get_summary() -> JobSummary:
+    """Return the process-wide JobSummary, creating one if needed.
+
+    Returns:
+        Shared JobSummary instance.
+    """
+    if _SummaryState.current is None:
+        _SummaryState.current = JobSummary()
+    return _SummaryState.current
+
+
+def reset_summary() -> JobSummary:
+    """Replace the process-wide JobSummary with a fresh instance.
+
+    Returns:
+        New empty JobSummary.
+    """
+    _SummaryState.current = JobSummary()
+    return _SummaryState.current
+
+
+def record_factory(*args: Any, **kwargs: Any) -> LogRecord:
+    """Create a log record with ``qualname`` and ``full_name`` attributes.
+
+    ``qualname`` uses the caller frame's ``co_qualname`` (class.method) when
+    available so the file logger can show forensic location detail.
+
+    Args:
+        *args: Positional args for the original factory.
+        **kwargs: Keyword args for the original factory.
+
+    Returns:
+        LogRecord with ``qualname`` and ``full_name`` set.
+    """
+    record = old_factory(*args, **kwargs)
+    qualname = record.funcName
+    frame: types.FrameType | None = sys._getframe(1)
+    while frame is not None:
+        module = frame.f_globals.get("__name__", "")
+        if not module.startswith("logging"):
+            code = frame.f_code
+            qualname = getattr(code, "co_qualname", code.co_name)
+            break
+        frame = frame.f_back
+    record.__dict__["qualname"] = qualname
+    record.__dict__["full_name"] = f"[{record.name}.{record.module}][{record.funcName}]"
+    return record
+
+
+logging.setLogRecordFactory(record_factory)
+
+
+def resolve_log_file(log_file: str | Path | None = None) -> Path:
+    """Resolve the forensic log file path.
+
+    Precedence: explicit ``log_file``, then ``AUTO_SEMVER_LOG_FILE``, then
+    ``auto-semver.log`` in the current working directory.
+
+    Args:
+        log_file: Optional CLI ``--log-file`` value.
+
+    Returns:
+        Path to the log file.
+    """
+    if log_file is not None:
+        return Path(log_file)
+    env = os.environ.get(_ENV_LOG_FILE)
+    if env:
+        return Path(env)
+    return Path(DEFAULT_LOG_FILE)
+
+
+def setup_logger(
+    debug: bool = False,
+    *,
+    log_file: str | Path | None = None,
+    command: str = "bump",
+    start_live: bool = True,
+) -> logging.Logger:
+    """Configure root logging with Live view + file sinks.
+
+    Does not attach ``StreamHandler`` or ``RichHandler`` on a TTY (that would
+    flood the terminal). Non-TTY runs still get the file sink; Live is skipped.
+
+    Args:
+        debug: Enable DEBUG level and DEBUG lines in the Live pane.
+        log_file: Optional forensic log path.
+        command: Short command name for the Live outer title.
+        start_live: When True and stdout is a TTY, start the Live dashboard.
+
+    Returns:
+        Configured root logger.
+    """
+    summary = reset_summary()
+    console = Console()
+
+    view = LiveView(console=console, summary=summary, command=command, debug=debug)
+    set_view(view)
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.setLevel(logging.DEBUG if debug else logging.INFO)
+
+    view_handler = LogViewHandler(view)
+    view_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    view_handler.setFormatter(logging.Formatter("%(message)s"))
+    root.addHandler(view_handler)
+
+    file_path = resolve_log_file(log_file)
+    file_handler = FileLogHandler(file_path)
+    file_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+    root.addHandler(file_handler)
+
+    if start_live:
+        view.start()
+
+    return root
