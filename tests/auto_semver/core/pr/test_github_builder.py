@@ -1,11 +1,15 @@
 """Unit tests for GitHubPRBuilder."""
 
+import logging
+
+import pytest
+
 from auto_semver.config import Commit, CommitGroup
 from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.core.pr.github_builder import GitHubPRBuilder, GitHubPRTemplateVariables
 
 
-def test_build_title() -> None:
+def test_build_title(caplog: pytest.LogCaptureFixture) -> None:
     """Test building PR title from template."""
     data = GitHubPRTemplateVariables(
         version="1.2.3",
@@ -20,8 +24,10 @@ def test_build_title() -> None:
         labels=None,
         groups=None,
     )
-    builder = GitHubPRBuilder(data=data)
+    with caplog.at_level(logging.INFO, logger="auto_semver.core.pr.builder"):
+        builder = GitHubPRBuilder(data=data)
     assert builder.title == "Release 1.2.3"
+    assert any("Rendered PR title=" in r.message for r in caplog.records)
 
 
 def test_build_body() -> None:

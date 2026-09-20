@@ -18,6 +18,7 @@ from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefe
 from auto_semver.config import Config
 from auto_semver.config.constants import FINALIZE_LOCK_COMMIT
 from auto_semver.core.semver import SemverLock, Version
+from auto_semver.log import get_summary, log_group, status
 
 logger = logging.getLogger(__package__)
 
@@ -186,25 +187,37 @@ def run(
         github_token (str, optional): GitHub token for App-backed git ops / cleanup.
 
     """
-    target_branch, version = create_and_push_tag(gitops=gitops, event=event, config=config)
+    summary = get_summary()
 
-    try:
-        _rewrite_baseline_lock(gitops=gitops, event=event, version=version)
-    except Exception as err:
-        logger.warning("Failed to rewrite baseline lock on %s: %s", target_branch, err)
+    with log_group("Tag"):
+        with status("Creating and pushing tag..."):
+            target_branch, version = create_and_push_tag(gitops=gitops, event=event, config=config)
+        summary.set("branches", f"-> {target_branch}")
+        summary.set("version", version)
 
-    _cleanup_release_branch(
-        gitops=gitops,
-        event=event,
-        config=config,
-        github_token=github_token,
-    )
+    with log_group("Baseline lock"):
+        try:
+            with status("Rewriting baseline lock..."):
+                _rewrite_baseline_lock(gitops=gitops, event=event, version=version)
+        except Exception as err:
+            logger.warning("Failed to rewrite baseline lock on %s: %s", target_branch, err)
 
-    create_auto_promotion_prs(
-        gitops=gitops,
-        event=event,
-        config=config,
-        target_branch=target_branch,
-        version=version,
-        github_token=github_token,
-    )
+    with log_group("Cleanup"):
+        with status("Cleaning up release branch..."):
+            _cleanup_release_branch(
+                gitops=gitops,
+                event=event,
+                config=config,
+                github_token=github_token,
+            )
+
+    with log_group("Auto-promote"):
+        with status("Running auto-promotion..."):
+            create_auto_promotion_prs(
+                gitops=gitops,
+                event=event,
+                config=config,
+                target_branch=target_branch,
+                version=version,
+                github_token=github_token,
+            )
