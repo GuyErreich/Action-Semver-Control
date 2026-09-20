@@ -31,11 +31,13 @@ class LogViewHandler(logging.Handler):
             record: Stdlib log record.
         """
         try:
+            qualname = record.__dict__.get("qualname", record.funcName)
             self.view.add_event(
                 LogEvent(
                     level=record.levelno,
                     message=record.getMessage(),
                     created=record.created,
+                    qualname=str(qualname) if qualname else "",
                 )
             )
         except Exception:

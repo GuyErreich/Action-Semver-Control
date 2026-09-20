@@ -8,6 +8,9 @@ Defines the interface for building PR title, body, and labels from templates and
 Provider-specific builders should inherit from this class and implement the build methods.
 """
 
+from __future__ import annotations
+
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -23,6 +26,8 @@ from auto_semver.templates.utils import (
 
 if TYPE_CHECKING:
     from auto_semver.templates.types import TemplateFunction
+
+logger = logging.getLogger(__name__)
 
 
 # Base template variables for PR builders
@@ -65,6 +70,11 @@ class PRBuilder[T: BasePRTemplateVariables](ABC):
         self.title: str = self._build_title()
         self.body: str = self._build_body()
         self.labels: list[str] = self._build_labels()
+        logger.info(
+            "Rendered PR title=%r labels=%d",
+            self.title,
+            len(self.labels),
+        )
 
     def _register_shared_functions(self) -> None:
         """

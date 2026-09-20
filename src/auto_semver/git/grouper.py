@@ -54,11 +54,16 @@ class CommitGrouper:
         groups_config = settings.groups
 
         if not messages:
+            logger.info("Grouped 0 messages into 0 commit groups")
             return []
 
         if not groups_config:
             commits = [CommitGrouper._parse_commit(msg) for msg in messages]
             default_group = CommitGroup(title="📝 Changes", commits=commits, priority=1)
+            logger.info(
+                "Grouped %d messages into 1 commit groups",
+                len(messages),
+            )
             return [default_group]
 
         sorted_groups = sorted(groups_config, key=lambda g: g.priority)
@@ -90,7 +95,13 @@ class CommitGrouper:
             if group.commits:
                 result.append(group)
 
-        return sorted(result, key=lambda g: g.priority)
+        result = sorted(result, key=lambda g: g.priority)
+        logger.info(
+            "Grouped %d messages into %d commit groups",
+            len(messages),
+            len(result),
+        )
+        return result
 
     @staticmethod
     def _resolve_group(

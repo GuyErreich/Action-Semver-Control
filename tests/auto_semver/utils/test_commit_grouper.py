@@ -1,5 +1,7 @@
 """Test commit grouper functionality."""
 
+import logging
+
 import pytest
 
 from auto_semver.config import Config
@@ -54,12 +56,15 @@ def sample_commit_messages() -> list[str]:
 
 
 def test_group_commit_messages_basic(
-    config_with_simple_groups: Config, sample_commit_messages: list[str]
+    config_with_simple_groups: Config,
+    sample_commit_messages: list[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test basic commit grouping functionality."""
-    grouped = CommitGrouper.group_messages(
-        sample_commit_messages, config_with_simple_groups.data.commit_groups
-    )
+    with caplog.at_level(logging.INFO, logger="auto_semver.git.grouper"):
+        grouped = CommitGrouper.group_messages(
+            sample_commit_messages, config_with_simple_groups.data.commit_groups
+        )
 
     assert len(grouped) == 3  # 2 defined groups + 1 for unmatched
 
@@ -72,6 +77,7 @@ def test_group_commit_messages_basic(
     # Check sorting by priority
     priorities = [group.priority for group in grouped[:-1]]  # Exclude "Other Changes"
     assert priorities == sorted(priorities)
+    assert any("Grouped 5 messages into 3 commit groups" in r.message for r in caplog.records)
 
 
 def test_group_commit_messages_content(

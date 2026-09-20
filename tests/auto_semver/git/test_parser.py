@@ -1,5 +1,9 @@
 """Tests for the CommitParser class."""
 
+import logging
+
+import pytest
+
 from auto_semver.git.parser import CommitParser
 
 
@@ -10,15 +14,17 @@ class TestCommitParser:
         """Set up the parser for tests."""
         self.parser = CommitParser()
 
-    def test_parse_type_1_simple_header(self) -> None:
+    def test_parse_type_1_simple_header(self, caplog: pytest.LogCaptureFixture) -> None:
         """Test Type 1: Simple header commit."""
         message = "Add new feature"
-        result = self.parser.parse(message)
+        with caplog.at_level(logging.DEBUG, logger="auto_semver.git.parser"):
+            result = self.parser.parse(message)
 
         assert result.header == "Add new feature"
         assert result.body is None
         assert result.bullet_points == []
         assert result.sectioned_changes == {}
+        assert any("Parsed commit" in r.message for r in caplog.records)
 
     def test_parse_type_2_header_and_body(self) -> None:
         """Test Type 2: Commit with header and body (prose)."""

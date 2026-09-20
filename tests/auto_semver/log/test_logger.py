@@ -102,8 +102,29 @@ class TestLogViewHandler:
             args=(),
             exc_info=None,
         )
+        record.__dict__["qualname"] = "SampleClass.sample_method"
         handler.emit(record)
         assert any(e.message == "hello view" for e in view._events)
+        assert any(e.qualname == "SampleClass.sample_method" for e in view._events)
+
+    @pytest.mark.unit
+    def test_emit_falls_back_to_func_name(self) -> None:
+        """Without qualname attribute, handler uses record.funcName."""
+        console = Console(force_terminal=False, width=80, height=24)
+        view = LiveView(console=console, debug=False)
+        handler = LogViewHandler(view)
+        record = logging.LogRecord(
+            name="t",
+            level=logging.INFO,
+            pathname="x.py",
+            lineno=1,
+            msg="fallback",
+            args=(),
+            exc_info=None,
+            func="my_func",
+        )
+        handler.emit(record)
+        assert view._events[0].qualname == "my_func"
 
     @pytest.mark.unit
     def test_event_buffer_drops_oldest(self) -> None:
@@ -152,6 +173,25 @@ class TestLiveViewRender:
         # Outer title is short product/command only — phase stays inside status card
         assert view.command == "bump"
         assert "Resolve" not in f"auto-semver  {view.command}"
+
+    @pytest.mark.unit
+    def test_log_card_includes_qualname(self) -> None:
+        """Live log card renders Class.method before the message."""
+        console = Console(force_terminal=True, force_interactive=False, width=80, height=30)
+        view = LiveView(console=console, command="bump")
+        view.add_event(
+            LogEvent(
+                level=logging.INFO,
+                message="Adding files",
+                created=1.0,
+                qualname="GitOps.commit",
+            )
+        )
+        with console.capture() as capture:
+            console.print(view.render())
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", capture.get())
+        assert "GitOps.commit" in plain
+        assert "Adding files" in plain
 
     @pytest.mark.unit
     def test_status_context_toggles_spinner(self) -> None:

@@ -49,6 +49,7 @@ class LogEvent:
     level: int
     message: str
     created: float
+    qualname: str = ""
 
 
 class LiveView:
@@ -239,7 +240,7 @@ class LiveView:
         )
 
     def _render_log_card(self, width: int) -> Panel:
-        """Build the log card with level chips and wrapped messages."""
+        """Build the log card with level chips, function name, and messages."""
         lines: list[Text] = []
         for event in self._events:
             label = _LEVEL_LABELS.get(event.level, "INFO")
@@ -250,6 +251,9 @@ class LiveView:
             row = Text()
             row.append_text(chip)
             row.append("  ")
+            if event.qualname:
+                row.append(event.qualname, style="dim")
+                row.append("  ")
             row.append_text(message)
             lines.append(row)
 
