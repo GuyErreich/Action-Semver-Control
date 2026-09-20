@@ -25,7 +25,9 @@ from auto_semver.log import (
     get_summary,
     get_view,
     is_github_actions,
+    log_group,
     setup_logger,
+    status,
 )
 from auto_semver.setup.check import run_check
 
@@ -166,12 +168,23 @@ def _run_semver(args: argparse.Namespace) -> None:
     """
     command = _resolve_command_name(args)
     get_summary().set("command", command)
-    config = Config()
-    gitops = GitOps(
-        ensure_safe=True,
-        signed_commits=args.signed_commits,
-        github_token=args.github_token,
-    )
+
+    with log_group("Startup"):
+        with status("Loading config and git context..."):
+            config = Config()
+            gitops = GitOps(
+                ensure_safe=True,
+                signed_commits=args.signed_commits,
+                github_token=args.github_token,
+            )
+
+        if args.command == "promote":
+            event: GitHubEvent | None = None
+            finalized = False
+        else:
+            with status("Loading GitHub event and detecting workflow..."):
+                event = GitHubEvent()
+                finalized = is_finalized(config=config, event=event)
 
     if args.command == "promote":
         promote.run(
@@ -184,8 +197,8 @@ def _run_semver(args: argparse.Namespace) -> None:
         get_summary().set("outcome", "success")
         return
 
-    event = GitHubEvent()
-    if is_finalized(config=config, event=event):
+    assert event is not None
+    if finalized:
         view = get_view()
         if view is not None:
             view.set_command("finalize")
