@@ -232,9 +232,8 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
         logger.error(f"Target branch '{target_branch}' not found in suffixes configuration.")
         raise ValueError(f"Target branch '{target_branch}' is not configured in suffixes.")
 
-    logger.info(f"Branch name: {current_branch}")
-
     with log_group("Resolve version"):
+        logger.info(f"Branch name: {current_branch}")
         with status("Fetching baseline..."):
             gitops.fetch()
             version = _resolve_baseline_version(
