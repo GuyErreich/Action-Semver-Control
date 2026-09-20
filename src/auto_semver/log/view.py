@@ -351,6 +351,9 @@ def log_group(title: str) -> Iterator[None]:
 def status(message: str) -> Iterator[None]:
     """Show an in-progress status (spinner on TTY Live).
 
+    When Live is not running (e.g. GitHub Actions), also emit the status via
+    the root logger so it appears inside ``::group::`` sections on stdout.
+
     Args:
         message: Status text.
 
@@ -358,10 +361,13 @@ def status(message: str) -> Iterator[None]:
         None
     """
     view = get_view()
+    live = view is not None and view.is_running
     if view is not None:
         view.set_status(message)
         view._spinning = True
         view._refresh()
+    if not live:
+        logging.getLogger("auto_semver").info("%s", message)
     try:
         yield
     finally:

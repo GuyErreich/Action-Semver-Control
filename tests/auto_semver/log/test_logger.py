@@ -65,6 +65,8 @@ class TestSetupLogger:
         handler_types = {type(h) for h in logger.handlers}
         assert LogViewHandler in handler_types
         assert FileLogHandler in handler_types
+        # Live did not start → stdout StreamHandler for Actions / non-TTY.
+        assert logging.StreamHandler in handler_types
         assert get_view() is not None
 
     @pytest.mark.unit
@@ -75,11 +77,53 @@ class TestSetupLogger:
         assert logger.level == logging.INFO
 
     @pytest.mark.unit
+    def test_setup_logger_skips_stream_when_live_running(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """TTY Live dashboard must not also flood stdout with StreamHandler."""
+
+        def _fake_start(self: LiveView) -> None:
+            self._live = mocker.MagicMock()
+
+        mocker.patch.object(LiveView, "start", _fake_start)
+        logger = setup_logger(debug=False, log_file=tmp_path / "live.log", start_live=True)
+        handler_types = {type(h) for h in logger.handlers}
+        assert LogViewHandler in handler_types
+        assert FileLogHandler in handler_types
+        assert logging.StreamHandler not in handler_types
+
+    @pytest.mark.unit
     def test_resolve_log_file_env(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """AUTO_SEMVER_LOG_FILE overrides the default path."""
         target = tmp_path / "custom.log"
         monkeypatch.setenv("AUTO_SEMVER_LOG_FILE", str(target))
         assert resolve_log_file() == target
+
+    @pytest.mark.unit
+    def test_stream_handler_emits_inside_groups(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Non-TTY setup prints INFO lines to stdout between group markers."""
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        mocker.patch.object(LiveView, "start")
+        setup_logger(debug=False, log_file=tmp_path / "gha.log", start_live=False)
+        view = get_view()
+        assert view is not None
+        attach_github_adapter(view)
+
+        with log_group("Tag"):
+            logging.getLogger("auto_semver").info("Tagging branch")
+
+        out = capsys.readouterr().out
+        assert "::group::Tag" in out
+        assert "Tagging branch" in out
+        assert "::endgroup::" in out
+        # Line order: group open, then log, then endgroup
+        assert out.index("::group::Tag") < out.index("Tagging branch") < out.index("::endgroup::")
 
 
 class TestLogViewHandler:
