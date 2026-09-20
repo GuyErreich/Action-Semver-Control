@@ -10,6 +10,7 @@ Provider-specific builders should inherit from this class and implement the buil
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -18,6 +19,8 @@ from auto_semver.templates.engine import get_template_engine
 
 if TYPE_CHECKING:
     from auto_semver.config import CommitGroups
+
+logger = logging.getLogger(__name__)
 
 
 # Base template variables for PR builders
@@ -59,6 +62,11 @@ class PRBuilder[T: BasePRTemplateVariables](ABC):
         self.title: str = self._build_title()
         self.body: str = self._build_body()
         self.labels: list[str] = self._build_labels()
+        logger.info(
+            "Rendered PR title=%r labels=%d",
+            self.title,
+            len(self.labels),
+        )
 
     @abstractmethod
     def _register_template_variables(self) -> None:

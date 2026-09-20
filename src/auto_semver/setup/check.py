@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _CONCURRENCY_PATTERN = re.compile(
     r"auto-semver-bump-\$\{\{\s*github\.repository\s*\}\}",
@@ -79,10 +82,12 @@ def run_check(*, workflows_dir: Path | None = None) -> bool:
         errors.append("Missing auto_semver_config.yml in repository root.")
 
     if errors:
+        logger.info("Setup check failed with %d issue(s)", len(errors))
         print("Setup check failed:")
         for err in errors:
             print(f"  - {err}")
         return False
 
+    logger.info("Setup check passed")
     print("Setup check passed.")
     return True

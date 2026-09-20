@@ -9,8 +9,11 @@ handling various formats including simple headers, detailed bodies, and complex
 grouped changes within a single commit.
 """
 
+import logging
 import re
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,6 +75,7 @@ class CommitParser:
             ParsedCommit: The structured commit data.
         """
         if not message:
+            logger.debug("Parsed empty commit message")
             return ParsedCommit(header="", body=None)
 
         parts = message.split("\n", 1)
@@ -80,12 +84,19 @@ class CommitParser:
 
         bullet_points, sectioned_changes = self._extract_structure(body) if body else ([], {})
 
-        return ParsedCommit(
+        parsed = ParsedCommit(
             header=header,
             body=body,
             bullet_points=bullet_points,
             sectioned_changes=sectioned_changes,
         )
+        logger.debug(
+            "Parsed commit header=%r bullets=%d sections=%d",
+            header,
+            len(bullet_points),
+            len(sectioned_changes),
+        )
+        return parsed
 
     def _extract_structure(self, body: str) -> tuple[list[str], dict[str, list[str]]]:
         """
