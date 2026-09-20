@@ -64,7 +64,7 @@ class GitLocal(GitOpsBase):
         Uses repository-level config which doesn't require elevated privileges and is scoped to this repo.
         """
 
-        logger.info("Ensuring the repository is marked as a safe directory.")
+        logger.debug("Ensuring the repository is marked as a safe directory.")
 
         safe_key: str = "safe"
         directory_key: str = "directory"
@@ -83,7 +83,7 @@ class GitLocal(GitOpsBase):
 
             if path not in safe_dirs:
                 logger.debug(f"{path} is not in safe directories.")
-                logger.info(f"Adding {path} to safe directories.")
+                logger.debug(f"Adding {path} to safe directories.")
 
                 git_config.set_value(section=safe_key, option=directory_key, value=path)
 
@@ -412,7 +412,7 @@ class GitLocal(GitOpsBase):
                     # Not configured, will set below
                     pass
 
-            logger.info(f"Configuring Git identity: {name} <{email}>")
+            logger.debug(f"Configuring Git identity: {name} <{email}>")
             with self.repo.config_writer() as config:
                 config.set_value("user", "email", email)
                 config.set_value("user", "name", name)
