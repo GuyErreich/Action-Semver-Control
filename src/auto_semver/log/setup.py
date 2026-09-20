@@ -112,8 +112,9 @@ def setup_logger(
 ) -> logging.Logger:
     """Configure root logging with Live view + file sinks.
 
-    Does not attach ``StreamHandler`` or ``RichHandler`` on a TTY (that would
-    flood the terminal). Non-TTY runs still get the file sink; Live is skipped.
+    On a TTY, Live owns the console (no StreamHandler). When Live does not
+    start (GitHub Actions / non-TTY), a plain stdout StreamHandler is attached
+    so ``logger.info`` lines appear inside ``::group::`` sections.
 
     Args:
         debug: Enable DEBUG level and DEBUG lines in the Live pane.
@@ -146,5 +147,17 @@ def setup_logger(
 
     if start_live:
         view.start()
+
+    # Actions / pipes: Live never starts, so mirror logs to stdout for job groups.
+    if not view.is_running:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(logging.DEBUG if debug else logging.INFO)
+        stream_handler.setFormatter(
+            logging.Formatter(
+                fmt="{levelname:<7} | {qualname} | {message}",
+                style="{",
+            )
+        )
+        root.addHandler(stream_handler)
 
     return root
