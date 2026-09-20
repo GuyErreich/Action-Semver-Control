@@ -138,7 +138,7 @@ jobs:
 
 ### 5. Configure `auto_semver_config.yml`
 
-Start from [`src/auto_semver/setup/templates/auto_semver_config.yml`](../src/auto_semver/setup/templates/auto_semver_config.yml). Adjust:
+Start from [`src/auto_semver/setup/scaffolds/auto_semver_config.yml`](../src/auto_semver/setup/scaffolds/auto_semver_config.yml). Adjust:
 
 - `suffixes` — map your branch names (`dev`, `staging`, `master`, etc.)
 - `version_files` — files Action-Semver-Control may update directly (`version.txt`, `pyproject.toml`, JSON manifests such as `package.json` / Cursor `plugin.json`). Lines like `"version": "1.2.3",` (trailing comma) are supported. **`uv.lock` is not included** — after a version bump, run `uv lock` (or Dependabot) so the editable package version in the lockfile matches `pyproject.toml`.

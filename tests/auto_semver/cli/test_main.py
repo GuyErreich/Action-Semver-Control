@@ -12,10 +12,10 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
+from auto_semver.adapters.git import GitOps
+from auto_semver.adapters.github.event import GitHubEvent
 from auto_semver.cli.main import main
 from auto_semver.config import Config
-from auto_semver.gh.event import GitHubEvent
-from auto_semver.git import GitOps
 from tests.fixtures.github_event_fixture import GitHubEventFixture
 
 
@@ -67,7 +67,7 @@ class TestMain:
     def mock_gitops(self, mocker: MockerFixture) -> Any:
         """Create a mock GitOps instance."""
         mock_gitops = mocker.Mock(spec=GitOps)
-        mocker.patch("auto_semver.git.GitOps", return_value=mock_gitops)
+        mocker.patch("auto_semver.adapters.git.GitOps", return_value=mock_gitops)
         return mock_gitops
 
     @pytest.fixture

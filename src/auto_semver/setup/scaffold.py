@@ -15,9 +15,7 @@ from auto_semver.setup.links import load_template
 
 logger = logging.getLogger(__name__)
 
-_GH_REMOTE_RE = re.compile(
-    r"github\.com[:/](?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$"
-)
+_GH_REMOTE_RE = re.compile(r"github\.com[:/](?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$")
 
 
 @dataclass(frozen=True, slots=True)

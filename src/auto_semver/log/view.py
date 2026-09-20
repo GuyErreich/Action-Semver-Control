@@ -79,6 +79,7 @@ class LiveView:
         self.debug = debug
         self._phase = "Starting"
         self._status = "Ready"
+        self._persisted_dashboard = False
         self._spinning = False
         self._error_banner: str | None = None
         self._events: deque[LogEvent] = deque(maxlen=max_events)
@@ -161,16 +162,35 @@ class LiveView:
         self._live.start()
 
     def stop(self) -> None:
-        """Stop Live and restore the normal terminal screen."""
+        """Stop Live and leave the final dashboard on the primary screen.
+
+        ``Live(screen=True)`` uses the alternate buffer, which is discarded on
+        exit. Printing the last render afterward keeps status, run, and logs
+        visible so the UI does not jump to a summary-only panel.
+        """
         if self._live is None:
             return
+        self._spinning = False
+        if self._status and not self._status.lower().startswith("done"):
+            # Keep phase/logs; mark the spinner-era status as finished.
+            self._status = f"Done — {self._status}" if self._status != "Ready" else "Done"
+        final = self.render()
+        self._live.update(final)
         self._live.stop()
         self._live = None
+        self.console.print(final)
+        self._persisted_dashboard = True
 
     def flush_summary(self) -> None:
-        """Print the final rounded summary panel and notify observers."""
-        width = self.console.width
-        self.console.print(self.summary.as_panel(width=width))
+        """Print the final summary when Live did not persist a dashboard.
+
+        When the full one-page view was already printed by :meth:`stop`, skip
+        the summary-only panel so logs stay on screen. Always notify observers
+        (e.g. GitHub step summary).
+        """
+        if not self._persisted_dashboard:
+            width = self.console.width
+            self.console.print(self.summary.as_panel(width=width))
         for observer in self._observers:
             observer.on_summary(self.summary)
 
