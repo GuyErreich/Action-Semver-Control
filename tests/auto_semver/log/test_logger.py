@@ -141,6 +141,29 @@ class TestSetupLogger:
         files = [h for h in logger.handlers if isinstance(h, FileLogHandler)]
         assert files[0].level == logging.DEBUG
 
+    @pytest.mark.unit
+    def test_warning_emits_annotation_only_once(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        mocker: MockerFixture,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """In Actions, a WARNING is one ::warning:: line — not also a plain log."""
+        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        mocker.patch.object(LiveView, "start")
+        setup_logger(debug=False, log_file=tmp_path / "warn.log", start_live=False)
+        view = get_view()
+        assert view is not None
+        attach_github_adapter(view)
+
+        logging.getLogger("auto_semver").warning("branch already deleted")
+
+        out = capsys.readouterr().out
+        matching = [line for line in out.splitlines() if "branch already deleted" in line]
+        assert len(matching) == 1
+        assert matching[0].startswith("::warning::")
+
 
 class TestLogViewHandler:
     """Tests for LiveView event routing."""

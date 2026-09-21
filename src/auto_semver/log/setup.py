@@ -15,6 +15,7 @@ from typing import Any
 
 from rich.console import Console
 
+from auto_semver.log.github import is_github_actions
 from auto_semver.log.handler import FileLogHandler, LogViewHandler
 from auto_semver.log.summary import JobSummary
 from auto_semver.log.view import LiveView, set_view
@@ -33,6 +34,21 @@ _NOISY_THIRD_PARTY_LOGGERS: tuple[str, ...] = (
     "httpcore",
     "httpx",
 )
+
+
+class _DropWarningsAndAbove(logging.Filter):
+    """Drop WARNING+ so GitHubActionsHandler is the sole sink for those levels."""
+
+    def filter(self, record: LogRecord) -> bool:
+        """Return True only for records below WARNING.
+
+        Args:
+            record: Stdlib log record.
+
+        Returns:
+            Whether the record should pass to the stream handler.
+        """
+        return record.levelno < logging.WARNING
 
 
 def _quiet_third_party_loggers() -> None:
@@ -175,6 +191,9 @@ def setup_logger(
         # Job logs stay narrative even when --debug feeds the file logger.
         stream_handler.setLevel(logging.INFO)
         stream_handler.setFormatter(logging.Formatter("{message}", style="{"))
+        # In Actions, WARNING+ become ::warning:: / ::error:: annotations only.
+        if is_github_actions():
+            stream_handler.addFilter(_DropWarningsAndAbove())
         root.addHandler(stream_handler)
 
     return root
