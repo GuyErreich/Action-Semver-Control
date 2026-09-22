@@ -143,7 +143,7 @@ Start from [`src/auto_semver/setup/templates/auto_semver_config.yml`](../src/aut
 - `suffixes` — map your branch names (`dev`, `staging`, `master`, etc.)
 - `version_files` — files Action-Semver-Control may update directly (`version.txt`, `pyproject.toml`, JSON manifests such as `package.json` / Cursor `plugin.json`). Lines like `"version": "1.2.3",` (trailing comma) are supported.
 - `lock_sync` — after rewriting `version_files`, regenerate known package lockfiles that already exist at the repo root (`uv.lock` → `uv lock`; `package-lock.json` → `npm install --package-lock-only`). Defaults to enabled with auto-detect. Options:
-  - `enabled: false` — never run
+  - `enabled: false` — never run (opt-out is config, not a separate workflow step: a later Action cannot join the same release commit this action creates)
   - `on_missing: skip` (default) or `fail` — when the lock CLI is not on PATH
   - `ecosystems: [uv]` — allow-list (monorepos: sync only the ecosystems you own; omit to auto-detect all known lockfiles present)
   - Never invents a lockfile that is not already present. Non-zero lock command exits fail the bump.

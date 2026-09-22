@@ -16,10 +16,12 @@ promotions:
 version_files:
   - "version.txt"
 
-# Optional: sync package lockfiles after version bumps (defaults shown).
-# Omit the block to auto-detect known lockfiles (uv.lock, package-lock.json).
+# lock_sync defaults to enabled + auto-detect when this block is omitted.
+# Opt out (do not invoke uv/npm after version bumps):
 # lock_sync:
-#   enabled: true
+#   enabled: false
+# Or keep sync but restrict ecosystems / missing-tool policy:
+# lock_sync:
 #   on_missing: skip   # or fail when the lock CLI is missing
 #   ecosystems:        # omit = auto-detect; set to restrict (e.g. monorepos)
 #     - uv
