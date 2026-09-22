@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
 from auto_semver.config._models._lock_sync import LockSyncConfig
+from auto_semver.lock_sync.registry import LockStrategyRegistry
 from auto_semver.lock_sync.runner import (
     CommandResult,
     LockSyncCommandError,
@@ -20,7 +21,8 @@ from auto_semver.lock_sync.runner import (
     run_lock_command,
 )
 from auto_semver.lock_sync.strategies import NpmLockStrategy, UvLockStrategy
-from auto_semver.lock_sync.sync import sync_package_locks
+from auto_semver.lock_sync.strategy import LockStrategy
+from auto_semver.lock_sync.sync import LockSyncOrchestrator, sync_package_locks
 
 
 @pytest.mark.unit
@@ -193,6 +195,42 @@ def test_strategies_commands() -> None:
     """Strategies expose bounded argv lists (no shell)."""
     assert UvLockStrategy().command() == ["uv", "lock"]
     assert NpmLockStrategy().command() == ["npm", "install", "--package-lock-only"]
+
+
+@pytest.mark.unit
+def test_registry_extension_point(tmp_path: Path) -> None:
+    """A new ecosystem plugs in via subclass + register without orchestrator changes."""
+
+    class CargoLockStrategy(LockStrategy):
+        @property
+        def name(self) -> str:
+            return "cargo"
+
+        @property
+        def lockfile(self) -> str:
+            return "Cargo.lock"
+
+        def command(self) -> list[str]:
+            return ["cargo", "generate-lockfile"]
+
+    (tmp_path / "Cargo.lock").write_text("x", encoding="utf-8")
+    registry = LockStrategyRegistry()
+    registry.register(CargoLockStrategy())
+    calls: list[list[str]] = []
+
+    def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
+        calls.append(list(argv))
+        return CommandResult(argv=tuple(argv), returncode=0, stdout="", stderr="")
+
+    synced = LockSyncOrchestrator(registry=registry, run_command=runner).sync(
+        repo_root=tmp_path,
+        config=LockSyncConfig(),
+    )
+    assert synced == ["Cargo.lock"]
+    assert calls == [["cargo", "generate-lockfile"]]
+    # Config validation uses the default (builtin) registry — cargo is unknown there.
+    with pytest.raises(ValidationError, match="Unknown lock_sync ecosystems"):
+        LockSyncConfig.model_validate({"ecosystems": ["cargo"]})
 
 
 @pytest.mark.unit

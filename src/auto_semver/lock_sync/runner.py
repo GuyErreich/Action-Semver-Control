@@ -35,50 +35,61 @@ class LockSyncMissingToolError(RuntimeError):
     """Raised when the lock CLI is not on PATH and on_missing is fail."""
 
 
+class LockCommandRunner:
+    """Runs lock CLI argv lists without a shell (injectable for tests)."""
+
+    def __init__(self, *, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> None:
+        """Create a runner with a process timeout in seconds."""
+        self._timeout = timeout
+
+    def run(self, argv: Sequence[str], *, cwd: Path) -> CommandResult:
+        """
+        Run a lock sync command without a shell.
+
+        Args:
+            argv: Exact command argv (never passed through a shell).
+            cwd: Working directory (repo root).
+
+        Returns:
+            CommandResult with stdout/stderr and return code.
+            ``missing_tool`` is True when the executable is not found.
+        """
+        argv_list = list(argv)
+        logger.info("Running lock sync: %s (cwd=%s)", " ".join(argv_list), cwd)
+        try:
+            completed = subprocess.run(
+                argv_list,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+                check=False,
+                shell=False,
+            )
+        except FileNotFoundError:
+            logger.warning("Lock sync tool not found: %s", argv_list[0] if argv_list else argv)
+            return CommandResult(
+                argv=tuple(argv_list),
+                returncode=-1,
+                stdout="",
+                stderr="",
+                missing_tool=True,
+            )
+
+        return CommandResult(
+            argv=tuple(argv_list),
+            returncode=completed.returncode,
+            stdout=completed.stdout or "",
+            stderr=completed.stderr or "",
+            missing_tool=False,
+        )
+
+
 def run_lock_command(
     argv: Sequence[str],
     *,
     cwd: Path,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> CommandResult:
-    """
-    Run a lock sync command without a shell.
-
-    Args:
-        argv: Exact command argv (never passed through a shell).
-        cwd: Working directory (repo root).
-        timeout: Seconds before the process is killed.
-
-    Returns:
-        CommandResult with stdout/stderr and return code.
-        ``missing_tool`` is True when the executable is not found.
-    """
-    argv_list = list(argv)
-    logger.info("Running lock sync: %s (cwd=%s)", " ".join(argv_list), cwd)
-    try:
-        completed = subprocess.run(
-            argv_list,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-            shell=False,
-        )
-    except FileNotFoundError:
-        logger.warning("Lock sync tool not found: %s", argv_list[0] if argv_list else argv)
-        return CommandResult(
-            argv=tuple(argv_list),
-            returncode=-1,
-            stdout="",
-            stderr="",
-            missing_tool=True,
-        )
-
-    return CommandResult(
-        argv=tuple(argv_list),
-        returncode=completed.returncode,
-        stdout=completed.stdout or "",
-        stderr=completed.stderr or "",
-        missing_tool=False,
-    )
+    """Module-level helper that delegates to ``LockCommandRunner``."""
+    return LockCommandRunner(timeout=timeout).run(argv, cwd=cwd)

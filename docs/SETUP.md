@@ -148,6 +148,7 @@ Start from [`src/auto_semver/setup/templates/auto_semver_config.yml`](../src/aut
   - `ecosystems: [uv]` — allow-list (monorepos: sync only the ecosystems you own; omit to auto-detect all known lockfiles present)
   - Never invents a lockfile that is not already present. Non-zero lock command exits fail the bump.
   - The Docker action image includes **uv** only; npm sync skips unless the runner has `npm` (or `on_missing: fail` aborts).
+  - New ecosystems: subclass `LockStrategy`, register on the default registry (see `src/auto_semver/lock_sync/strategies/`).
 - `promotions` — which channels auto-promote
 - `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
 - `release.strategy` — `single` (default) or `multi` for multiple open release PRs
