@@ -9,7 +9,7 @@ import logging
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from auto_semver.config._models.lock_sync import LockSyncConfig
+from auto_semver.config import LockSyncConfig
 from auto_semver.lock_sync.registry import LockStrategyRegistry, default_registry
 from auto_semver.lock_sync.runner import (
     CommandResult,
