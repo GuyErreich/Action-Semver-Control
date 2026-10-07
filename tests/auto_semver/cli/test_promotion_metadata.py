@@ -74,11 +74,12 @@ def test_apply_promotion_metadata_updates_files(
         target_version="1.4.6-rc",
         target_branch="staging",
         merge_sha="abc123",
+        repo_root=tmp_path,
     )
 
     assert "[1.4.6-rc]" in changelog.read_text(encoding="utf-8")
     assert version_file.read_text(encoding="utf-8").strip() == "1.4.6-rc"
-    mock_sync.assert_called_once()
+    mock_sync.assert_called_once_with(repo_root=tmp_path, config=config.data.lock_sync)
 
     lock = SemverLock.load_from_file()
     assert str(lock.version) == "1.4.6-rc"
@@ -117,6 +118,7 @@ def test_apply_promotion_metadata_lock_matches_config_promotion_pair(
         target_version=target_version,
         target_branch=target_branch,
         merge_sha="abc123",
+        repo_root=tmp_path,
     )
 
     lock = SemverLock.load_from_file()

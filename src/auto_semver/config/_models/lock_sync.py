@@ -9,9 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-# Register built-ins before validation reads the registry.
-import auto_semver.lock_sync.strategies as _lock_sync_strategies  # noqa: F401
-from auto_semver.lock_sync.registry import default_registry
+from auto_semver.lock_sync.registry import default_registry, ensure_builtins_registered
 
 OnMissingPolicy = Literal["skip", "fail"]
 
@@ -43,6 +41,7 @@ class LockSyncConfig(BaseModel):
             return value
         if not isinstance(value, list):
             raise ValueError("ecosystems must be a list of ecosystem names")
+        ensure_builtins_registered()
         known = default_registry.names()
         unknown = [item for item in value if item not in known]
         if unknown:

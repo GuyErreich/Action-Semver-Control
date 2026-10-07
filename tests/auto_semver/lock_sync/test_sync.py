@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -257,3 +258,14 @@ def test_run_lock_command_missing_binary(mocker: MockerFixture, tmp_path: Path) 
     )
     result = run_lock_command(["uv", "lock"], cwd=tmp_path)
     assert result.missing_tool is True
+
+
+@pytest.mark.unit
+def test_run_lock_command_timeout_raises(mocker: MockerFixture, tmp_path: Path) -> None:
+    """TimeoutExpired maps to LockSyncCommandError for structured failure handling."""
+    mocker.patch(
+        "auto_semver.lock_sync.runner.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd=["uv", "lock"], timeout=120),
+    )
+    with pytest.raises(LockSyncCommandError, match="timed out after 120s"):
+        run_lock_command(["uv", "lock"], cwd=tmp_path)

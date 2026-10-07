@@ -7,11 +7,16 @@ from __future__ import annotations
 
 from typing import Any
 
-# Register built-ins on import. Do not import ``sync`` here — it depends on
-# config models that import this package for registry validation.
-import auto_semver.lock_sync.strategies as _builtin_strategies  # noqa: F401
-from auto_semver.lock_sync.registry import LockStrategyRegistry, default_registry
+# Register built-ins on package import for sync callers. Config validation uses
+# ``ensure_builtins_registered`` lazily instead of importing strategies at Config load.
+from auto_semver.lock_sync.registry import (
+    LockStrategyRegistry,
+    default_registry,
+    ensure_builtins_registered,
+)
 from auto_semver.lock_sync.strategy import LockStrategy
+
+ensure_builtins_registered()
 
 __all__ = [
     "LockStrategy",

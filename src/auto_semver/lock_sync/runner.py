@@ -75,6 +75,10 @@ class LockCommandRunner:
                 stderr="",
                 missing_tool=True,
             )
+        except subprocess.TimeoutExpired as exc:
+            raise LockSyncCommandError(
+                f"lock_sync: {' '.join(argv_list)} timed out after {self._timeout}s"
+            ) from exc
 
         return CommandResult(
             argv=tuple(argv_list),

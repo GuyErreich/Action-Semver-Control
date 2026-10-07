@@ -63,5 +63,16 @@ class LockStrategyRegistry:
         return len(self._by_name)
 
 
-# Process-wide default; builtins register at import of ``auto_semver.lock_sync.strategies``.
+# Process-wide default; builtins register via ``ensure_builtins_registered``.
 default_registry = LockStrategyRegistry()
+
+
+def ensure_builtins_registered() -> None:
+    """
+    Lazily register built-in strategies on the default registry.
+
+    Safe to call repeatedly (import is cached). Config validation uses this so
+    ``Config()`` does not import strategy modules until ecosystems are checked
+    or lock sync is actually used.
+    """
+    import auto_semver.lock_sync.strategies as _lock_sync_strategies  # noqa: F401, PLC0415
