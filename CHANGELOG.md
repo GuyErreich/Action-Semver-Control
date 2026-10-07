@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.7.6-rc] - 21-09-2026
+## [1.7.6-dev] - 21-09-2026
 
 ### ♻️ Refactoring & Code Quality
 - extract runview reporting package (#318)
