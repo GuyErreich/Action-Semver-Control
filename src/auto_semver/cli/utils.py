@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from auto_semver.adapters.github import GitHubEvent
@@ -15,6 +16,7 @@ from auto_semver.config.constants import PR_HIDDEN_MARKER
 from auto_semver.core.changelog.manager import ChangelogManager
 from auto_semver.core.semver import SemverLock, Version
 from auto_semver.core.semver.updater import VersionFileUpdater
+from auto_semver.lock_sync import sync_package_locks
 
 if TYPE_CHECKING:
     from auto_semver.adapters.git import GitOps
@@ -39,6 +41,7 @@ def apply_promotion_metadata(
     target_version: str,
     target_branch: str,
     merge_sha: str,
+    repo_root: Path,
 ) -> None:
     """Rewrite changelog, version files, and lock for a promoted target branch."""
     rule = config.data.find_promotion_rule(from_branch=source_branch, to_branch=target_branch)
@@ -59,6 +62,8 @@ def apply_promotion_metadata(
     promoted = Version.parse(target_version)
     for file_path in config.data.version_files:
         VersionFileUpdater(file_path=str(file_path), version=promoted).update()
+
+    sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
 
     try:
         lock = SemverLock.load_from_file()
@@ -90,6 +95,7 @@ def build_promotion_metadata_hook(
             target_version=target_version,
             target_branch=target_branch,
             merge_sha=gitops.repo.head.commit.hexsha,
+            repo_root=Path(gitops.repo.working_tree_dir or "."),
         )
 
     return hook
