@@ -88,7 +88,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assertions, and fixtures
-"tests/*" = ["PLR2004", "S101", "ARG", "FBT"]
+"tests/*" = ["PLR2004", "S101", "ARG", "FBT", "PLR0917"]
 "tests/scripts/*" = ["PLR2004", "S101", "ARG", "FBT", "D102", "I001"]
 # CLI orchestration functions can have more statements for workflow clarity
 "src/auto_semver/cli/bump.py" = ["PLR0915"]
