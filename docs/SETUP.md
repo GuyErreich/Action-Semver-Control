@@ -149,6 +149,7 @@ Start from [`src/auto_semver/setup/scaffolds/auto_semver_config.yml`](../src/aut
   - Never invents a lockfile that is not already present. Non-zero lock command exits fail the bump.
   - The Docker action image includes **uv** only; npm sync skips unless the runner has `npm` (or `on_missing: fail` aborts).
   - New ecosystems: subclass `LockStrategy`, register on the default registry (see `src/auto_semver/lock_sync/strategies/`).
+  - Frozen Docker/CI installs (`uv sync --frozen`) fail if the lock is stale relative to `pyproject.toml` after a manual edit — run `uv lock` (or Dependabot) before promoting to staging/production.
 - `promotions` — which channels auto-promote
 - `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
 - `release.strategy` — `single` (default) or `multi` for multiple open release PRs
