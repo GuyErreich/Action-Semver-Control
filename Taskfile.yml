@@ -11,12 +11,14 @@ tasks:
       - .python-version
 
   install:
-    desc: Install dependencies with uv
+    desc: Install dependencies with uv (frozen to uv.lock)
     cmds:
-      - uv sync --dev
+      - uv lock --check
+      - uv sync --frozen --dev
     sources:
       - pyproject.toml
       - uv.lock
+
 
   audit:
     desc: Audit locked dependencies with uv
