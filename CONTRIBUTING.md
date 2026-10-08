@@ -21,7 +21,7 @@ uv run mypy src
 
 Or via Task: `task install && task audit && task test && task lint && task type-check`.
 
-CI and the published Docker action install from the committed `uv.lock` (`uv sync --frozen`). To change dependencies, edit `pyproject.toml`, run `uv lock`, and commit the updated lockfile.
+CI and the published Docker action install from the committed `uv.lock` (`uv sync --frozen`). To change dependencies, edit `pyproject.toml`, run `uv lock`, and commit the updated lockfile. CI and the action image pin the same uv via [`.uv-version`](.uv-version) — bump that file and the `Dockerfile` tag/digest together.
 
 
 ## Pull requests

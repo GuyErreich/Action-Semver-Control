@@ -95,10 +95,32 @@ class LockSyncOrchestrator:
                     + (f": {detail}" if detail else "")
                 )
 
+            self._verify_after_sync(strategy=strategy, repo_root=repo_root)
+
             logger.info("Synced %s via %s", strategy.lockfile, strategy.name)
             synced.append(strategy.lockfile)
 
         return synced
+
+    def _verify_after_sync(self, *, strategy: LockStrategy, repo_root: Path) -> None:
+        """Fail the bump when a post-sync freshness check reports a still-stale lock."""
+        verify_argv = strategy.verify_command()
+        if verify_argv is None:
+            return
+
+        verify = self._execute(verify_argv, repo_root)
+        if verify.missing_tool:
+            raise LockSyncCommandError(
+                f"lock_sync: verify tool for ecosystem '{strategy.name}' not found "
+                f"(command: {' '.join(verify_argv)})"
+            )
+        if verify.returncode != 0:
+            detail = (verify.stderr or verify.stdout or "").strip()
+            raise LockSyncCommandError(
+                f"lock_sync: {' '.join(verify_argv)} failed with exit {verify.returncode}"
+                + (f": {detail}" if detail else "")
+                + f" — {strategy.lockfile} is still stale after sync"
+            )
 
     def _execute(self, argv: Sequence[str], repo_root: Path) -> CommandResult:
         if self._run_command is not None:

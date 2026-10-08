@@ -24,3 +24,7 @@ class UvLockStrategy(LockStrategy):
     def command(self) -> list[str]:
         """Return ``uv lock``."""
         return ["uv", "lock"]
+
+    def verify_command(self) -> list[str]:
+        """Return ``uv lock --check`` so a no-op sync cannot leave a stale lock."""
+        return ["uv", "lock", "--check"]

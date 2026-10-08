@@ -33,6 +33,15 @@ class LockStrategy(ABC):
     def command(self) -> list[str]:
         """Bounded argv for the official lock sync CLI (never shell-interpolated)."""
 
+    def verify_command(self) -> list[str] | None:
+        """
+        Optional argv that must exit 0 after ``command()`` to confirm the lock is current.
+
+        Used when a lock CLI can exit 0 without rewriting a stale lock (for example an
+        older ``uv lock`` that ignores a project-version change). Return ``None`` to skip.
+        """
+        return None
+
     def detect(self, repo_root: Path) -> bool:
         """Return True when this ecosystem's lockfile exists at the repo root."""
         return (repo_root / self.lockfile).is_file()

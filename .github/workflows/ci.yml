@@ -31,6 +31,7 @@ jobs:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
         python-version: ${{ matrix.python-version }}
+        version-file: ".uv-version"
 
     - name: Cache tool caches (mypy, ruff, pytest)
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

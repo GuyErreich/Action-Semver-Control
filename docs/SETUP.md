@@ -147,9 +147,10 @@ Start from [`src/auto_semver/setup/scaffolds/auto_semver_config.yml`](../src/aut
   - `on_missing: skip` (default) or `fail` — when the lock CLI is not on PATH
   - `ecosystems: [uv]` — allow-list (monorepos: sync only the ecosystems you own; omit to auto-detect all known lockfiles present)
   - Never invents a lockfile that is not already present. Non-zero lock command exits fail the bump.
-  - The Docker action image includes **uv** only; npm sync skips unless the runner has `npm` (or `on_missing: fail` aborts).
-  - New ecosystems: subclass `LockStrategy`, register on the default registry (see `src/auto_semver/lock_sync/strategies/`).
-  - Frozen Docker/CI installs (`uv sync --frozen`) fail if the lock is stale relative to `pyproject.toml` after a manual edit — run `uv lock` (or Dependabot) before promoting to staging/production.
+  - After a successful `uv lock`, the action runs `uv lock --check` and aborts if the lock is still stale (guards against older uv versions that no-op on a project-version rewrite).
+  - The Docker action image includes **uv** only; npm sync skips unless the runner has `npm` (or `on_missing: fail` aborts). Keep that image's uv tag aligned with [`.uv-version`](../.uv-version) (CI installs the same pin via `setup-uv` `version-file`).
+  - New ecosystems: subclass `LockStrategy`, register on the default registry (see `src/auto_semver/lock_sync/strategies/`). Optional `verify_command()` runs after `command()` when a lock CLI can exit 0 without refreshing the lock.
+  - Frozen Docker/CI installs (`uv sync --frozen` / `uv lock --check`) fail if the lock is stale relative to `pyproject.toml` after a manual edit — run `uv lock` (or Dependabot) before promoting to staging/production.
 - `promotions` — which channels auto-promote
 - `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
 - `release.strategy` — `single` (default) or `multi` for multiple open release PRs

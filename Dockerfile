@@ -1,4 +1,5 @@
-FROM ghcr.io/astral-sh/uv:0.9.18-python3.13-alpine@sha256:adf77e722d04970edb8bafaa7e3e5b5aac2e097a9f624db3dd8010b6613fa304
+# Keep the image tag in sync with .uv-version (CI installs the same uv via setup-uv).
+FROM ghcr.io/astral-sh/uv:0.12.23-python3.13-alpine@sha256:50171185972b4532b34f433d8af999fc42cffd6c3274f0ca294a9da90557aadc
 
 ENV PYTHONUNBUFFERED=1
 ENV UV_COMPILE_BYTECODE=1

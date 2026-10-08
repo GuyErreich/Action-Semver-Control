@@ -85,7 +85,11 @@ def test_sync_detects_uv_and_npm(tmp_path: Path) -> None:
         run_command=runner,
     )
     assert synced == ["uv.lock", "package-lock.json"]
-    assert calls == [["uv", "lock"], ["npm", "install", "--package-lock-only"]]
+    assert calls == [
+        ["uv", "lock"],
+        ["uv", "lock", "--check"],
+        ["npm", "install", "--package-lock-only"],
+    ]
 
 
 @pytest.mark.unit
@@ -123,7 +127,7 @@ def test_sync_allow_list_filters_ecosystems(tmp_path: Path) -> None:
         run_command=runner,
     )
     assert synced == ["uv.lock"]
-    assert calls == [["uv", "lock"]]
+    assert calls == [["uv", "lock"], ["uv", "lock", "--check"]]
 
 
 @pytest.mark.unit
@@ -192,10 +196,38 @@ def test_sync_nonzero_exit_raises(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
+def test_sync_verify_failure_raises_even_when_lock_exits_zero(tmp_path: Path) -> None:
+    """A no-op lock that leaves the lock stale must fail the bump."""
+    (tmp_path / "uv.lock").write_text("x", encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
+        calls.append(list(argv))
+        if argv == ["uv", "lock", "--check"]:
+            return CommandResult(
+                argv=tuple(argv),
+                returncode=1,
+                stdout="",
+                stderr="The lockfile at `uv.lock` needs to be updated",
+            )
+        return CommandResult(argv=tuple(argv), returncode=0, stdout="", stderr="")
+
+    with pytest.raises(LockSyncCommandError, match="still stale after sync"):
+        sync_package_locks(
+            repo_root=tmp_path,
+            config=LockSyncConfig(),
+            run_command=runner,
+        )
+    assert calls == [["uv", "lock"], ["uv", "lock", "--check"]]
+
+
+@pytest.mark.unit
 def test_strategies_commands() -> None:
     """Strategies expose bounded argv lists (no shell)."""
     assert UvLockStrategy().command() == ["uv", "lock"]
+    assert UvLockStrategy().verify_command() == ["uv", "lock", "--check"]
     assert NpmLockStrategy().command() == ["npm", "install", "--package-lock-only"]
+    assert NpmLockStrategy().verify_command() is None
 
 
 @pytest.mark.unit
