@@ -1,5 +1,6 @@
 """Extended tests for repository scaffolding helpers."""
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from auto_semver.setup.scaffold import (
 def test_detect_repo_parses_remote_and_default_branch(
     mocker: MockerFixture,
     tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """detect_repo reads origin URL and symbolic-ref for default branch."""
     mocker.patch(
@@ -28,8 +30,10 @@ def test_detect_repo_parses_remote_and_default_branch(
             mocker.Mock(returncode=0, stdout="refs/remotes/origin/dev\n"),
         ],
     )
-    ref = detect_repo(tmp_path)
+    with caplog.at_level(logging.INFO, logger="auto_semver.setup.scaffold"):
+        ref = detect_repo(tmp_path)
     assert ref == RepoRef(owner="acme", repo="demo", default_branch="dev")
+    assert any("Detected repo acme/demo" in r.message for r in caplog.records)
 
 
 @pytest.mark.unit
@@ -50,17 +54,23 @@ def test_detect_repo_falls_back_to_master_when_no_symbolic_ref(
 
 
 @pytest.mark.unit
-def test_scaffold_files_writes_missing_targets(tmp_path: Path, mocker: MockerFixture) -> None:
+def test_scaffold_files_writes_missing_targets(
+    tmp_path: Path,
+    mocker: MockerFixture,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """scaffold_files creates config and workflow files when absent."""
     mocker.patch(
         "auto_semver.setup.scaffold.load_template",
         side_effect=lambda name: f"content:{name}",
     )
-    written = scaffold_files(tmp_path)
+    with caplog.at_level(logging.INFO, logger="auto_semver.setup.scaffold"):
+        written = scaffold_files(tmp_path)
     assert len(written) == 3
     assert (tmp_path / "auto_semver_config.yml").read_text(encoding="utf-8") == (
         "content:auto_semver_config.yml"
     )
+    assert any("Scaffolded 3 files" in r.message for r in caplog.records)
 
 
 @pytest.mark.unit

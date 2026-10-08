@@ -1,6 +1,6 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 start_version: "0.1.0"
 
@@ -19,6 +19,16 @@ promotions:
 
 version_files:
   - "version.txt"
+
+# lock_sync defaults to enabled + auto-detect when this block is omitted.
+# Opt out (do not invoke uv/npm after version bumps):
+# lock_sync:
+#   enabled: false
+# Or keep sync but restrict ecosystems / missing-tool policy:
+# lock_sync:
+#   on_missing: skip   # or fail when the lock CLI is missing
+#   ecosystems:        # omit = auto-detect; set to restrict (e.g. monorepos)
+#     - uv
 
 release:
   strategy: single

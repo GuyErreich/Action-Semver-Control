@@ -1,14 +1,17 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.6.21-dev] - 19-09-2026
+## [1.7.6-dev] - 21-09-2026
 
+### ♻️ Refactoring & Code Quality
+- extract runview reporting package (#318)
 ### 🔧 Infrastructure & Tooling
-- add task license-fix and license-check (#298)
-- ignore egg-info in license header scans (#300)
-- bump astral-sh/setup-uv from 10.0.1 to 10.1.0 in the github-actions group (#295)
+- relicense the action to GPL-3.0-or-later (#317)
 ### 🐛 Bug Fixes & Resolutions
-- address high-severity review findings in auto_semver (#296)
+- stream INFO logs into GitHub Actions log groups (#310)
+- wrap CLI bootstrap logs in a Startup group (#312)
+- make Actions job logs a readable INFO narrative (#314)
+- emit Actions warnings as annotations only (#316)
 
 ## License
 This project is licensed under the MIT License.

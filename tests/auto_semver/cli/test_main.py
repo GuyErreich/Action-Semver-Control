@@ -30,6 +30,7 @@ class TestMain:
         args.debug = True
         args.command = None
         args.signed_commits = False
+        args.log_file = None
         return args
 
     @pytest.fixture
@@ -42,9 +43,9 @@ class TestMain:
 
     @pytest.fixture
     def mock_setup_logger(self, mocker: MockerFixture) -> Any:
-        """Mock the setup_logger function."""
-        # Correctly patch the actual import path used in the main module
-        return mocker.patch("auto_semver.cli.main.setup_logger")
+        """Mock the runview install function."""
+        mocker.patch("auto_semver.cli.main.close")
+        return mocker.patch("auto_semver.cli.main.install")
 
     @pytest.fixture
     def mock_config(self, mocker: MockerFixture) -> Any:
@@ -122,7 +123,11 @@ class TestMain:
         main()
 
         # Verify logger was set up with debug flag
-        mock_setup_logger.assert_called_once_with(mock_args.debug)
+        assert mock_setup_logger.call_count == 1
+        cfg = mock_setup_logger.call_args.args[0]
+        assert cfg.debug is mock_args.debug
+        assert cfg.command == "bump"
+        assert cfg.log_file is None
 
         # Verify is_finalized was called (we can't verify exact args due to object differences)
         assert mock_is_finalized.call_count == 1
@@ -169,7 +174,11 @@ class TestMain:
         main()
 
         # Verify logger was set up with debug flag
-        mock_setup_logger.assert_called_once_with(mock_args.debug)
+        assert mock_setup_logger.call_count == 1
+        cfg = mock_setup_logger.call_args.args[0]
+        assert cfg.debug is mock_args.debug
+        assert cfg.command == "bump"
+        assert cfg.log_file is None
 
         # Verify is_finalized was called (we can't verify exact args due to object differences)
         assert mock_is_finalized.call_count == 1
