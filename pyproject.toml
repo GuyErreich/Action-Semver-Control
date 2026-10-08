@@ -8,7 +8,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
-  "gitpython~=3.1.59",
+  "gitpython~=3.2.0",
   "jinja2~=3.1",
   "pydantic~=2.11",
   "pygithub~=2.6",
@@ -20,7 +20,7 @@ dependencies = [
 auto-semver = "auto_semver.cli:main"
 
 [build-system]
-requires = ["setuptools>=80.4"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -88,7 +88,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assertions, and fixtures
-"tests/*" = ["PLR2004", "S101", "ARG", "FBT"]
+"tests/*" = ["PLR2004", "S101", "ARG", "FBT", "PLR0917"]
 "tests/scripts/*" = ["PLR2004", "S101", "ARG", "FBT", "D102", "I001"]
 # CLI orchestration functions can have more statements for workflow clarity
 "src/auto_semver/cli/bump.py" = ["PLR0915"]
@@ -147,13 +147,13 @@ disable_error_code = ["attr-defined", "no-any-return"]
 [dependency-groups]
 dev = [
   "docker~=7.1",
-  "mypy~=1.8",
+  "mypy~=2.4",
   "pre-commit~=4.2",
-  "pyfakefs~=5.9",
+  "pyfakefs~=6.2",
   "pytest~=9.0",
-  "pytest-cov~=6.1",
+  "pytest-cov~=7.1",
   "pytest-mock~=3.14",
-  "ruff~=0.14.14",
+  "ruff~=0.16.10",
   "types-docker~=7.1",
   "types-PyYAML~=6.0",
   "responses~=0.25",
