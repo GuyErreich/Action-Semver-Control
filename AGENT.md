@@ -45,6 +45,8 @@ A `using: docker` step cannot see the runner `PATH`. The uv in this image (`.uv-
 
 Lock refresh runs on the runner (`scripts/sync-host-locks.sh`): `uv lock` or `npm install --package-lock-only` when that tool is installed, otherwise a version-only patch of the existing lock. `UV_FROZEN=1` belongs only on the image-build `uv sync` line.
 
+Composite `run` steps do not receive action inputs as `INPUT_*` environment variables. Every step that can start `scripts/action-engine.sh` must map `inputs.*` onto `INPUT_ACTION`, `INPUT_TO_BRANCH`, `INPUT_FROM_TAG`, `INPUT_DRY_RUN`, `INPUT_GITHUB_TOKEN`, `INPUT_DEBUG`, and `INPUT_SIGNED_COMMITS`.
+
 ## Review scope
 
 When reviewing, materialize the full surface: the tier diff (for PR/push prefer `merge-base...HEAD` against `dev`), plus the nearest `AGENT.md` for every changed path (leaf → root), plus the skills routed by the changed file types.

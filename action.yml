@@ -36,18 +36,42 @@ inputs:
 runs:
   using: composite
   steps:
+    # Composite steps do not receive action inputs as INPUT_* env vars.
+    # action-engine.sh (and the patch path inside sync-host-locks.sh) reads them.
     - name: Prepare version files
       shell: bash
       env:
         AUTO_SEMVER_PHASE: prepare
+        INPUT_ACTION: ${{ inputs.action }}
+        INPUT_TO_BRANCH: ${{ inputs.to_branch }}
+        INPUT_FROM_TAG: ${{ inputs.from_tag }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_DEBUG: ${{ inputs.debug }}
+        INPUT_SIGNED_COMMITS: ${{ inputs.signed-commits }}
       run: bash "$GITHUB_ACTION_PATH/scripts/action-engine.sh"
 
     - name: Sync lockfiles with the runner CLI
       shell: bash
+      env:
+        INPUT_ACTION: ${{ inputs.action }}
+        INPUT_TO_BRANCH: ${{ inputs.to_branch }}
+        INPUT_FROM_TAG: ${{ inputs.from_tag }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_DEBUG: ${{ inputs.debug }}
+        INPUT_SIGNED_COMMITS: ${{ inputs.signed-commits }}
       run: bash "$GITHUB_ACTION_PATH/scripts/sync-host-locks.sh"
 
     - name: Commit release
       shell: bash
       env:
         AUTO_SEMVER_PHASE: commit
+        INPUT_ACTION: ${{ inputs.action }}
+        INPUT_TO_BRANCH: ${{ inputs.to_branch }}
+        INPUT_FROM_TAG: ${{ inputs.from_tag }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_DEBUG: ${{ inputs.debug }}
+        INPUT_SIGNED_COMMITS: ${{ inputs.signed-commits }}
       run: bash "$GITHUB_ACTION_PATH/scripts/action-engine.sh"
