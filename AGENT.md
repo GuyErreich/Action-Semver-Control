@@ -41,7 +41,7 @@ CI and milestone skills read these commands and the base branch from this block.
 
 ## Action image vs runner tools
 
-A `using: docker` step cannot see the runner `PATH`. The uv in this image (`.uv-version` and the `Dockerfile` tag) builds the action only. Do not run that binary, or any other CLI baked into the image, against a consumer lockfile, and do not set `UV_FROZEN` at image runtime.
+A `using: docker` step cannot see the runner `PATH`. The uv in this image (`.uv-version` and the `Dockerfile` tag) builds the action only. Do not run that binary, or any other CLI baked into the image, against a consumer lockfile, and do not set `UV_FROZEN` at image runtime. CI must pass the contents of `.uv-version` as setup-uv's `version` input. `version-file` does not accept that filename.
 
 Lock refresh runs on the runner (`scripts/sync-host-locks.sh`): `uv lock` or `npm install --package-lock-only` when that tool is installed, otherwise a version-only patch of the existing lock. `UV_FROZEN=1` belongs only on the image-build `uv sync` line.
 
