@@ -283,7 +283,6 @@ class TestConfigData:
         )
         default_config = Config(path=config_fixture.config_path)
         assert default_config.data.lock_sync.enabled is True
-        assert default_config.data.lock_sync.on_missing == "skip"
         assert default_config.data.lock_sync.ecosystems is None
 
         config_fixture.create(
@@ -295,4 +294,4 @@ class TestConfigData:
         )
         pinned = Config(path=config_fixture.config_path)
         assert pinned.data.lock_sync.ecosystems == ["uv"]
-        assert pinned.data.lock_sync.on_missing == "fail"
+        assert not hasattr(pinned.data.lock_sync, "on_missing")

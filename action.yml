@@ -34,13 +34,20 @@ inputs:
     default: 'false'
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.action == 'promote' && 'promote' || '' }}
-    - ${{ inputs.action == 'promote' && inputs.to_branch != '' && format('--to-branch={0}', inputs.to_branch) || '' }}
-    - ${{ inputs.action == 'promote' && inputs.from_tag != '' && format('--from-tag={0}', inputs.from_tag) || '' }}
-    - ${{ inputs.action == 'promote' && inputs.dry_run == 'true' && '--dry-run' || '' }}
-    - --github-token=${{ inputs.github-token }}
-    - ${{ inputs.signed-commits == 'true' && '--signed-commits' || '' }}
-    - ${{ inputs.debug == 'true' && '--debug' || '' }}
+  using: composite
+  steps:
+    - name: Prepare version files
+      shell: bash
+      env:
+        AUTO_SEMVER_PHASE: prepare
+      run: bash "$GITHUB_ACTION_PATH/scripts/action-engine.sh"
+
+    - name: Sync lockfiles with the runner CLI
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/scripts/sync-host-locks.sh"
+
+    - name: Commit release
+      shell: bash
+      env:
+        AUTO_SEMVER_PHASE: commit
+      run: bash "$GITHUB_ACTION_PATH/scripts/action-engine.sh"

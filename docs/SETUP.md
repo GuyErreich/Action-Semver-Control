@@ -142,15 +142,12 @@ Start from [`src/auto_semver/setup/scaffolds/auto_semver_config.yml`](../src/aut
 
 - `suffixes` — map your branch names (`dev`, `staging`, `master`, etc.)
 - `version_files` — files Action-Semver-Control may update directly (`version.txt`, `pyproject.toml`, JSON manifests such as `package.json` / Cursor `plugin.json`). Lines like `"version": "1.2.3",` (trailing comma) are supported.
-- `lock_sync` — after rewriting `version_files`, regenerate known package lockfiles that already exist at the repo root (`uv.lock` → `uv lock`; `package-lock.json` → `npm install --package-lock-only`). Defaults to enabled with auto-detect. Options:
+- `lock_sync` — after rewriting `version_files`, refresh known package lockfiles that already exist at the repo root. When the runner has `uv` and `uv.lock` is present, the action runs that `uv lock`. When the runner has `npm` and `package-lock.json` is present, it runs that `npm install --package-lock-only`. Install the tool in a step before this action when the release commit should be a real re-lock. With neither tool installed, only the project version inside the existing lock changes (`1.8.5-dev` becomes `1.8.5.dev0` in `uv.lock`). The action image's uv is a build pin for this action, not the CLI that rewrites your lock, and you do not need to match it. Defaults to enabled with auto-detect. Options:
   - `enabled: false` — never run (opt-out is config, not a separate workflow step: a later Action cannot join the same release commit this action creates)
-  - `on_missing: skip` (default) or `fail` — when the lock CLI is not on PATH
   - `ecosystems: [uv]` — allow-list (monorepos: sync only the ecosystems you own; omit to auto-detect all known lockfiles present)
-  - Never invents a lockfile that is not already present. Non-zero lock command exits fail the bump.
-  - After a successful `uv lock`, the action runs `uv lock --check` and aborts if the lock is still stale (guards against older uv versions that no-op on a project-version rewrite).
-  - The Docker action image includes **uv** only; npm sync skips unless the runner has `npm` (or `on_missing: fail` aborts). Keep that image's uv tag aligned with [`.uv-version`](../.uv-version) (CI installs the same pin via `setup-uv` `version-file`).
-  - New ecosystems: subclass `LockStrategy`, register on the default registry (see `src/auto_semver/lock_sync/strategies/`). Optional `verify_command()` runs after `command()` when a lock CLI can exit 0 without refreshing the lock.
-  - Frozen Docker/CI installs (`uv sync --frozen` / `uv lock --check`) fail if the lock is stale relative to `pyproject.toml` after a manual edit — run `uv lock` (or Dependabot) before promoting to staging/production.
+  - Never invents a lockfile that is not already present. A non-zero host lock command fails the bump. A missing CLI does not: the version string is patched and the rest of the lock stays byte-for-byte. An old `on_missing` key in config is ignored.
+  - New ecosystems: subclass `LockStrategy`, register on the default registry (see `src/auto_semver/lock_sync/strategies/`). `command()` is what the runner executes; `patch()` is the fallback.
+  - Frozen installs (`uv sync --frozen` / `uv lock --check`) fail if the lock is stale relative to `pyproject.toml` after a manual edit — run `uv lock` (or Dependabot) before promoting to staging/production.
 - `promotions` — which channels auto-promote
 - `commit_groups` — changelog grouping; use `summary_mode: header_only` to avoid noisy squash bodies (see README)
 - `release.strategy` — `single` (default) or `multi` for multiple open release PRs

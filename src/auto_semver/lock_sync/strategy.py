@@ -17,6 +17,10 @@ class LockStrategy(ABC):
     1. Subclass ``LockStrategy`` with ``name``, ``lockfile``, and ``command()``.
     2. Register an instance on the default registry (see ``strategies`` package).
     3. Config ``ecosystems`` allow-list accepts the new ``name`` automatically.
+
+    ``command()`` is the runner's official CLI. The action image must not
+    execute it. When that binary is absent, ``patch()`` updates only the
+    project version.
     """
 
     @property
@@ -29,18 +33,26 @@ class LockStrategy(ABC):
     def lockfile(self) -> str:
         """Repo-root relative lockfile path that must already exist."""
 
+    @property
+    def tool(self) -> str:
+        """Executable name looked up on the runner PATH (defaults to ``name``)."""
+        return self.name
+
     @abstractmethod
     def command(self) -> list[str]:
-        """Bounded argv for the official lock sync CLI (never shell-interpolated)."""
+        """Bounded argv for the runner's lock CLI (never shell-interpolated)."""
 
-    def verify_command(self) -> list[str] | None:
-        """
-        Optional argv that must exit 0 after ``command()`` to confirm the lock is current.
+    def patch(self, repo_root: Path) -> bool:
+        """Update only the project version when the runner has no lock CLI.
 
-        Used when a lock CLI can exit 0 without rewriting a stale lock (for example an
-        older ``uv lock`` that ignores a project-version change). Return ``None`` to skip.
+        Args:
+            repo_root: Repository root containing the lockfile.
+
+        Returns:
+            True when the lockfile bytes changed. The default leaves the file.
         """
-        return None
+        del repo_root
+        return False
 
     def detect(self, repo_root: Path) -> bool:
         """Return True when this ecosystem's lockfile exists at the repo root."""

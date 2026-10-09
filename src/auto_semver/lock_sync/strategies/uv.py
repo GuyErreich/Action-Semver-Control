@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from auto_semver.lock_sync.strategy import LockStrategy
 
 
 class UvLockStrategy(LockStrategy):
-    """Regenerate ``uv.lock`` when present via ``uv lock``."""
+    """Refresh ``uv.lock`` with the runner's ``uv lock``, or patch the version."""
 
     @property
     def name(self) -> str:
@@ -22,9 +24,18 @@ class UvLockStrategy(LockStrategy):
         return "uv.lock"
 
     def command(self) -> list[str]:
-        """Return ``uv lock``."""
+        """Return ``uv lock`` for the runner's uv, never the image uv."""
         return ["uv", "lock"]
 
-    def verify_command(self) -> list[str]:
-        """Return ``uv lock --check`` so a no-op sync cannot leave a stale lock."""
-        return ["uv", "lock", "--check"]
+    def patch(self, repo_root: Path) -> bool:
+        """Replace only the project version in ``uv.lock``.
+
+        Args:
+            repo_root: Repository root.
+
+        Returns:
+            True when the lockfile bytes changed.
+        """
+        from auto_semver.lock_sync.patch import patch_uv_lockfile  # noqa: PLC0415
+
+        return patch_uv_lockfile(repo_root)
