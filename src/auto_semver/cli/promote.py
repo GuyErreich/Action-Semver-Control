@@ -9,11 +9,14 @@ against the configured promotion rules.
 """
 
 import logging
+from pathlib import Path
 
 from auto_semver.adapters.git import GitOps
 from auto_semver.cli.utils import build_promotion_metadata_hook, promotion_prefer_source_paths
 from auto_semver.config import Config
 from auto_semver.core.semver import Version
+from auto_semver.lock_sync.pending import PendingState, read_pending, write_pending
+from auto_semver.lock_sync.sync import plan_locks
 from runview import get_summary, log_group, status
 
 logger = logging.getLogger(__name__)
@@ -27,6 +30,7 @@ def run(
     from_branch: str | None = None,
     from_tag: str | None = None,
     dry_run: bool = False,
+    phase: str = "all",
 ) -> None:
     """
     Promote a version from one branch to another directly (merge + tag).
@@ -38,10 +42,16 @@ def run(
         from_branch (str | None): Source branch name. Optional if tag is provided.
         from_tag (str | None): Specific tag to promote. If None, uses latest from branch.
         dry_run (bool): If True, validate only without performing git operations.
+        phase: ``prepare`` stops before the metadata commit. ``commit`` finishes
+            that paused promotion. ``all`` does both in one process.
 
     Raises:
         ValueError: If promotion is not allowed or fails.
     """
+    if phase == "commit":
+        _finish_pending_promote(gitops)
+        return
+
     logger.info(f"Initiating manual promotion to {to_branch}")
     summary = get_summary()
     summary.set("command", "promote")
@@ -72,6 +82,8 @@ def run(
         if dry_run:
             logger.info("🧪 Dry run mode: Skipping promotion.")
             summary.set("outcome", "dry-run")
+            if phase == "prepare":
+                write_pending(PendingState(workflow="dry-run", locks=[]))
             return
 
         # Calculate promoted version
@@ -96,6 +108,7 @@ def run(
                 source_branch=source_branch,
                 target_branch=to_branch,
                 gitops=gitops,
+                sync_locks=phase != "prepare",
             )
 
             with status("Merging and tagging..."):
@@ -107,13 +120,56 @@ def run(
                     is_source_tag=use_source_tag,
                     post_merge_hook=metadata_hook,
                     prefer_source_paths=promotion_prefer_source_paths(config),
+                    defer_metadata_commit=phase == "prepare",
                 )
+
+            if phase == "prepare":
+                deferred = gitops.deferred_promote
+                repo_root = Path(gitops.repo.working_tree_dir or ".")
+                write_pending(
+                    PendingState(
+                        workflow="promote",
+                        new_version=str(promoted_version),
+                        target_branch=to_branch,
+                        source_branch=source_branch,
+                        locks=plan_locks(repo_root=repo_root, config=config.data.lock_sync),
+                        base_sha=str(deferred.get("base_sha") or "") or None,
+                        merge_message=str(deferred.get("merge_message") or "") or None,
+                        remote=str(deferred.get("remote_name") or "origin"),
+                        signed=bool(deferred.get("signed")),
+                    )
+                )
+                logger.info("Prepared promotion; host lock sync runs before tag and push")
+                return
 
             logger.info(f"✅ Promotion completed successfully: {source_branch} → {to_branch}")
             logger.info(f"Tagged {to_branch} with {promoted_version}")
 
         except Exception as e:
             raise ValueError(f"Failed to promote: {e}") from e
+
+
+def _finish_pending_promote(gitops: GitOps) -> None:
+    """Tag and publish a promotion paused for the host lock step."""
+    pending = read_pending()
+    workflow = pending.get("workflow")
+    if workflow in {"finalize", "dry-run"}:
+        logger.info("Pending workflow %s has nothing to publish", workflow)
+        return
+    if workflow != "promote":
+        raise ValueError(f"Pending state is {workflow!r}, not a promotion")
+
+    base_sha = pending.get("base_sha")
+    version = str(pending["new_version"])
+    gitops.finish_deferred_promote(
+        version=version,
+        target_branch=str(pending["target_branch"]),
+        base_sha=str(base_sha) if base_sha else None,
+        merge_message=str(pending.get("merge_message") or f"chore: auto-promote {version}"),
+        remote_name=str(pending.get("remote") or "origin"),
+        lock_paths=[str(lock["path"]) for lock in pending.get("locks", [])],
+    )
+    logger.info("Promotion commit completed for %s", version)
 
 
 def _get_source_version(

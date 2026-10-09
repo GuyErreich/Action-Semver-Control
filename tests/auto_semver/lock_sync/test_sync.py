@@ -18,12 +18,11 @@ from auto_semver.lock_sync.registry import LockStrategyRegistry
 from auto_semver.lock_sync.runner import (
     CommandResult,
     LockSyncCommandError,
-    LockSyncMissingToolError,
     run_lock_command,
 )
 from auto_semver.lock_sync.strategies import NpmLockStrategy, UvLockStrategy
 from auto_semver.lock_sync.strategy import LockStrategy
-from auto_semver.lock_sync.sync import LockSyncOrchestrator, sync_package_locks
+from auto_semver.lock_sync.sync import LockSyncOrchestrator, host_binary, sync_package_locks
 
 
 @pytest.mark.unit
@@ -31,8 +30,8 @@ def test_lock_sync_config_defaults() -> None:
     """Omitted lock_sync uses safe defaults."""
     config = LockSyncConfig()
     assert config.enabled is True
-    assert config.on_missing == "skip"
     assert config.ecosystems is None
+    assert not hasattr(config, "on_missing")
 
 
 @pytest.mark.unit
@@ -85,7 +84,10 @@ def test_sync_detects_uv_and_npm(tmp_path: Path) -> None:
         run_command=runner,
     )
     assert synced == ["uv.lock", "package-lock.json"]
-    assert calls == [["uv", "lock"], ["npm", "install", "--package-lock-only"]]
+    assert calls == [
+        ["uv", "lock"],
+        ["npm", "install", "--package-lock-only"],
+    ]
 
 
 @pytest.mark.unit
@@ -127,8 +129,8 @@ def test_sync_allow_list_filters_ecosystems(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_sync_missing_tool_skips_by_default(tmp_path: Path) -> None:
-    """on_missing=skip warns and continues when the CLI is absent."""
+def test_sync_missing_tool_patches_instead_of_skipping(tmp_path: Path) -> None:
+    """A missing host CLI patches the project version instead of skipping."""
     (tmp_path / "uv.lock").write_text("x", encoding="utf-8")
 
     def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
@@ -142,32 +144,19 @@ def test_sync_missing_tool_skips_by_default(tmp_path: Path) -> None:
 
     synced = sync_package_locks(
         repo_root=tmp_path,
-        config=LockSyncConfig(on_missing="skip"),
+        config=LockSyncConfig(),
         run_command=runner,
     )
-    assert synced == []
+    assert synced == ["uv.lock"]
+    assert (tmp_path / "uv.lock").read_text(encoding="utf-8") == "x"
 
 
 @pytest.mark.unit
-def test_sync_missing_tool_fails_when_configured(tmp_path: Path) -> None:
-    """on_missing=fail aborts when the CLI is absent."""
-    (tmp_path / "uv.lock").write_text("x", encoding="utf-8")
-
-    def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
-        return CommandResult(
-            argv=tuple(argv),
-            returncode=-1,
-            stdout="",
-            stderr="",
-            missing_tool=True,
-        )
-
-    with pytest.raises(LockSyncMissingToolError, match="not found"):
-        sync_package_locks(
-            repo_root=tmp_path,
-            config=LockSyncConfig(on_missing="fail"),
-            run_command=runner,
-        )
+def test_legacy_on_missing_key_is_ignored() -> None:
+    """Older configs that still set on_missing keep loading."""
+    config = LockSyncConfig.model_validate({"on_missing": "fail", "ecosystems": ["uv"]})
+    assert config.ecosystems == ["uv"]
+    assert not hasattr(config, "on_missing")
 
 
 @pytest.mark.unit
@@ -193,7 +182,7 @@ def test_sync_nonzero_exit_raises(tmp_path: Path) -> None:
 
 @pytest.mark.unit
 def test_strategies_commands() -> None:
-    """Strategies expose bounded argv lists (no shell)."""
+    """Strategies expose the runner CLI argv (no shell, no image verify step)."""
     assert UvLockStrategy().command() == ["uv", "lock"]
     assert NpmLockStrategy().command() == ["npm", "install", "--package-lock-only"]
 
@@ -247,6 +236,7 @@ def test_run_lock_command_never_uses_shell(mocker: MockerFixture, tmp_path: Path
     run.assert_called_once()
     assert run.call_args.kwargs["shell"] is False
     assert run.call_args.args[0] == ["uv", "lock"]
+    assert "UV_FROZEN" not in run.call_args.kwargs["env"]
 
 
 @pytest.mark.unit
@@ -269,3 +259,112 @@ def test_run_lock_command_timeout_raises(mocker: MockerFixture, tmp_path: Path) 
     )
     with pytest.raises(LockSyncCommandError, match="timed out after 120s"):
         run_lock_command(["uv", "lock"], cwd=tmp_path)
+
+
+def _write_project(tmp_path: Path, version: str = "1.8.5-dev") -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        f'[project]\nname = "auto_semver"\nversion = "{version}"\n',
+        encoding="utf-8",
+    )
+
+
+_UV_LOCK = """\
+version = 1
+revision = 2
+
+[[package]]
+name = "auto-semver"
+version = "1.7.6.dev0"
+source = { editable = "." }
+
+[[package]]
+name = "other"
+version = "1.0.0"
+"""
+
+
+@pytest.mark.unit
+def test_host_uv_runs_lock_and_does_not_patch(tmp_path: Path) -> None:
+    """Uv on PATH runs uv lock and leaves the patcher unused."""
+    _write_project(tmp_path)
+    (tmp_path / "uv.lock").write_text(_UV_LOCK, encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
+        calls.append(list(argv))
+        return CommandResult(argv=tuple(argv), returncode=0, stdout="", stderr="")
+
+    synced = sync_package_locks(
+        repo_root=tmp_path,
+        config=LockSyncConfig(ecosystems=["uv"]),
+        run_command=runner,
+        which=lambda tool: "/usr/bin/uv" if tool == "uv" else None,
+    )
+    assert synced == ["uv.lock"]
+    assert calls == [["uv", "lock"]]
+    assert (tmp_path / "uv.lock").read_text(encoding="utf-8") == _UV_LOCK
+
+
+@pytest.mark.unit
+def test_absent_uv_patches_without_spawning(tmp_path: Path) -> None:
+    """Absent uv patches the project version and does not spawn uv."""
+    _write_project(tmp_path)
+    (tmp_path / "uv.lock").write_text(_UV_LOCK, encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
+        calls.append(list(argv))
+        return CommandResult(argv=tuple(argv), returncode=0, stdout="", stderr="")
+
+    sync_package_locks(
+        repo_root=tmp_path,
+        config=LockSyncConfig(ecosystems=["uv"]),
+        run_command=runner,
+        which=lambda _tool: None,
+    )
+    assert calls == []
+    text = (tmp_path / "uv.lock").read_text(encoding="utf-8")
+    assert 'version = "1.8.5.dev0"' in text
+    assert 'name = "other"' in text
+    assert 'version = "1.0.0"' in text
+    assert "revision = 2" in text
+
+
+@pytest.mark.unit
+def test_host_npm_runs_lock_and_absent_npm_does_not_spawn(tmp_path: Path) -> None:
+    """Npm on PATH runs the lock install; a missing npm does not spawn npm."""
+    package_lock = '{ "version": "1.7.6-dev", "lockfileVersion": 3 }\n'
+    (tmp_path / "package.json").write_text('{"version": "1.8.5-dev"}\n', encoding="utf-8")
+    (tmp_path / "package-lock.json").write_text(package_lock, encoding="utf-8")
+    calls: list[list[str]] = []
+
+    def runner(argv: Sequence[str], cwd: Path) -> CommandResult:
+        calls.append(list(argv))
+        return CommandResult(argv=tuple(argv), returncode=0, stdout="", stderr="")
+
+    sync_package_locks(
+        repo_root=tmp_path,
+        config=LockSyncConfig(ecosystems=["npm"]),
+        run_command=runner,
+        which=lambda tool: "/usr/bin/npm" if tool == "npm" else None,
+    )
+    assert calls == [["npm", "install", "--package-lock-only"]]
+    assert (tmp_path / "package-lock.json").read_text(encoding="utf-8") == package_lock
+
+    calls.clear()
+    sync_package_locks(
+        repo_root=tmp_path,
+        config=LockSyncConfig(ecosystems=["npm"]),
+        run_command=runner,
+        which=lambda _tool: None,
+    )
+    assert calls == []
+    assert '"1.8.5-dev"' in (tmp_path / "package-lock.json").read_text(encoding="utf-8")
+
+
+@pytest.mark.unit
+def test_image_uv_is_not_a_host_binary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The action image venv must not count as the user's uv."""
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/opt/venv")
+    monkeypatch.setattr("auto_semver.lock_sync.sync.shutil.which", lambda _tool: "/usr/local/bin/uv")
+    assert host_binary("uv") is None

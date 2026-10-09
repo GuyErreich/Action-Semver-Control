@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from auto_semver.lock_sync.strategy import LockStrategy
 
 
 class NpmLockStrategy(LockStrategy):
-    """Regenerate ``package-lock.json`` when present via ``npm install --package-lock-only``."""
+    """Refresh ``package-lock.json`` with the runner's npm, or patch the version."""
 
     @property
     def name(self) -> str:
@@ -22,5 +24,18 @@ class NpmLockStrategy(LockStrategy):
         return "package-lock.json"
 
     def command(self) -> list[str]:
-        """Return ``npm install --package-lock-only``."""
+        """Return ``npm install --package-lock-only`` for the runner's npm."""
         return ["npm", "install", "--package-lock-only"]
+
+    def patch(self, repo_root: Path) -> bool:
+        """Replace only the root version fields in ``package-lock.json``.
+
+        Args:
+            repo_root: Repository root.
+
+        Returns:
+            True when the lockfile bytes changed.
+        """
+        from auto_semver.lock_sync.patch import patch_npm_lockfile  # noqa: PLC0415
+
+        return patch_npm_lockfile(repo_root)

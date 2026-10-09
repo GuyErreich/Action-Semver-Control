@@ -5,25 +5,24 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from auto_semver.lock_sync.registry import default_registry, ensure_builtins_registered
 
-OnMissingPolicy = Literal["skip", "fail"]
-
 
 class LockSyncConfig(BaseModel):
-    """Controls post-bump sync of language package lockfiles."""
+    """Controls post-bump sync of language package lockfiles.
+
+    A missing host ``uv`` or ``npm`` patches only the project version. There is
+    no skip/fail switch for that case. Older configs may still contain
+    ``on_missing``; that key is ignored.
+    """
+
+    model_config = ConfigDict(extra="ignore")
 
     enabled: bool = Field(
         default=True,
         description="When true, sync known lockfiles after version-file rewrites",
-    )
-    on_missing: OnMissingPolicy = Field(
-        default="skip",
-        description="skip: warn and continue when the lock CLI is missing; fail: abort the bump",
     )
     ecosystems: list[str] | None = Field(
         default=None,
