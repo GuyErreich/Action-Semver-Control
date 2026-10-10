@@ -80,7 +80,7 @@ wheels = [
 ]
 
 [[package]]
-name = "auto-semver"
+name = "auto-semver-control"
 version = "1.7.6.dev0"
 source = { editable = "." }
 dependencies = [

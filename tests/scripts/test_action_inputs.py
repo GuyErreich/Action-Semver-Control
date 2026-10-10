@@ -21,16 +21,18 @@ def test_root_action_delegates_to_package_action() -> None:
     assert "Dockerfile" not in (_REPO_ROOT / "action.yml").read_text(encoding="utf-8")
 
 
-def test_package_action_installs_production_release() -> None:
-    """The action installs production from PyPI and does not leave its uv on PATH."""
+def test_package_action_installs_published_version_or_checkout() -> None:
+    """The action pins auto-semver-control and falls back to this checkout."""
     text = (_REPO_ROOT / "action" / "action.yml").read_text(encoding="utf-8")
     action = yaml.safe_load(text)
     runs = "\n".join(step.get("run", "") for step in action["runs"]["steps"])
     assert "auto-semver-venv/bin/auto-semver" in runs
     assert "pip install" in runs
-    assert "auto-semver==" in runs
-    assert "--prerelease" not in runs
-    assert "uv sync" not in runs
+    assert "auto-semver-control==" in runs
+    assert "--prerelease explicit" in runs
+    assert "sync --frozen" in runs
+    assert "--frozen" in runs
+    assert 'spec="auto-semver"' not in runs
     assert "UV_NO_MODIFY_PATH=1" in runs
     assert "GITHUB_PATH" not in runs
     assert "Dockerfile" not in text
