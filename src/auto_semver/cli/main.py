@@ -208,7 +208,12 @@ def _run_semver(args: argparse.Namespace) -> None:
         get_summary().set("command", "finalize")
         finalize.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
     else:
-        bump.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
+        bump.run(
+            gitops=gitops,
+            event=event,
+            config=config,
+            github_token=args.github_token,
+        )
     get_summary().set("outcome", "success")
 
 

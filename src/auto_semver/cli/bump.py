@@ -19,7 +19,7 @@ from auto_semver.core.semver import Version
 from auto_semver.core.semver.lock import SemverLock
 from auto_semver.core.semver.updater import VersionFileUpdater
 from auto_semver.core.semver.version import BumpCounts
-from auto_semver.lock_sync import sync_package_locks
+from auto_semver.lock_sync.sync import sync_package_locks
 from runview import get_summary, log_group, status
 
 logger = logging.getLogger(__package__)
@@ -209,7 +209,13 @@ def _supersede_old_releases_in_single_mode(
         )
 
 
-def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str) -> None:
+def run(
+    *,
+    gitops: GitOps,
+    event: GitHubEvent,
+    config: Config,
+    github_token: str,
+) -> None:
     """
     Run the bump workflow.
 
@@ -294,8 +300,6 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
                 VersionFileUpdater(file_path=path, version=version).update()
 
             repo_root = Path(gitops.repo.working_tree_dir or ".")
-            synced_locks = sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
-
             release_branch_name = f"{release_cfg.branch_prefix.rstrip('/')}/{new_version}"
 
             lockfile.version = version
@@ -329,16 +333,64 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
             lockfile.target_base_sha = event.get_merged_commit_sha()
             lockfile.save_to_file()
 
+            author = event.get_actor() if hasattr(event, "get_actor") else "auto-semver"
+            feature_count = bump_counts.feature_count if bump_counts else 0
+            fix_count = bump_counts.fix_count if bump_counts else 0
+            synced_locks = sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
+
+    _publish_release(
+        gitops=gitops,
+        config=config,
+        github_token=github_token,
+        new_version=new_version,
+        previous_version=previous_version_str,
+        release_branch_name=release_branch_name,
+        target_branch=target_branch,
+        files_to_update=list(files_to_update),
+        synced_locks=synced_locks,
+        changelog_path=str(changelog.path),
+        semver_lock_path=str(lockfile.path),
+        commit_messages=list(commit_messages),
+        feature_count=feature_count,
+        fix_count=fix_count,
+        author=author,
+        repository=repo_full_name,
+        release_strategy=release_cfg.strategy,
+    )
+
+
+def _publish_release(
+    *,
+    gitops: GitOps,
+    config: Config,
+    github_token: str,
+    new_version: str,
+    previous_version: str,
+    release_branch_name: str,
+    target_branch: str,
+    files_to_update: list[str],
+    synced_locks: list[str],
+    changelog_path: str,
+    semver_lock_path: str,
+    commit_messages: list[str],
+    feature_count: int,
+    fix_count: int,
+    author: str,
+    repository: str,
+    release_strategy: str,
+) -> None:
+    """Create the release branch, commit, push, and open the pull request."""
+    summary = get_summary()
     with log_group("Git commit/push"):
         with status("Creating release branch and pushing..."):
             gitops.create_branch(branch_name=release_branch_name, force=True)
             gitops.add([*files_to_update, *synced_locks])
-            gitops.add([lockfile.path])
-            gitops.add([changelog.path])
+            gitops.add([semver_lock_path])
+            gitops.add([changelog_path])
             gitops.commit(f"Release {new_version}", force=True)
             _push_release_branch(gitops=gitops, release_branch_name=release_branch_name)
 
-        if release_cfg.strategy == "single":
+        if release_strategy == "single":
             _supersede_old_releases_in_single_mode(
                 gitops=gitops,
                 config=config,
@@ -360,18 +412,18 @@ def run(*, gitops: GitOps, event: GitHubEvent, config: Config, github_token: str
 
         pr_variables = GitHubPRTemplateVariables(
             version=new_version,
-            previous_version=previous_version_str,
+            previous_version=previous_version,
             commit_groups=commit_groups_data or [],
             breaking_changes=[],
-            author=event.get_actor() if hasattr(event, "get_actor") else "auto-semver",
-            repository=repo_full_name,
+            author=author,
+            repository=repository,
             date=release_date,
             branch=release_branch_name,
             base_branch=target_branch,
             labels=config.data.pull_request.labels,
             groups=commit_groups_data,
-            feature_count=bump_counts.feature_count if bump_counts else 0,
-            fix_count=bump_counts.fix_count if bump_counts else 0,
+            feature_count=feature_count,
+            fix_count=fix_count,
         )
 
         pr_builder = GitHubPRBuilder(

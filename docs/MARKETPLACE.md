@@ -10,7 +10,8 @@ Action-Semver-Control is published as **Auto Semver Bumper** on the [GitHub Mark
    - Edit the release with `?marketplace=true`, for example:  
      `https://github.com/GuyErreich/Action-Semver-Control/releases/edit/X.Y.Z?marketplace=true`
    - Or open the [Marketplace listing](https://github.com/marketplace/actions/new) / existing listing and publish from the new release tag.
-4. Confirm `action.yml` includes `branding.icon` and `branding.color`.
+4. Confirm root `action.yml` includes `branding.icon` and `branding.color`. The implementation lives in `action/action.yml`.
+5. Each tag publishes the package to PyPI with trusted publishing. The project name is `auto-semver-control` (the name `auto-semver` belongs to a different package). The action installs `auto-semver-control==` the checkout's PEP 440 version, and installs this checkout when that version is not published yet. `X.Y.Z-dev` and `X.Y.Z-rc` are uploaded as pre-releases (`X.Y.Z.dev0`, `X.Y.Zrc0`) so you can test-install them with `uv tool install --prerelease explicit`. One-time setup on the PyPI project `auto-semver-control`: add a trusted publisher for each workflow file and environment — `publish-dev.yml` / `dev`, `publish-staging.yml` / `staging`, and `publish-production.yml` / `production`.
 
 Consumers should pin caller workflows at the floating major tag `v1` (for example `...@v1` in workflow YAML). Exact semver pins (`@1.3.14`) and SHA pins remain supported via the reusable workflow `action-ref` input.
 

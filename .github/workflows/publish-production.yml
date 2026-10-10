@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     # Dynamically set environment based on branch
     environment: 'production'
 
@@ -37,6 +38,9 @@ jobs:
         uses: ./.github/actions/gh-release
         with:
           github_token: ${{ steps.app-token.outputs.token }}
+
+      - name: Publish package to PyPI
+        uses: ./.github/actions/publish-pypi
 
       - name: Configure Git for App
         run: |

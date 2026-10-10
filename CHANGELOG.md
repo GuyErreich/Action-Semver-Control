@@ -1,17 +1,21 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.7.6-dev] - 21-09-2026
+## [1.8.6-rc] - 10-10-2026
 
-### ♻️ Refactoring & Code Quality
-- extract runview reporting package (#318)
+### ✨ Features & Enhancements
+- sync package locks after version bumps (#306)
+- run auto-semver from the installed package (#339)
 ### 🔧 Infrastructure & Tooling
-- relicense the action to GPL-3.0-or-later (#317)
+- freeze Docker and CI installs to uv.lock (#305)
+- digest-pin skywalking-eyes and document nested SHA policy (#304)
+- bump astral-sh/setup-uv from 10.1.0 to 10.2.0 in the github-actions group across 1 directory (#323)
+- bump the uv group with 6 updates (#330)
 ### 🐛 Bug Fixes & Resolutions
-- stream INFO logs into GitHub Actions log groups (#310)
-- wrap CLI bootstrap logs in a Startup group (#312)
-- make Actions job logs a readable INFO narrative (#314)
-- emit Actions warnings as annotations only (#316)
+- delete source-removed paths on signed promote (#328)
+- use absolute wtp base_dir (no tilde expansion) (#307)
+- align CI and action uv so release bumps refresh uv.lock (#337)
+- pin the action install to auto-semver-control (#340)
 
 ## License
 This project is licensed under the MIT License.

@@ -42,6 +42,7 @@ def apply_promotion_metadata(
     target_branch: str,
     merge_sha: str,
     repo_root: Path,
+    sync_locks: bool = True,
 ) -> None:
     """Rewrite changelog, version files, and lock for a promoted target branch."""
     rule = config.data.find_promotion_rule(from_branch=source_branch, to_branch=target_branch)
@@ -63,7 +64,8 @@ def apply_promotion_metadata(
     for file_path in config.data.version_files:
         VersionFileUpdater(file_path=str(file_path), version=promoted).update()
 
-    sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
+    if sync_locks:
+        sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
 
     try:
         lock = SemverLock.load_from_file()
@@ -84,8 +86,17 @@ def build_promotion_metadata_hook(
     source_branch: str,
     target_branch: str,
     gitops: GitOps,
+    sync_locks: bool = True,
 ) -> Callable[[str, str], None]:
-    """Build a post-merge hook that applies dev/rc metadata on the target branch."""
+    """Build a post-merge hook that applies dev/rc metadata on the target branch.
+
+    Args:
+        config: Loaded configuration.
+        source_branch: Branch the version is leaving.
+        target_branch: Branch receiving the promotion.
+        gitops: Git operations for the current repo.
+        sync_locks: When false, leave lockfiles for the runner CLI step.
+    """
 
     def hook(source_version: str, target_version: str) -> None:
         apply_promotion_metadata(
@@ -96,6 +107,7 @@ def build_promotion_metadata_hook(
             target_branch=target_branch,
             merge_sha=gitops.repo.head.commit.hexsha,
             repo_root=Path(gitops.repo.working_tree_dir or "."),
+            sync_locks=sync_locks,
         )
 
     return hook

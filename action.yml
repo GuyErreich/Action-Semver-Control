@@ -34,13 +34,15 @@ inputs:
     default: 'false'
 
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.action == 'promote' && 'promote' || '' }}
-    - ${{ inputs.action == 'promote' && inputs.to_branch != '' && format('--to-branch={0}', inputs.to_branch) || '' }}
-    - ${{ inputs.action == 'promote' && inputs.from_tag != '' && format('--from-tag={0}', inputs.from_tag) || '' }}
-    - ${{ inputs.action == 'promote' && inputs.dry_run == 'true' && '--dry-run' || '' }}
-    - --github-token=${{ inputs.github-token }}
-    - ${{ inputs.signed-commits == 'true' && '--signed-commits' || '' }}
-    - ${{ inputs.debug == 'true' && '--debug' || '' }}
+  using: composite
+  steps:
+    - name: Run auto-semver
+      uses: ./action
+      with:
+        action: ${{ inputs.action }}
+        to_branch: ${{ inputs.to_branch }}
+        from_tag: ${{ inputs.from_tag }}
+        dry_run: ${{ inputs.dry_run }}
+        github-token: ${{ inputs.github-token }}
+        debug: ${{ inputs.debug }}
+        signed-commits: ${{ inputs.signed-commits }}

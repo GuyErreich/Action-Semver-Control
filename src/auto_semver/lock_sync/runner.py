@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -31,10 +32,6 @@ class LockSyncCommandError(RuntimeError):
     """Raised when a lock sync command exits non-zero."""
 
 
-class LockSyncMissingToolError(RuntimeError):
-    """Raised when the lock CLI is not on PATH and on_missing is fail."""
-
-
 class LockCommandRunner:
     """Runs lock CLI argv lists without a shell (injectable for tests)."""
 
@@ -56,6 +53,9 @@ class LockCommandRunner:
         """
         argv_list = list(argv)
         logger.info("Running lock sync: %s (cwd=%s)", " ".join(argv_list), cwd)
+        env = os.environ.copy()
+        # A frozen uv exits 0 without writing. The runner's uv must be allowed to write.
+        env.pop("UV_FROZEN", None)
         try:
             completed = subprocess.run(
                 argv_list,
@@ -65,6 +65,7 @@ class LockCommandRunner:
                 timeout=self._timeout,
                 check=False,
                 shell=False,
+                env=env,
             )
         except FileNotFoundError:
             logger.warning("Lock sync tool not found: %s", argv_list[0] if argv_list else argv)
