@@ -6,13 +6,11 @@
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from auto_semver.config import LockSyncConfig
-from auto_semver.lock_sync.pending import PlannedLock
 from auto_semver.lock_sync.registry import LockStrategyRegistry, default_registry
 from auto_semver.lock_sync.runner import (
     CommandResult,
@@ -26,24 +24,19 @@ logger = logging.getLogger(__name__)
 RunCommand = Callable[[Sequence[str], Path], CommandResult]
 WhichTool = Callable[[str], str | None]
 
-_IMAGE_VENV = "/opt/venv"
-
-
 def host_binary(tool: str) -> str | None:
-    """Return a lock CLI on PATH, never the uv shipped in the action image.
+    """Return a lock CLI on PATH.
 
-    The image sets ``UV_PROJECT_ENVIRONMENT=/opt/venv`` for its own install.
-    That uv must not rewrite a consumer lockfile.
+    The action installs its own uv under ``RUNNER_TEMP`` and does not put that
+    binary on ``PATH``. This lookup is the ``uv`` or ``npm`` already installed
+    for the repository.
 
     Args:
         tool: Executable name (``uv``, ``npm``).
 
     Returns:
-        The PATH hit, or ``None`` when the tool is absent or this process is
-        the action image.
+        The PATH hit, or ``None`` when the tool is absent.
     """
-    if os.environ.get("UV_PROJECT_ENVIRONMENT") == _IMAGE_VENV:
-        return None
     return shutil.which(tool)
 
 
@@ -74,32 +67,6 @@ class LockSyncOrchestrator:
         self._runner = runner if runner is not None else LockCommandRunner()
         self._run_command = run_command
 
-    def plan(self, *, repo_root: Path, config: LockSyncConfig) -> list[PlannedLock]:
-        """List lockfiles present at the repo root without running a CLI.
-
-        Args:
-            repo_root: Repository root.
-            config: Lock sync configuration.
-
-        Returns:
-            Planned locks in registry order. Empty when sync is disabled.
-        """
-        if not config.enabled:
-            return []
-        planned: list[PlannedLock] = []
-        for strategy in self._registry.resolve(config.ecosystems):
-            if not strategy.detect(repo_root):
-                continue
-            planned.append(
-                PlannedLock(
-                    ecosystem=strategy.name,
-                    path=strategy.lockfile,
-                    tool=strategy.tool,
-                    command=strategy.command(),
-                )
-            )
-        return planned
-
     def sync(
         self,
         *,
@@ -113,7 +80,7 @@ class LockSyncOrchestrator:
         Uses the host CLI when ``which`` (or :func:`host_binary`) finds it.
         Otherwise patches only the project version. Never runs ``uv lock
         --check``. A non-zero CLI exit still fails the bump. A missing CLI
-        does not: the image is not the source of that CLI.
+        does not.
         """
         if not config.enabled:
             logger.debug("lock_sync.enabled is false — skipping package lock sync")
@@ -186,30 +153,6 @@ def _registry_for(
     for strategy in strategies:
         temp.register(strategy)
     return temp
-
-
-def plan_locks(
-    *,
-    repo_root: Path,
-    config: LockSyncConfig,
-    strategies: Sequence[LockStrategy] | None = None,
-    registry: LockStrategyRegistry | None = None,
-) -> list[PlannedLock]:
-    """List lockfiles to refresh, without executing a package manager.
-
-    Args:
-        repo_root: Repository root.
-        config: Lock sync configuration.
-        strategies: Optional strategies that replace the registry (tests).
-        registry: Optional registry override.
-
-    Returns:
-        Planned lock records for the pending state file.
-    """
-    return LockSyncOrchestrator(registry=_registry_for(strategies, registry)).plan(
-        repo_root=repo_root,
-        config=config,
-    )
 
 
 def sync_package_locks(

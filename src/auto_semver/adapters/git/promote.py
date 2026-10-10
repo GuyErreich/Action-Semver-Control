@@ -29,8 +29,6 @@ logger = logging.getLogger(__package__)
 class GitPromote(GitOpsBase):
     """Promotion orchestration."""
 
-    deferred_promote: dict[str, str | bool | None]
-
     def merge(
         self,
         *,
@@ -327,7 +325,6 @@ class GitPromote(GitOpsBase):
         is_source_tag: bool = False,
         post_merge_hook: Callable[[str, str], None] | None = None,
         prefer_source_paths: Collection[str] | None = None,
-        defer_metadata_commit: bool = False,
     ) -> str:
         """
         Automatically promote changes from source branch to target branch.
@@ -352,8 +349,6 @@ class GitPromote(GitOpsBase):
             Receives (source_version_str, target_version_str).
             prefer_source_paths: Paths to auto-resolve favoring the source branch on
                 conflict (changelog, lockfile, version files).
-            defer_metadata_commit: Stop after the post-merge hook so the runner
-                can refresh lockfiles before the metadata commit, tag, and push.
 
         Returns:
             str: The version tag that was created.
@@ -362,7 +357,6 @@ class GitPromote(GitOpsBase):
             RuntimeError: If any operation fails (fetch, merge, push, etc.).
         """
         logger.info(f"Starting auto-promotion: {source_branch} → {target_branch}")
-        self.deferred_promote = {}
 
         if source_version:
             merge_message = (
@@ -385,7 +379,6 @@ class GitPromote(GitOpsBase):
                 post_merge_hook=post_merge_hook,
                 prefer_source_paths=prefer_source_paths,
                 remote_name=remote_name,
-                defer_metadata_commit=defer_metadata_commit,
             )
 
         try:
@@ -402,7 +395,6 @@ class GitPromote(GitOpsBase):
 
             # 3. Pull latest changes on target
             self.pull(branch_name=target_branch, remote_name=remote_name)
-            base_sha = self.repo.head.commit.hexsha
 
             # 4. Integrate source into target (ff, squash, or merge + metadata wins)
             self._integrate_source_for_promotion(
@@ -421,17 +413,6 @@ class GitPromote(GitOpsBase):
 
                 try:
                     post_merge_hook(src_v, version)
-                    if defer_metadata_commit:
-                        self._remember_deferred_promote(
-                            version=version,
-                            target_branch=target_branch,
-                            base_sha=base_sha,
-                            merge_message=merge_message,
-                            remote_name=remote_name,
-                        )
-                        logger.info("Deferring metadata commit until host lock sync")
-                        return version
-
                     dirty_paths = self._collect_dirty_tracked_paths()
                     if dirty_paths:
                         logger.info(
@@ -469,84 +450,6 @@ class GitPromote(GitOpsBase):
         except Exception as err:
             logger.error(f"Unexpected error during auto-promotion: {err}")
             raise RuntimeError(f"Auto-promotion failed unexpectedly: {err}") from err
-
-    def _remember_deferred_promote(
-        self,
-        *,
-        version: str,
-        target_branch: str,
-        base_sha: str,
-        merge_message: str,
-        remote_name: str,
-    ) -> None:
-        """Store the fields the commit phase needs to finish a paused promotion."""
-        self.deferred_promote = {
-            "version": version,
-            "target_branch": target_branch,
-            "base_sha": base_sha,
-            "merge_message": merge_message,
-            "remote_name": remote_name,
-            "signed": self.signed_commits,
-        }
-
-    def finish_deferred_promote(
-        self,
-        *,
-        version: str,
-        target_branch: str,
-        base_sha: str | None,
-        merge_message: str,
-        remote_name: str = "origin",
-        lock_paths: Collection[str] | None = None,
-    ) -> str:
-        """Commit hook and lockfile changes, then tag and publish.
-
-        Args:
-            version: Tag to create on the target branch.
-            target_branch: Branch that received the promotion.
-            base_sha: Remote tip from before the local integrate (signed path).
-            merge_message: Message used when publishing the verified tip.
-            remote_name: Git remote name.
-            lock_paths: Lockfiles the host step may have rewritten.
-
-        Returns:
-            The tag that was created.
-        """
-        repo_root = Path(self.repo.working_tree_dir or ".")
-        paths = list(self._collect_dirty_tracked_paths())
-        for path in lock_paths or []:
-            if path not in paths and (repo_root / path).is_file():
-                paths.append(path)
-        for path in paths:
-            self.repo.git.add("--", path)
-        if self.repo.is_dirty(index=True, working_tree=False, untracked_files=False):
-            self._local_commit(VERSION_METADATA_COMMIT.format(version=version))
-
-        if self.signed_commits:
-            if not base_sha:
-                raise RuntimeError("Deferred signed promotion is missing base_sha")
-            tip_sha = self._publish_local_tip_once(
-                branch_name=target_branch,
-                base_sha=base_sha,
-                message=merge_message,
-            )
-            self._api_create_lightweight_tag(tag=version, sha=tip_sha)
-            self.fetch(remote_name=remote_name)
-            logger.info(
-                "Verified auto-promotion complete: %s (tagged: %s)",
-                target_branch,
-                version,
-            )
-            return version
-
-        logger.info(f"Creating tag '{version}' on '{target_branch}'")
-        tag_ref = self.repo.create_tag(version, message=f"Auto-promotion: {version}")
-        self.push(branch_name=target_branch, remote_name=remote_name)
-        logger.info("Pushing tags to remote")
-        remote: Remote = self.repo.remote(name=remote_name)
-        remote.push(tags=True)
-        logger.info("Auto-promotion complete: %s (tagged: %s)", target_branch, version)
-        return str(tag_ref)
 
     def _diff_paths_between(
         self, *, base_sha: str, head_ref: str = "HEAD"
@@ -695,7 +598,6 @@ class GitPromote(GitOpsBase):
         post_merge_hook: Callable[[str, str], None] | None,
         prefer_source_paths: Collection[str] | None = None,
         remote_name: str = "origin",
-        defer_metadata_commit: bool = False,
     ) -> str:
         """
         Promote via local integrate + one verified remote tip update.
@@ -736,16 +638,6 @@ class GitPromote(GitOpsBase):
             src_v = source_version if source_version else source_branch
             try:
                 post_merge_hook(src_v, version)
-                if defer_metadata_commit:
-                    self._remember_deferred_promote(
-                        version=version,
-                        target_branch=target_branch,
-                        base_sha=base_sha,
-                        merge_message=merge_message,
-                        remote_name=remote_name,
-                    )
-                    logger.info("Deferring verified metadata publish until host lock sync")
-                    return version
                 dirty_paths = self._collect_dirty_tracked_paths()
                 if dirty_paths:
                     logger.info(

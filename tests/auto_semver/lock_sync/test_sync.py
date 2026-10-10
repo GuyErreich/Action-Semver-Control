@@ -363,8 +363,7 @@ def test_host_npm_runs_lock_and_absent_npm_does_not_spawn(tmp_path: Path) -> Non
 
 
 @pytest.mark.unit
-def test_image_uv_is_not_a_host_binary(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The action image venv must not count as the user's uv."""
-    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/opt/venv")
-    monkeypatch.setattr("auto_semver.lock_sync.sync.shutil.which", lambda _tool: "/usr/local/bin/uv")
-    assert host_binary("uv") is None
+def test_host_binary_uses_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lock sync uses the uv or npm already on PATH."""
+    monkeypatch.setattr("auto_semver.lock_sync.sync.shutil.which", lambda tool: f"/usr/bin/{tool}")
+    assert host_binary("uv") == "/usr/bin/uv"

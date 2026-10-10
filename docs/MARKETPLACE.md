@@ -10,7 +10,8 @@ Action-Semver-Control is published as **Auto Semver Bumper** on the [GitHub Mark
    - Edit the release with `?marketplace=true`, for example:  
      `https://github.com/GuyErreich/Action-Semver-Control/releases/edit/X.Y.Z?marketplace=true`
    - Or open the [Marketplace listing](https://github.com/marketplace/actions/new) / existing listing and publish from the new release tag.
-4. Confirm `action.yml` includes `branding.icon` and `branding.color`.
+4. Confirm root `action.yml` includes `branding.icon` and `branding.color`. The implementation lives in `action/action.yml`.
+5. The same tag publishes the package to PyPI with trusted publishing. One-time setup on the PyPI project `auto-semver`: add a trusted publisher for this repository, workflow file `publish-production.yml`, and environment `production`. The action does not install from PyPI; it installs the git checkout for the ref the caller pinned.
 
 Consumers should pin caller workflows at the floating major tag `v1` (for example `...@v1` in workflow YAML). Exact semver pins (`@1.3.14`) and SHA pins remain supported via the reusable workflow `action-ref` input.
 
