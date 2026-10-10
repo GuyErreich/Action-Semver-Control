@@ -41,7 +41,7 @@ CI and milestone skills read these commands and the base branch from this block.
 
 ## Action installs the package
 
-The published action is a thin installer. Root `action.yml` forwards to `action/action.yml`, which installs this checkout into a private virtualenv and runs `auto-semver` once on the runner. The uv used for that install lives under `RUNNER_TEMP` and must not be placed on `PATH`.
+The published action is a thin installer. Root `action.yml` forwards to `action/action.yml`, which installs the production package from PyPI into a private virtualenv and runs `auto-semver` once on the runner. A final `X.Y.Z` checkout installs `auto-semver==X.Y.Z`. A `-dev` or `-rc` checkout still installs the latest stable release. Dev and staging publishes are pre-releases for `uv tool install --prerelease explicit`, not for the action. The uv used for that install lives under `RUNNER_TEMP` and must not be placed on `PATH`.
 
 Lock refresh uses the `uv` or `npm` already on the runner `PATH`. When that CLI is absent, only the project version inside the existing lock changes. CI must pass the contents of `.uv-version` as setup-uv's `version` input. `version-file` does not accept that filename.
 

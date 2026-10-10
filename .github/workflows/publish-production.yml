@@ -39,6 +39,9 @@ jobs:
         with:
           github_token: ${{ steps.app-token.outputs.token }}
 
+      - name: Publish package to PyPI
+        uses: ./.github/actions/publish-pypi
+
       - name: Configure Git for App
         run: |
           git config user.name "${{ steps.app-token.outputs.user-name }}"
@@ -54,15 +57,3 @@ jobs:
             "${COMMIT_SHA}"
           git push origin refs/tags/v1 --force
           echo "Updated v1 tag to ${GITHUB_REF_NAME} (${COMMIT_SHA})"
-
-      - name: Read uv pin
-        id: uv-pin
-        run: echo "version=$(tr -d '[:space:]' < .uv-version)" >> "$GITHUB_OUTPUT"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        with:
-          version: ${{ steps.uv-pin.outputs.version }}
-
-      - name: Publish package to PyPI
-        run: uv build && uv publish

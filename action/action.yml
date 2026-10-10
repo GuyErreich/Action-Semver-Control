@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 name: 'Auto Semver Package'
-description: 'Install this checkout and run the auto-semver CLI on the runner.'
+description: 'Install the production auto-semver package and run it on the caller repository.'
 
 inputs:
   action:
@@ -48,15 +48,19 @@ runs:
         pkg="$(cd "${GITHUB_ACTION_PATH}/.." && pwd)"
         uv_version="$(tr -d '[:space:]' < "${pkg}/.uv-version")"
         install_dir="${RUNNER_TEMP}/auto-semver-uv"
+        venv="${RUNNER_TEMP}/auto-semver-venv"
         curl -LsSf "https://astral.sh/uv/${uv_version}/install.sh" \
           | env UV_INSTALL_DIR="${install_dir}" UV_NO_MODIFY_PATH=1 sh
-        UV_PROJECT_ENVIRONMENT="${RUNNER_TEMP}/auto-semver-venv" \
-          "${install_dir}/uv" sync \
-          --frozen \
-          --no-dev \
-          --no-editable \
-          --directory "${pkg}" \
-          --python "${PYTHON_BIN}"
+        raw="$(AUTO_SEMVER_PKG="${pkg}" "${PYTHON_BIN}" -c "import os, tomllib; from pathlib import Path; print(tomllib.loads(Path(os.environ['AUTO_SEMVER_PKG'], 'pyproject.toml').read_text())['project']['version'])")"
+        # A final X.Y.Z checkout installs that production release. Dev and rc
+        # checkouts still install the latest stable release, never a pre-release.
+        if [[ "${raw}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          spec="auto-semver==${raw}"
+        else
+          spec="auto-semver"
+        fi
+        "${install_dir}/uv" venv --python "${PYTHON_BIN}" "${venv}"
+        "${install_dir}/uv" pip install --python "${venv}/bin/python" "${spec}"
 
     - name: Run auto-semver
       shell: bash

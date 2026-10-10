@@ -1,12 +1,12 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-name: Publish Release - Staging
+name: Publish Release - Dev
 
 on:
   push:
     tags:
-      - '*.*.*-rc'
+      - '*.*.*-dev'
 
 jobs:
   release:
@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    environment: 'staging'
+    environment: 'dev'
 
     steps:
       - name: Checkout repository
