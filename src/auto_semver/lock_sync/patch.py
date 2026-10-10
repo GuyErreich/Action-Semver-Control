@@ -6,14 +6,11 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import tomllib
 from pathlib import Path
 
-from auto_semver.lock_sync.pending import read_pending
 from auto_semver.lock_sync.pep440 import pep503_name, to_pep440
-from auto_semver.lock_sync.registry import default_registry, ensure_builtins_registered
 
 _UV_NAME = re.compile(r'^name = "([^"]+)"\s*$')
 _UV_VERSION = re.compile(r'^version = "([^"]*)"\s*$')
@@ -177,43 +174,6 @@ def patch_npm_lockfile(repo_root: Path) -> bool:
         return False
     lock_path.write_text(updated, encoding="utf-8")
     return True
-
-
-def patch_pending(*, repo_root: Path | None = None) -> list[str]:
-    """Patch pending lockfiles whose host CLI was not available.
-
-    ``AUTO_SEMVER_PATCH_ECOSYSTEMS`` limits the patch to a comma-separated
-    ecosystem list. When unset, every pending lock is patched.
-
-    Args:
-        repo_root: Repository root. Defaults to ``GITHUB_WORKSPACE`` or ``.``.
-
-    Returns:
-        Lock paths whose bytes changed.
-    """
-    pending = read_pending()
-    root = repo_root or Path(os.environ.get("GITHUB_WORKSPACE", "."))
-    selected = _selected_ecosystems()
-    ensure_builtins_registered()
-    changed: list[str] = []
-    for lock in pending.get("locks", []):
-        ecosystem = str(lock["ecosystem"])
-        if selected is not None and ecosystem not in selected:
-            continue
-        strategy = default_registry.get(ecosystem)
-        if strategy is None:
-            continue
-        if strategy.patch(root):
-            changed.append(str(lock["path"]))
-    return changed
-
-
-def _selected_ecosystems() -> set[str] | None:
-    raw = os.environ.get("AUTO_SEMVER_PATCH_ECOSYSTEMS", "")
-    selected = {part for part in raw.split(",") if part}
-    if not selected:
-        return None
-    return selected
 
 
 def _package_name(block: list[str]) -> str | None:

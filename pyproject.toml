@@ -146,7 +146,6 @@ disable_error_code = ["attr-defined", "no-any-return"]
 
 [dependency-groups]
 dev = [
-  "docker~=7.1",
   "mypy~=2.4",
   "pre-commit~=4.2",
   "pyfakefs~=6.2",
@@ -154,7 +153,6 @@ dev = [
   "pytest-cov~=7.1",
   "pytest-mock~=3.14",
   "ruff~=0.16.10",
-  "types-docker~=7.1",
   "types-PyYAML~=6.0",
   "responses~=0.25",
 ]

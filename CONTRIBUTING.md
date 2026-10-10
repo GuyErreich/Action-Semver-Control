@@ -21,7 +21,7 @@ uv run mypy src
 
 Or via Task: `task install && task audit && task test && task lint && task type-check`.
 
-CI and the published Docker action install from the committed `uv.lock` (`uv sync --frozen`). To change dependencies, edit `pyproject.toml`, run `uv lock`, and commit the updated lockfile. [`.uv-version`](.uv-version) and the `Dockerfile` tag pin the uv that **builds this action**. Consumer repositories do not follow that pin: their release commit uses the `uv` or `npm` already on the runner.
+CI installs from the committed `uv.lock` (`uv sync --frozen`). The published action installs the production package from PyPI and does not install dev or rc builds. To change dependencies, edit `pyproject.toml`, run `uv lock`, and commit the updated lockfile. [`.uv-version`](.uv-version) pins the private uv that installs the action. Consumer repositories do not follow that pin: their release commit uses the `uv` or `npm` already on the runner.
 
 
 ## Pull requests

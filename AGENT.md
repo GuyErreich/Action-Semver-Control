@@ -39,11 +39,11 @@ CI and milestone skills read these commands and the base branch from this block.
 - Run lint, type-check, and tests at review / commit / PR milestones.
 - Record pass/fail from raw shell exit codes.
 
-## Action image vs runner tools
+## Action installs the package
 
-A `using: docker` step cannot see the runner `PATH`. The uv in this image (`.uv-version` and the `Dockerfile` tag) builds the action only. Do not run that binary, or any other CLI baked into the image, against a consumer lockfile, and do not set `UV_FROZEN` at image runtime. CI must pass the contents of `.uv-version` as setup-uv's `version` input. `version-file` does not accept that filename.
+The published action is a thin installer. Root `action.yml` forwards to `action/action.yml`, which installs the production package from PyPI into a private virtualenv and runs `auto-semver` once on the runner. A final `X.Y.Z` checkout installs `auto-semver==X.Y.Z`. A `-dev` or `-rc` checkout still installs the latest stable release. Dev and staging publishes are pre-releases for `uv tool install --prerelease explicit`, not for the action. The uv used for that install lives under `RUNNER_TEMP` and must not be placed on `PATH`.
 
-Lock refresh runs on the runner (`scripts/sync-host-locks.sh`): `uv lock` or `npm install --package-lock-only` when that tool is installed, otherwise a version-only patch of the existing lock. `UV_FROZEN=1` belongs only on the image-build `uv sync` line.
+Lock refresh uses the `uv` or `npm` already on the runner `PATH`. When that CLI is absent, only the project version inside the existing lock changes. CI must pass the contents of `.uv-version` as setup-uv's `version` input. `version-file` does not accept that filename.
 
 ## Review scope
 

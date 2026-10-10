@@ -69,16 +69,6 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create verified commits via the GitHub API (requires App installation token)",
     )
-    parent_parser.add_argument(
-        "--phase",
-        choices=("all", "prepare", "commit", "patch"),
-        default="all",
-        help=(
-            "Composite action phase. prepare writes version files and stops before "
-            "commit; patch updates lock versions when the runner has no uv/npm; "
-            "commit publishes the pending release; all runs the workflow in one process."
-        ),
-    )
 
     parser = argparse.ArgumentParser(parents=[parent_parser])
     subparsers = parser.add_subparsers(dest="command")
@@ -183,14 +173,6 @@ def _run_semver(args: argparse.Namespace) -> None:
     """
     command = _resolve_command_name(args)
     get_summary().set("command", command)
-    phase = getattr(args, "phase", "all")
-
-    if phase == "patch":
-        from auto_semver.lock_sync.patch import patch_pending  # noqa: PLC0415
-
-        patch_pending()
-        get_summary().set("outcome", "success")
-        return
 
     with log_group("Startup"):
         with status("Loading config and git context..."):
@@ -216,7 +198,6 @@ def _run_semver(args: argparse.Namespace) -> None:
             to_branch=args.to_branch,
             from_tag=args.from_tag,
             dry_run=args.dry_run,
-            phase=phase,
         )
         get_summary().set("outcome", "success")
         return
@@ -225,21 +206,13 @@ def _run_semver(args: argparse.Namespace) -> None:
     if finalized:
         set_command("finalize")
         get_summary().set("command", "finalize")
-        if phase == "commit":
-            get_summary().set("outcome", "success")
-            return
         finalize.run(gitops=gitops, event=event, config=config, github_token=args.github_token)
-        if phase == "prepare":
-            from auto_semver.lock_sync.pending import PendingState, write_pending  # noqa: PLC0415
-
-            write_pending(PendingState(workflow="finalize", locks=[]))
     else:
         bump.run(
             gitops=gitops,
             event=event,
             config=config,
             github_token=args.github_token,
-            phase=phase,
         )
     get_summary().set("outcome", "success")
 

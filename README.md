@@ -55,13 +55,22 @@ Pin reusable workflows at the floating major tag `v1` (for example `.../semver-b
 - Label bump PRs automatically (`semver-bump`)
 - 100% typed Python (>=3.12)
 - No subprocess for git — uses GitPython and Requests; bump/promote refresh lockfiles with the `uv` or `npm` already on the runner when `lock_sync` is enabled, and otherwise update only the project version inside the existing lock
-- Fully Dockerized for clean CI/CD usage
+- Published as a Python package. The GitHub Action installs the production release from PyPI and runs that CLI
 - Comprehensive test coverage with pytest and pyfakefs
 - Modern Python tooling (ruff, mypy, pre-commit, gitleaks secret scan)
 
 ## CLI Usage
 
-The action is primarily designed to run in CI/CD, but the CLI can be used for manual operations.
+The action installs the production release. Install that same package locally with `uv tool install auto-semver`.
+
+To try a dev or staging publish before it is production, install that pre-release explicitly:
+
+```bash
+uv tool install --prerelease explicit "auto-semver==1.2.3.dev0"
+uv tool install --prerelease explicit "auto-semver==1.2.3rc0"
+```
+
+`1.2.3-dev` is published as `1.2.3.dev0`, and `1.2.3-rc` as `1.2.3rc0`. A plain `uv tool install auto-semver` stays on the stable release.
 
 ### Manual Promotion
 To manually promote a version from one branch to another (e.g., `dev` -> `staging`):

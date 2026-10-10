@@ -193,7 +193,6 @@ class TestMain:
             event=event,
             config=mock_config,
             github_token=mock_args.github_token,
-            phase="all",
         )
 
         # Verify finalize.run was not called

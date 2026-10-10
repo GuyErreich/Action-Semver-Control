@@ -19,8 +19,7 @@ from auto_semver.core.semver import Version
 from auto_semver.core.semver.lock import SemverLock
 from auto_semver.core.semver.updater import VersionFileUpdater
 from auto_semver.core.semver.version import BumpCounts
-from auto_semver.lock_sync.pending import PendingState, read_pending, write_pending
-from auto_semver.lock_sync.sync import plan_locks, sync_package_locks
+from auto_semver.lock_sync.sync import sync_package_locks
 from runview import get_summary, log_group, status
 
 logger = logging.getLogger(__package__)
@@ -216,7 +215,6 @@ def run(
     event: GitHubEvent,
     config: Config,
     github_token: str,
-    phase: str = "all",
 ) -> None:
     """
     Run the bump workflow.
@@ -226,14 +224,8 @@ def run(
         event (GitHubEvent): GitHubEvent object.
         config (Config): Config object.
         github_token (str): A token for github to generate a new PR.
-        phase: ``prepare`` writes version files and stops before commit.
-            ``commit`` publishes the pending release after the host lock step.
-            ``all`` does both in one process.
 
     """
-    if phase == "commit":
-        _commit_pending_release(gitops=gitops, config=config, github_token=github_token)
-        return
     changelog = ChangelogManager.from_config(config)
     summary = get_summary()
 
@@ -344,29 +336,6 @@ def run(
             author = event.get_actor() if hasattr(event, "get_actor") else "auto-semver"
             feature_count = bump_counts.feature_count if bump_counts else 0
             fix_count = bump_counts.fix_count if bump_counts else 0
-            if phase == "prepare":
-                write_pending(
-                    PendingState(
-                        workflow="bump",
-                        new_version=new_version,
-                        previous_version=previous_version_str,
-                        release_branch=release_branch_name,
-                        target_branch=target_branch,
-                        files_to_update=list(files_to_update),
-                        changelog_path=str(changelog.path),
-                        semver_lock_path=str(lockfile.path),
-                        locks=plan_locks(repo_root=repo_root, config=config.data.lock_sync),
-                        commit_messages=list(commit_messages),
-                        feature_count=feature_count,
-                        fix_count=fix_count,
-                        author=author,
-                        repository=repo_full_name,
-                        release_strategy=release_cfg.strategy,
-                    )
-                )
-                logger.info("Prepared version files; host lock sync runs before the commit")
-                return
-
             synced_locks = sync_package_locks(repo_root=repo_root, config=config.data.lock_sync)
 
     _publish_release(
@@ -387,38 +356,6 @@ def run(
         author=author,
         repository=repo_full_name,
         release_strategy=release_cfg.strategy,
-    )
-
-
-def _commit_pending_release(*, gitops: GitOps, config: Config, github_token: str) -> None:
-    """Commit, push, and open the PR from state written by the prepare phase."""
-    pending = read_pending()
-    workflow = pending.get("workflow")
-    if workflow in {"finalize", "dry-run"}:
-        logger.info("Pending workflow %s has nothing to commit", workflow)
-        return
-    if workflow != "bump":
-        raise ValueError(f"Pending state is {workflow!r}, not a bump")
-
-    locks = [str(lock["path"]) for lock in pending.get("locks", [])]
-    _publish_release(
-        gitops=gitops,
-        config=config,
-        github_token=github_token,
-        new_version=str(pending["new_version"]),
-        previous_version=str(pending.get("previous_version", "")),
-        release_branch_name=str(pending["release_branch"]),
-        target_branch=str(pending["target_branch"]),
-        files_to_update=list(pending.get("files_to_update", [])),
-        synced_locks=locks,
-        changelog_path=str(pending.get("changelog_path", "CHANGELOG.md")),
-        semver_lock_path=str(pending.get("semver_lock_path", ".semver.lock")),
-        commit_messages=list(pending.get("commit_messages", [])),
-        feature_count=int(pending.get("feature_count", 0)),
-        fix_count=int(pending.get("fix_count", 0)),
-        author=str(pending.get("author", "auto-semver")),
-        repository=str(pending.get("repository", "")),
-        release_strategy=str(pending.get("release_strategy", "single")),
     )
 
 
