@@ -55,22 +55,22 @@ Pin reusable workflows at the floating major tag `v1` (for example `.../semver-b
 - Label bump PRs automatically (`semver-bump`)
 - 100% typed Python (>=3.12)
 - No subprocess for git — uses GitPython and Requests; bump/promote refresh lockfiles with the `uv` or `npm` already on the runner when `lock_sync` is enabled, and otherwise update only the project version inside the existing lock
-- Published as a Python package. The GitHub Action installs the production release from PyPI and runs that CLI
+- Published on PyPI as `auto-semver-control`. The console script stays `auto-semver`. The action installs that release when it exists, and this checkout until the first publish
 - Comprehensive test coverage with pytest and pyfakefs
 - Modern Python tooling (ruff, mypy, pre-commit, gitleaks secret scan)
 
 ## CLI Usage
 
-The action installs the production release. Install that same package locally with `uv tool install auto-semver`.
+The action installs `auto-semver-control` for this checkout's version when that release is on PyPI. Install the stable package locally with `uv tool install auto-semver-control`.
 
 To try a dev or staging publish before it is production, install that pre-release explicitly:
 
 ```bash
-uv tool install --prerelease explicit "auto-semver==1.2.3.dev0"
-uv tool install --prerelease explicit "auto-semver==1.2.3rc0"
+uv tool install --prerelease explicit "auto-semver-control==1.2.3.dev0"
+uv tool install --prerelease explicit "auto-semver-control==1.2.3rc0"
 ```
 
-`1.2.3-dev` is published as `1.2.3.dev0`, and `1.2.3-rc` as `1.2.3rc0`. A plain `uv tool install auto-semver` stays on the stable release.
+`1.2.3-dev` is published as `1.2.3.dev0`, and `1.2.3-rc` as `1.2.3rc0`. A plain `uv tool install auto-semver-control` stays on the stable release. The PyPI name `auto-semver` is a different project.
 
 ### Manual Promotion
 To manually promote a version from one branch to another (e.g., `dev` -> `staging`):
