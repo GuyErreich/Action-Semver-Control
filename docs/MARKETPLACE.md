@@ -5,7 +5,7 @@ Action-Semver-Control is published as **Auto Semver Bumper** on the [GitHub Mark
 ## Maintainer checklist (each production release)
 
 1. Merge to `master` and tag `X.Y.Z` (no `-dev` / `-rc` suffix).
-2. `publish-production.yml` creates the GitHub Release and force-updates the floating **`v1`** tag.
+2. `publish-production.yml` publishes the package to PyPI, then creates the GitHub Release and force-updates the floating **`v1`** tag.
 3. Update the Marketplace listing from that production tag (UI only — there is no API for the Marketplace checkbox):
    - Edit the release with `?marketplace=true`, for example:  
      `https://github.com/GuyErreich/Action-Semver-Control/releases/edit/X.Y.Z?marketplace=true`

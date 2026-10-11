@@ -40,7 +40,7 @@ def test_package_action_installs_published_version_or_checkout() -> None:
 
 
 def test_release_workflows_publish_each_channel() -> None:
-    """Dev, staging, and production tags each create a release and publish to PyPI."""
+    """Dev, staging, and production tags publish to PyPI, then create a release."""
     expected = {
         "publish-dev.yml": ("*.*.*-dev", "dev"),
         "publish-staging.yml": ("*.*.*-rc", "staging"),
@@ -58,6 +58,9 @@ def test_release_workflows_publish_each_channel() -> None:
         assert job["permissions"]["id-token"] == "write"
         uses = [step.get("uses") for step in job["steps"]]
         assert "./.github/actions/publish-pypi" in uses
+        assert uses.index("./.github/actions/publish-pypi") < uses.index(
+            "./.github/actions/gh-release"
+        )
         text = (_REPO_ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
         if name == "publish-production.yml":
             assert "refs/tags/v1" in text
@@ -69,3 +72,4 @@ def test_release_workflows_publish_each_channel() -> None:
     )
     assert "uv version" in publish
     assert "uv publish" in publish
+    assert "File already exists" in publish

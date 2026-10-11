@@ -26,4 +26,16 @@ runs:
         # 1.2.3-dev and 1.2.3-rc are not PEP 440. uv stores 1.2.3.dev0 and 1.2.3rc0.
         uv version "$raw" --frozen
         uv build
-        uv publish
+        # A retry after a successful upload must still reach the GitHub release step.
+        set +e
+        publish_log="$(uv publish 2>&1)"
+        publish_status=$?
+        set -e
+        printf '%s\n' "$publish_log"
+        if [ "$publish_status" -ne 0 ]; then
+          if printf '%s\n' "$publish_log" | grep -q "File already exists"; then
+            echo "This version is already on PyPI; continuing to the GitHub release."
+          else
+            exit "$publish_status"
+          fi
+        fi
