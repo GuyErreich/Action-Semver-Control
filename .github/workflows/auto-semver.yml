@@ -1,6 +1,6 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
 name: Auto Semver Bump
 
 on:
@@ -47,10 +47,10 @@ jobs:
         git remote set-url origin https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git
 
     - name: Run Auto Semver Action
-      uses: ./  # Local Docker action
+      uses: ./  # Installs this package and runs auto-semver
       with:
         # target-branch: ${{ github.ref_name }}
         github-token: ${{ steps.app-token.outputs.token }}
         # repo-full-name: ${{ github.repository }}
-        debug: true
+        debug: false
         signed-commits: true

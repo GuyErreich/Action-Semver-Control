@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (c) 2025-2026 Guy Erreich
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Clean up stale auto-semver-owned release branches on the remote."""
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ import logging
 import os
 import sys
 
+from auto_semver.adapters.git.ops import GitOps
 from auto_semver.config import Config
-from auto_semver.git.ops import GitOps
 
 logger = logging.getLogger(__name__)
 

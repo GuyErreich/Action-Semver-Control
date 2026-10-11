@@ -11,7 +11,7 @@ Thanks for helping improve Action-Semver-Control.
 ## Development
 
 ```bash
-uv sync
+uv sync --frozen --dev
 uv run pre-commit install
 uv audit --frozen
 uv run pytest
@@ -20,6 +20,9 @@ uv run mypy src
 ```
 
 Or via Task: `task install && task audit && task test && task lint && task type-check`.
+
+CI installs from the committed `uv.lock` (`uv sync --frozen`). The published action installs `auto-semver-control` at this checkout's version from PyPI, and installs this checkout when that version is not published yet. To change dependencies, edit `pyproject.toml`, run `uv lock`, and commit the updated lockfile. [`.uv-version`](.uv-version) pins the private uv that installs the action. Consumer repositories do not follow that pin: their release commit uses the `uv` or `npm` already on the runner.
+
 
 ## Pull requests
 

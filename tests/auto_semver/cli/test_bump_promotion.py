@@ -12,14 +12,21 @@ import pytest
 from pyfakefs.fake_filesystem import FakeFilesystem
 from pytest_mock import MockerFixture
 
-from auto_semver.changelog.manager import ChangelogManager
+from auto_semver.adapters.git import GitOps
+from auto_semver.adapters.github import GitHubEvent
 from auto_semver.cli.bump import _detect_tag_source_branch, _is_tag_promotion_scenario, run
-from auto_semver.config import ChangelogConfig, Config, ConfigData, PromotionRule, PullRequestConfig
-from auto_semver.config._models._commit_groups import CommitGroupsConfig
-from auto_semver.gh import GitHubEvent
-from auto_semver.git import GitOps
-from auto_semver.semver import Version
-from auto_semver.semver.lock import SemverLock
+from auto_semver.config import (
+    ChangelogConfig,
+    CommitGroupsConfig,
+    Config,
+    ConfigData,
+    LockSyncConfig,
+    PromotionRule,
+    PullRequestConfig,
+)
+from auto_semver.core.changelog.manager import ChangelogManager
+from auto_semver.core.semver import Version
+from auto_semver.core.semver.lock import SemverLock
 from tests.fixtures.config_fixture import ConfigFixture
 from tests.fixtures.github_event_fixture import GitHubEventFixture
 
@@ -190,6 +197,7 @@ class TestPromotionWorkflow:
         mock.get_open_release_version.return_value = None
         mock.fetch.return_value = None
         mock.get_recent_commits.return_value = ["feat: promotion feature"]
+        mock.repo = mocker.Mock(working_tree_dir=".")
         return mock
 
     @pytest.fixture
@@ -211,6 +219,7 @@ class TestPromotionWorkflow:
             changelog=ChangelogConfig(
                 file=Path("CHANGELOG.md"), truncate=False, template="## [{{version}}] - {{date}}\n"
             ),
+            lock_sync=LockSyncConfig(enabled=False),
         )
 
         # Generate the config file using the clean API (uses default path)

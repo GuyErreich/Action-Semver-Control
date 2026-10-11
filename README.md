@@ -36,8 +36,8 @@ uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver s
 ### Add workflows without the CLI
 
 1. **[Register a GitHub App](https://github.com/settings/apps/new?name=Auto+Semver+Bot&description=Signed+commits+and+PRs+for+Action-Semver-Control&url=https%3A%2F%2Fgithub.com%2FGuyErreich%2FAction-Semver-Control&public=true&webhook_active=false&contents=write&pull_requests=write)** — install it on your repo, set variable `GH_APP_CLIENT_ID` and secret `GH_APP_PRIVATE_KEY`.
-2. **Add a caller workflow** — copy [src/auto_semver/setup/templates/auto-semver.caller.yml](src/auto_semver/setup/templates/auto-semver.caller.yml) to `.github/workflows/auto-semver.yml`.
-3. **Add config** — copy [src/auto_semver/setup/templates/auto_semver_config.yml](src/auto_semver/setup/templates/auto_semver_config.yml) to `auto_semver_config.yml` and edit branch suffixes.
+2. **Add a caller workflow** — copy [src/auto_semver/setup/scaffolds/auto-semver.caller.yml](src/auto_semver/setup/scaffolds/auto-semver.caller.yml) to `.github/workflows/auto-semver.yml`.
+3. **Add config** — copy [src/auto_semver/setup/scaffolds/auto_semver_config.yml](src/auto_semver/setup/scaffolds/auto_semver_config.yml) to `auto_semver_config.yml` and edit branch suffixes.
 
 Regenerate prefilled “add workflow” links for your repo:
 
@@ -54,14 +54,23 @@ Pin reusable workflows at the floating major tag `v1` (for example `.../semver-b
 - Auto-close old release PRs (single branch mode)
 - Label bump PRs automatically (`semver-bump`)
 - 100% typed Python (>=3.12)
-- No subprocess — uses GitPython and Requests libraries only
-- Fully Dockerized for clean CI/CD usage
+- No subprocess for git — uses GitPython and Requests; bump/promote refresh lockfiles with the `uv` or `npm` already on the runner when `lock_sync` is enabled, and otherwise update only the project version inside the existing lock
+- Published on PyPI as `auto-semver-control`. The console script stays `auto-semver`. The action installs that release when it exists, and this checkout until the first publish
 - Comprehensive test coverage with pytest and pyfakefs
 - Modern Python tooling (ruff, mypy, pre-commit, gitleaks secret scan)
 
 ## CLI Usage
 
-The action is primarily designed to run in CI/CD, but the CLI can be used for manual operations.
+The action installs `auto-semver-control` for this checkout's version when that release is on PyPI. Install the stable package locally with `uv tool install auto-semver-control`.
+
+To try a dev or staging publish before it is production, install that pre-release explicitly:
+
+```bash
+uv tool install --prerelease explicit "auto-semver-control==1.2.3.dev0"
+uv tool install --prerelease explicit "auto-semver-control==1.2.3rc0"
+```
+
+`1.2.3-dev` is published as `1.2.3.dev0`, and `1.2.3-rc` as `1.2.3rc0`. A plain `uv tool install auto-semver-control` stays on the stable release. The PyPI name `auto-semver` is a different project.
 
 ### Manual Promotion
 To manually promote a version from one branch to another (e.g., `dev` -> `staging`):

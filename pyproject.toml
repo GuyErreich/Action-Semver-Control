@@ -1,25 +1,26 @@
 [project]
-name = "auto_semver"
-version = "1.6.17"
+name = "auto-semver-control"
+version = "1.8.7-rc"
 description = "Automatically bump semver, update changelogs, and open release PRs on merge."
 authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
 readme = "README.md"
-license = "MIT"
+license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
-  "gitpython~=3.1.59",
+  "gitpython~=3.2.0",
   "jinja2~=3.1",
   "pydantic~=2.11",
   "pygithub~=2.6",
   "pyyaml~=6.0",
+  "rich>=15.0.0",
 ]
 
 [project.scripts]
 auto-semver = "auto_semver.cli:main"
 
 [build-system]
-requires = ["setuptools>=80.4"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
@@ -29,7 +30,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-"auto_semver.setup.templates" = ["*.yml"]
+"auto_semver.setup.scaffolds" = ["*.yml"]
 
 [tool.pytest.ini_options]
 minversion  = "6.0"
@@ -87,7 +88,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Tests can use magic values, assertions, and fixtures
-"tests/*" = ["PLR2004", "S101", "ARG", "FBT"]
+"tests/*" = ["PLR2004", "S101", "ARG", "FBT", "PLR0917"]
 "tests/scripts/*" = ["PLR2004", "S101", "ARG", "FBT", "D102", "I001"]
 # CLI orchestration functions can have more statements for workflow clarity
 "src/auto_semver/cli/bump.py" = ["PLR0915"]
@@ -133,17 +134,25 @@ allow_redefinition = false
 install_types = false
 non_interactive = false
 
+[[tool.mypy.overrides]]
+module = [
+  "auto_semver.adapters.git.local",
+  "auto_semver.adapters.git.verified",
+  "auto_semver.adapters.git.promote",
+  "auto_semver.adapters.git.release_pr",
+]
+# Composition parts intentionally call sibling methods on self.
+disable_error_code = ["attr-defined", "no-any-return"]
+
 [dependency-groups]
 dev = [
-  "docker~=7.1",
-  "mypy~=1.8",
+  "mypy~=2.4",
   "pre-commit~=4.2",
-  "pyfakefs~=5.9",
+  "pyfakefs~=6.2",
   "pytest~=9.0",
-  "pytest-cov~=6.1",
+  "pytest-cov~=7.1",
   "pytest-mock~=3.14",
-  "ruff~=0.14.14",
-  "types-docker~=7.1",
+  "ruff~=0.16.10",
   "types-PyYAML~=6.0",
   "responses~=0.25",
 ]

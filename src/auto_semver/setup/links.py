@@ -1,6 +1,6 @@
 # Copyright (c) 2025-2026 Guy Erreich
 #
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Onboarding URL builders and template helpers for Action-Semver-Control."""
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def new_file_pr_url(
 
 def load_template(name: str) -> str:
     """Load a static onboarding template bundled with the package."""
-    path = importlib.resources.files("auto_semver.setup.templates").joinpath(name)
+    path = importlib.resources.files("auto_semver.setup.scaffolds").joinpath(name)
     return path.read_text(encoding="utf-8")
 
 

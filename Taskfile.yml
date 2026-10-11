@@ -11,17 +11,55 @@ tasks:
       - .python-version
 
   install:
-    desc: Install dependencies with uv
+    desc: Install dependencies with uv (frozen to uv.lock)
     cmds:
-      - uv sync --dev
+      - uv lock --check
+      - uv sync --frozen --dev
     sources:
       - pyproject.toml
       - uv.lock
+
 
   audit:
     desc: Audit locked dependencies with uv
     cmds:
       - uv audit --frozen
+
+  license-check:
+    desc: Verify SPDX license headers (SkyWalking Eyes; same as CI)
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/github/workspace" \
+          -w /github/workspace \
+          apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
+          header check -c .licenserc.yaml
+      - |
+        if [ -d src/runview ]; then
+          docker run --rm \
+            -v "$PWD:/github/workspace" \
+            -w /github/workspace \
+            apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
+            header check -c .licenserc.runview.yaml
+        fi
+
+  license-fix:
+    desc: Apply missing SPDX license headers (SkyWalking Eyes)
+    cmds:
+      - |
+        docker run --rm \
+          -v "$PWD:/github/workspace" \
+          -w /github/workspace \
+          apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
+          header fix -c .licenserc.yaml
+      - |
+        if [ -d src/runview ]; then
+          docker run --rm \
+            -v "$PWD:/github/workspace" \
+            -w /github/workspace \
+            apache/skywalking-eyes:0.8.0@sha256:dd138eb0277407ecfcf0beebf2157c5fa092413a2c4041c162e1df87bd3716e8 \
+            header fix -c .licenserc.runview.yaml
+        fi
 
   format:
     desc: Format code with ruff
