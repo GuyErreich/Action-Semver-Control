@@ -13,8 +13,44 @@ on:
       - dev
 
 jobs:
+  changes:
+    name: Detect Python changes
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      with:
+        # pull_request checks out a merge commit; depth 2 includes its parents.
+        fetch-depth: 2
+
+    - name: Detect Python-related changes
+      id: filter
+      run: |
+        set -euo pipefail
+        files="$(git diff --name-only --no-renames HEAD^1 HEAD)"
+        python=false
+        if [ -n "$files" ]; then
+          echo "Changed files:"
+          printf '%s\n' "$files"
+        fi
+        while IFS= read -r file; do
+          [ -z "$file" ] && continue
+          case "$file" in
+            *.py|pyproject.toml|*/pyproject.toml|uv.lock|*/uv.lock|.python-version|*/.python-version|.uv-version|*/.uv-version|Taskfile.yml|.github/workflows/ci.yml)
+              python=true
+              break
+              ;;
+          esac
+        done <<< "$files"
+        echo "python=$python" >> "$GITHUB_OUTPUT"
+        echo "Python-related changes: $python"
+
   ci:
     name: Python ${{ matrix.python-version }}
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -74,3 +110,25 @@ jobs:
 
     - name: Run tests
       run: task test
+
+  python-ci:
+    name: Python CI
+    needs: [changes, ci]
+    if: always() && needs.changes.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+    - name: Evaluate Python CI
+      env:
+        CI_RESULT: ${{ needs.ci.result }}
+      run: |
+        set -euo pipefail
+        case "$CI_RESULT" in
+          success|skipped)
+            echo "Python CI result: $CI_RESULT"
+            exit 0
+            ;;
+          *)
+            echo "Python CI result: $CI_RESULT"
+            exit 1
+            ;;
+        esac
