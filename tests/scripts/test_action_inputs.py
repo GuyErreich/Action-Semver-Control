@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -73,3 +74,20 @@ def test_release_workflows_publish_each_channel() -> None:
     assert "uv version" in publish
     assert "uv publish" in publish
     assert "File already exists" in publish
+
+
+def test_pyproject_declares_pypi_project_metadata() -> None:
+    """The next PyPI upload includes links, classifiers, and the author."""
+    project = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["description"]
+    assert project["authors"][0]["name"] == "Guy Erreich"
+    assert project["authors"][0]["email"] == "gerreich.dev@gmail.com"
+    assert project["license"] == "GPL-3.0-or-later"
+    assert "Typing :: Typed" in project["classifiers"]
+    assert all(not item.startswith("License ::") for item in project["classifiers"])
+    urls = project["urls"]
+    assert urls["Homepage"] == "https://github.com/GuyErreich/Action-Semver-Control"
+    assert urls["Repository"] == urls["Homepage"]
+    assert urls["Issues"].endswith("/issues")
+    assert "CHANGELOG.md" in urls["Changelog"]
+    assert "docs/SETUP.md" in urls["Documentation"]

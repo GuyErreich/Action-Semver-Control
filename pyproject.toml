@@ -7,6 +7,19 @@ readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
+keywords = ["semver", "changelog", "github-actions", "git"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Software Development :: Version Control :: Git",
+  "Typing :: Typed",
+]
 dependencies = [
   "gitpython~=3.2.0",
   "jinja2~=3.1",
@@ -18,6 +31,13 @@ dependencies = [
 
 [project.scripts]
 auto-semver = "auto_semver.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/GuyErreich/Action-Semver-Control"
+Repository = "https://github.com/GuyErreich/Action-Semver-Control"
+Documentation = "https://github.com/GuyErreich/Action-Semver-Control/blob/dev/docs/SETUP.md"
+Changelog = "https://github.com/GuyErreich/Action-Semver-Control/blob/dev/CHANGELOG.md"
+Issues = "https://github.com/GuyErreich/Action-Semver-Control/issues"
 
 [build-system]
 requires = ["setuptools>=84.0.0"]
