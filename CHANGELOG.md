@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.8.6-dev] - 10-10-2026
+## [1.8.7-dev] - 11-10-2026
 
 ### ✨ Features & Enhancements
 - sync package locks after version bumps (#306)
@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 - use absolute wtp base_dir (no tilde expansion) (#307)
 - align CI and action uv so release bumps refresh uv.lock (#337)
 - pin the action install to auto-semver-control (#340)
+### 📝 Other Changes
+- Publish to PyPI before creating the GitHub release (#342)
 
 ## License
 This project is licensed under the MIT License.
