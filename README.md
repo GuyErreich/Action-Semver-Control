@@ -3,7 +3,7 @@
 A custom GitHub Action written in Python to automatically bump semantic versioning, update changelogs, and create Pull Requests — fully configurable.
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Auto%20Semver%20Bumper-blue?logo=github)](https://github.com/marketplace/actions/auto-semver-bumper)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Pin major v1 tag](https://img.shields.io/badge/pin-v1-green)](docs/SETUP.md#pinning-policy)
 [![CI](https://github.com/GuyErreich/Action-Semver-Control/actions/workflows/ci.yml/badge.svg)](https://github.com/GuyErreich/Action-Semver-Control/actions/workflows/ci.yml)
@@ -170,4 +170,4 @@ commit_groups:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+GPL-3.0-or-later — see [LICENSE](LICENSE).
