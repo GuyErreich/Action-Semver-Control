@@ -162,6 +162,73 @@ def _apply_version_bump(
     return None
 
 
+def _unpublished_notes_base(
+    *,
+    gitops: GitOps,
+    lockfile: SemverLock,
+    github_token: str,
+) -> str | None:
+    """Return an earlier baseline when the current version never shipped.
+
+    A finalized version with no GitHub Release did not publish. The next release
+    notes should include that version's changes, so the commit range starts at
+    the previous finalized baseline instead of the failed release merge.
+
+    Args:
+        gitops: Git operations handler.
+        lockfile: Lock loaded from the integration branch, before it is rewritten.
+        github_token: Token used to check for a GitHub Release.
+
+    Returns:
+        The earlier baseline SHA, or None when the current baseline should be used.
+    """
+    current_base = lockfile.target_base_sha
+    if lockfile.finalized is not True or not isinstance(current_base, str) or not current_base:
+        return None
+
+    version = str(lockfile.version)
+    try:
+        shipped = gitops.github_release_exists(tag=version, github_token=github_token)
+    except Exception as err:
+        logger.warning("Could not check GitHub release for %s: %s", version, err)
+        return None
+    if shipped:
+        return None
+
+    earlier = _previous_finalized_baseline(gitops=gitops, version=version)
+    if earlier is None or earlier == current_base:
+        return None
+
+    logger.info(
+        "Version %s has no GitHub release; including its changes in the next release notes",
+        version,
+    )
+    return earlier
+
+
+def _previous_finalized_baseline(*, gitops: GitOps, version: str) -> str | None:
+    """Return the baseline SHA of the finalized lock before ``version``.
+
+    Args:
+        gitops: Git operations handler.
+        version: Version whose own lock entries should be skipped.
+
+    Returns:
+        The previous finalized lock's ``target_base_sha``, or None when absent.
+    """
+    seen: set[str] = set()
+    for commit in gitops.repo.iter_commits(paths=SemverLock.path):
+        lock = gitops.get_lock_at_ref(commit.hexsha)
+        if lock is None or lock.finalized is not True or not lock.target_base_sha:
+            continue
+        lock_version = str(lock.version)
+        if lock_version == version or lock_version in seen:
+            continue
+        seen.add(lock_version)
+        return lock.target_base_sha
+    return None
+
+
 def _push_release_branch(
     *,
     gitops: GitOps,
@@ -271,6 +338,11 @@ def run(
             target_branch=target_branch,
         )
         baseline_sha = lockfile.target_base_sha
+        notes_base_sha = _unpublished_notes_base(
+            gitops=gitops,
+            lockfile=lockfile,
+            github_token=github_token,
+        )
 
         if not is_tag_promotion:
             with status("Applying version bump..."):
@@ -321,7 +393,9 @@ def run(
                     f"Skipping baseline check. Details: {e}"
                 )
 
-            latest_commit_sha = lockfile.target_base_sha or event.get_merged_commit_sha()
+            latest_commit_sha = (
+                notes_base_sha or lockfile.target_base_sha or event.get_merged_commit_sha()
+            )
 
             commit_messages = gitops.get_recent_commits(latest_commit_sha, config=config)
             changelog.update(
