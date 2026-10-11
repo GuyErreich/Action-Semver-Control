@@ -20,4 +20,4 @@ All notable changes to this project will be documented in this file.
 - Publish to PyPI before creating the GitHub release (#342)
 
 ## License
-This project is licensed under the MIT License.
+This project is licensed under the GPL-3.0-or-later License.
