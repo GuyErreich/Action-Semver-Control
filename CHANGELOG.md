@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.8.7-rc] - 11-10-2026
+## [1.8.7] - 11-10-2026
 
 ### ✨ Features & Enhancements
 - sync package locks after version bumps (#306)
