@@ -84,10 +84,15 @@ def test_pyproject_declares_pypi_project_metadata() -> None:
     assert project["authors"][0]["email"] == "gerreich.dev@gmail.com"
     assert project["license"] == "GPL-3.0-or-later"
     assert "Typing :: Typed" in project["classifiers"]
+    assert "Programming Language :: Python :: 3.14" in project["classifiers"]
+    assert "Topic :: Software Development :: Libraries :: Python Modules" in project["classifiers"]
     assert all(not item.startswith("License ::") for item in project["classifiers"])
     urls = project["urls"]
     assert urls["Homepage"] == "https://github.com/GuyErreich/Action-Semver-Control"
-    assert urls["Repository"] == urls["Homepage"]
+    assert urls["Source"] == urls["Homepage"]
+    assert urls["Download"].endswith("/releases")
     assert urls["Issues"].endswith("/issues")
+    assert urls["Security"].endswith("/security/policy")
+    assert urls["GitHub Marketplace"].endswith("/auto-semver-bumper")
     assert "CHANGELOG.md" in urls["Changelog"]
     assert "docs/SETUP.md" in urls["Documentation"]
