@@ -1,7 +1,6 @@
 version: 1.8.7-dev
 source_branch: dev
 target_branch: dev
-target_base_sha: f19a2d871c92ecc1ae48fc39fba81c7913cb4ef9
-finalized: false
+target_base_sha: da8dd81b20667bdac50f5af95ea5eb00189cdf8a
+finalized: true
 managed_by: auto-semver
-branch_role: release
