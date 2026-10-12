@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.8.15-rc] - 12-10-2026
+## [1.8.15] - 12-10-2026
 
 ### ✨ Features & Enhancements
 - warn when deprecated config names are still used (#353)
