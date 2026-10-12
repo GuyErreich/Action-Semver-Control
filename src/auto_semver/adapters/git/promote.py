@@ -413,7 +413,6 @@ class GitPromote(GitOpsBase):
 
                 try:
                     post_merge_hook(src_v, version)
-
                     dirty_paths = self._collect_dirty_tracked_paths()
                     if dirty_paths:
                         logger.info(
