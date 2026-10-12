@@ -1,10 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.8.10] - 11-10-2026
+## [1.8.15-rc] - 12-10-2026
 
 ### ✨ Features & Enhancements
-- Add PyPI project links and classifiers (#347)
+- warn when deprecated config names are still used (#353)
+### 🐛 Bug Fixes & Resolutions
+- drop the broken wtp copilot copy hook (#352)
 
 ## License
 This project is licensed under the GPL-3.0-or-later License.

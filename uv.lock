@@ -81,7 +81,7 @@ wheels = [
 
 [[package]]
 name = "auto-semver-control"
-version = "1.8.10"
+version = "1.8.15rc0"
 source = { editable = "." }
 dependencies = [
     { name = "gitpython" },
