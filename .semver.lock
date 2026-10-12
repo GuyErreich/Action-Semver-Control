@@ -1,7 +1,6 @@
 version: 1.8.15-dev
 source_branch: dev
 target_branch: dev
-target_base_sha: b44ee4a0cda5aa47b443de3b49837002f32c1ba5
-finalized: false
+target_base_sha: 559a4c366e693802f83a8d8e286a0c7dfe12c555
+finalized: true
 managed_by: auto-semver
-branch_role: release
