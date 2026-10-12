@@ -47,10 +47,16 @@ jobs:
         echo "python=$python" >> "$GITHUB_OUTPUT"
         echo "Python-related changes: $python"
 
+  # Rulesets on dev and staging require checks named "Python 3.12" and
+  # "Python 3.13". Those names are created only when this matrix runs. A
+  # job-level skip leaves a single check named
+  # "Python ${{ matrix.python-version }}", so the required checks never
+  # start and the pull request stays blocked. Always start the matrix, and
+  # skip the suite in the steps when nothing Python-related changed.
   ci:
     name: Python ${{ matrix.python-version }}
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: always() && (needs.changes.result == 'success' || needs.changes.result == 'failure')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -58,14 +64,37 @@ jobs:
       fail-fast: false
 
     steps:
+    - name: Decide whether to run Python CI
+      id: decide
+      env:
+        CHANGES_RESULT: ${{ needs.changes.result }}
+        PYTHON_CHANGES: ${{ needs.changes.outputs.python }}
+        PYTHON_VERSION: ${{ matrix.python-version }}
+      run: |
+        set -euo pipefail
+        if [ "$CHANGES_RESULT" != "success" ]; then
+          echo "Change detection result: $CHANGES_RESULT"
+          exit 1
+        fi
+        if [ "$PYTHON_CHANGES" = "true" ]; then
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          echo "Python-related changes detected. Running Python $PYTHON_VERSION."
+        else
+          echo "run=false" >> "$GITHUB_OUTPUT"
+          echo "No Python-related changes. Reporting Python $PYTHON_VERSION as success."
+        fi
+
     - name: Checkout repository
+      if: steps.decide.outputs.run == 'true'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
     - name: Read uv pin
       id: uv-pin
+      if: steps.decide.outputs.run == 'true'
       run: echo "version=$(tr -d '[:space:]' < .uv-version)" >> "$GITHUB_OUTPUT"
 
     - name: Install uv
+      if: steps.decide.outputs.run == 'true'
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         enable-cache: true
@@ -74,6 +103,7 @@ jobs:
         version: ${{ steps.uv-pin.outputs.version }}
 
     - name: Cache tool caches (mypy, ruff, pytest)
+      if: steps.decide.outputs.run == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
@@ -85,30 +115,38 @@ jobs:
           ${{ runner.os }}-tool-caches-${{ matrix.python-version }}-
 
     - name: Cache Task binary
+      if: steps.decide.outputs.run == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /usr/local/bin/task
         key: ${{ runner.os }}-task-${{ hashFiles('install-task.sh') }}
 
     - name: Install Task (Go task runner)
+      if: steps.decide.outputs.run == 'true'
       run: ./install-task.sh
 
     - name: Install dependencies
+      if: steps.decide.outputs.run == 'true'
       run: task install
 
     - name: Dependency audit
+      if: steps.decide.outputs.run == 'true'
       run: task audit
 
     - name: Format code
+      if: steps.decide.outputs.run == 'true'
       run: task format
 
     - name: Lint code
+      if: steps.decide.outputs.run == 'true'
       run: task lint
 
     - name: Type check
+      if: steps.decide.outputs.run == 'true'
       run: task type-check
 
     - name: Run tests
+      if: steps.decide.outputs.run == 'true'
       run: task test
 
   python-ci:
@@ -123,7 +161,7 @@ jobs:
       run: |
         set -euo pipefail
         case "$CI_RESULT" in
-          success|skipped)
+          success)
             echo "Python CI result: $CI_RESULT"
             exit 0
             ;;
