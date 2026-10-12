@@ -1,9 +1,10 @@
-"""The Python CI matrix must report the required check names when tests are skipped."""
+"""Python CI reports the required check names and skips the suite from a path match."""
 
 from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,71 +12,66 @@ import yaml
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
-_RUN_WHEN = "steps.decide.outputs.run == 'true'"
+_ACTION = _REPO_ROOT / ".github" / "actions" / "changed-paths" / "action.yml"
+_MATCH_PATHS = _REPO_ROOT / ".github" / "actions" / "changed-paths" / "match_paths.py"
+_RUN_WHEN = "steps.python.outputs.matched == 'true'"
 _REQUIRED_CHECK_NAMES = ("Python 3.12", "Python 3.13")
 
 
-def _workflow() -> dict[str, object]:
-    """Load the CI workflow. PyYAML parses the ``on`` key as ``True``."""
-    loaded = yaml.safe_load(_CI_WORKFLOW.read_text(encoding="utf-8"))
+def _load_yaml(path: Path) -> dict[str, object]:
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert isinstance(loaded, dict)
     return loaded
 
 
-def _jobs() -> dict[str, dict[str, object]]:
-    jobs = _workflow()["jobs"]
-    assert isinstance(jobs, dict)
-    return jobs
-
-
 def _ci_job() -> dict[str, object]:
-    job = _jobs()["ci"]
+    workflow = _load_yaml(_CI_WORKFLOW)
+    jobs = workflow["jobs"]
+    assert isinstance(jobs, dict)
+    job = jobs["ci"]
     assert isinstance(job, dict)
     return job
 
 
-def _step_run(job_name: str, step_id: str | None = None, step_name: str | None = None) -> str:
-    job = _jobs()[job_name]
+def _patterns() -> str:
+    job = _ci_job()
     steps = job["steps"]
     assert isinstance(steps, list)
     for step in steps:
         assert isinstance(step, dict)
-        if step_id is not None and step.get("id") == step_id:
-            run = step["run"]
-            assert isinstance(run, str)
-            return run
-        if step_name is not None and step.get("name") == step_name:
-            run = step["run"]
-            assert isinstance(run, str)
-            return run
-    message = f"step id={step_id!r} name={step_name!r} not found in {job_name}"
-    raise AssertionError(message)
+        if step.get("id") == "python":
+            with_inputs = step["with"]
+            assert isinstance(with_inputs, dict)
+            patterns = with_inputs["patterns"]
+            assert isinstance(patterns, str)
+            return patterns
+    raise AssertionError("changed-paths step not found")
 
 
-def _run_script(
-    script: str, env: dict[str, str], output_path: Path
-) -> subprocess.CompletedProcess[str]:
-    """Run a workflow step script the way Actions does, with GITHUB_OUTPUT set."""
-    full_env = os.environ.copy()
-    full_env.update(env)
-    full_env["GITHUB_OUTPUT"] = str(output_path)
-    return subprocess.run(
-        ["bash", "-c", script],
-        check=False,
-        capture_output=True,
+def _match(paths: str, patterns: str) -> str:
+    result = subprocess.run(
+        [sys.executable, str(_MATCH_PATHS)],
+        input=paths,
         text=True,
-        env=full_env,
+        capture_output=True,
+        env={**os.environ, "PATTERNS": patterns},
+        check=True,
     )
+    return result.stdout.strip()
 
 
-def test_matrix_jobs_keep_required_check_names_when_python_is_unchanged() -> None:
+def test_matrix_jobs_always_start_under_the_required_names() -> None:
     """Dev and staging require Python 3.12 and Python 3.13 by those exact names.
 
-    Skipping the matrix job before it expands reports one check named
-    ``Python ${{ matrix.python-version }}``. Those required checks then never
-    start, and the pull request cannot merge.
+    A job-level skip reports one check named ``Python ${{ matrix.python-version }}``
+    and the required checks never start.
     """
+    workflow = _load_yaml(_CI_WORKFLOW)
+    jobs = workflow["jobs"]
+    assert isinstance(jobs, dict)
+    assert list(jobs) == ["ci"]
     job = _ci_job()
+    assert "if" not in job
     assert job["name"] == "Python ${{ matrix.python-version }}"
     strategy = job["strategy"]
     assert isinstance(strategy, dict)
@@ -84,93 +80,74 @@ def test_matrix_jobs_keep_required_check_names_when_python_is_unchanged() -> Non
     versions = matrix["python-version"]
     assert versions == ["3.12", "3.13"]
     assert tuple(f"Python {version}" for version in versions) == _REQUIRED_CHECK_NAMES
-    job_if = job["if"]
-    assert isinstance(job_if, str)
-    assert "outputs.python" not in job_if
-    assert "needs.changes.result == 'success'" in job_if
-    assert "needs.changes.result == 'failure'" in job_if
-    assert job_if.startswith("always()")
 
     steps = job["steps"]
     assert isinstance(steps, list)
-    decide = steps[0]
-    assert isinstance(decide, dict)
-    assert decide["id"] == "decide"
-    assert "if" not in decide
-    for step in steps[1:]:
+    checkout, detect, *rest = steps
+    assert isinstance(checkout, dict)
+    assert isinstance(detect, dict)
+    assert checkout["uses"].startswith("actions/checkout@")
+    assert "if" not in checkout
+    assert detect["id"] == "python"
+    assert detect["uses"] == "./.github/actions/changed-paths"
+    assert "if" not in detect
+    for step in rest:
         assert isinstance(step, dict)
         assert step["if"] == _RUN_WHEN
 
 
-def test_decide_reports_success_without_running_the_suite(tmp_path: Path) -> None:
-    """No Python diff still writes run=false and exits 0 so the check succeeds."""
-    script = _step_run("ci", step_id="decide")
+def test_changed_paths_action_matches_everything_outside_a_pull_request(tmp_path: Path) -> None:
+    """workflow_dispatch and push have no pull request diff, so the suite runs."""
+    action = _load_yaml(_ACTION)
+    runs = action["runs"]
+    assert isinstance(runs, dict)
+    steps = runs["steps"]
+    assert isinstance(steps, list)
+    step = steps[0]
+    assert isinstance(step, dict)
+    script = step["run"]
+    assert isinstance(script, str)
     output = tmp_path / "github_output"
-    result = _run_script(
-        script,
+    env = os.environ.copy()
+    env.update(
         {
-            "CHANGES_RESULT": "success",
-            "PYTHON_CHANGES": "false",
-            "PYTHON_VERSION": "3.12",
-        },
-        output,
+            "PR_NUMBER": "",
+            "PATTERNS": "*.py",
+            "REPO": "GuyErreich/Action-Semver-Control",
+            "GITHUB_OUTPUT": str(output),
+            "GH_TOKEN": "",
+        }
+    )
+    result = subprocess.run(
+        ["bash", "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
     )
     assert result.returncode == 0, result.stderr
-    assert "run=false" in output.read_text(encoding="utf-8")
-    assert "Reporting Python 3.12 as success." in result.stdout
+    assert output.read_text(encoding="utf-8").strip() == "matched=true"
+    assert "not a pull request" in result.stderr
 
 
-def test_decide_runs_the_suite_when_python_changed(tmp_path: Path) -> None:
-    """A Python diff sets run=true so the matrix steps execute."""
-    script = _step_run("ci", step_id="decide")
-    output = tmp_path / "github_output"
-    result = _run_script(
-        script,
-        {
-            "CHANGES_RESULT": "success",
-            "PYTHON_CHANGES": "true",
-            "PYTHON_VERSION": "3.13",
-        },
-        output,
-    )
-    assert result.returncode == 0, result.stderr
-    assert output.read_text(encoding="utf-8") == "run=true\n"
-    assert "Running Python 3.13." in result.stdout
+@pytest.mark.parametrize(
+    ("paths", "expected"),
+    [
+        ("src/auto_semver/cli/main.py\n", "matched=true"),
+        (".github/workflows/ci.yml\n", "matched=true"),
+        ("pyproject.toml\n", "matched=true"),
+        ("packages/demo/uv.lock\n", "matched=true"),
+        (".wtp.yml\nREADME.md\n", "matched=false"),
+        ("", "matched=false"),
+    ],
+)
+def test_ci_patterns_match_python_toolchain_paths(paths: str, expected: str) -> None:
+    """The workflow patterns cover Python source and the toolchain files."""
+    assert _match(paths, _patterns()) == expected
 
 
-def test_decide_fails_when_change_detection_fails(tmp_path: Path) -> None:
-    """A failed detection job fails the required checks instead of leaving them pending."""
-    script = _step_run("ci", step_id="decide")
-    output = tmp_path / "github_output"
-    result = _run_script(
-        script,
-        {
-            "CHANGES_RESULT": "failure",
-            "PYTHON_CHANGES": "",
-            "PYTHON_VERSION": "3.12",
-        },
-        output,
-    )
-    assert result.returncode == 1
-    assert "Change detection result: failure" in result.stdout
-    assert not output.exists() or output.read_text(encoding="utf-8") == ""
-
-
-@pytest.mark.parametrize("ci_result", ["skipped", "failure", "cancelled"])
-def test_python_ci_rollup_rejects_a_matrix_that_did_not_succeed(
-    tmp_path: Path,
-    ci_result: str,
-) -> None:
-    """A skipped matrix must not look green. Required checks only count a success."""
-    script = _step_run("python-ci", step_name="Evaluate Python CI")
-    result = _run_script(script, {"CI_RESULT": ci_result}, tmp_path / "github_output")
-    assert result.returncode == 1
-    assert f"Python CI result: {ci_result}" in result.stdout
-
-
-def test_python_ci_rollup_passes_when_the_matrix_succeeds(tmp_path: Path) -> None:
-    """The rollup stays green when both matrix legs succeed, including the no-op path."""
-    script = _step_run("python-ci", step_name="Evaluate Python CI")
-    result = _run_script(script, {"CI_RESULT": "success"}, tmp_path / "github_output")
-    assert result.returncode == 0, result.stderr
-    assert "Python CI result: success" in result.stdout
+def test_match_paths_supports_double_star_and_ignores_comments() -> None:
+    """``**`` crosses directories, and ``#`` lines are not patterns."""
+    patterns = "# comment\n**/*.py\n"
+    assert _match("a/b/c.py\n", patterns) == "matched=true"
+    assert _match("a/b/c.yml\n", patterns) == "matched=false"

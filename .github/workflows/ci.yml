@@ -5,6 +5,7 @@ name: CI
 
 permissions:
   contents: read
+  pull-requests: read
 
 on:
   pull_request:
@@ -13,50 +14,11 @@ on:
       - dev
 
 jobs:
-  changes:
-    name: Detect Python changes
-    runs-on: ubuntu-latest
-    outputs:
-      python: ${{ steps.filter.outputs.python }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      with:
-        # pull_request checks out a merge commit; depth 2 includes its parents.
-        fetch-depth: 2
-
-    - name: Detect Python-related changes
-      id: filter
-      run: |
-        set -euo pipefail
-        files="$(git diff --name-only --no-renames HEAD^1 HEAD)"
-        python=false
-        if [ -n "$files" ]; then
-          echo "Changed files:"
-          printf '%s\n' "$files"
-        fi
-        while IFS= read -r file; do
-          [ -z "$file" ] && continue
-          case "$file" in
-            *.py|pyproject.toml|*/pyproject.toml|uv.lock|*/uv.lock|.python-version|*/.python-version|.uv-version|*/.uv-version|Taskfile.yml|.github/workflows/ci.yml)
-              python=true
-              break
-              ;;
-          esac
-        done <<< "$files"
-        echo "python=$python" >> "$GITHUB_OUTPUT"
-        echo "Python-related changes: $python"
-
-  # Rulesets on dev and staging require checks named "Python 3.12" and
-  # "Python 3.13". Those names are created only when this matrix runs. A
-  # job-level skip leaves a single check named
-  # "Python ${{ matrix.python-version }}", so the required checks never
-  # start and the pull request stays blocked. Always start the matrix, and
-  # skip the suite in the steps when nothing Python-related changed.
+  # Rulesets require checks named "Python 3.12" and "Python 3.13". Those names
+  # exist only when this matrix runs, so the job itself is not skipped. Steps
+  # after the path check run only when a changed file matches.
   ci:
     name: Python ${{ matrix.python-version }}
-    needs: changes
-    if: always() && (needs.changes.result == 'success' || needs.changes.result == 'failure')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -64,37 +26,29 @@ jobs:
       fail-fast: false
 
     steps:
-    - name: Decide whether to run Python CI
-      id: decide
-      env:
-        CHANGES_RESULT: ${{ needs.changes.result }}
-        PYTHON_CHANGES: ${{ needs.changes.outputs.python }}
-        PYTHON_VERSION: ${{ matrix.python-version }}
-      run: |
-        set -euo pipefail
-        if [ "$CHANGES_RESULT" != "success" ]; then
-          echo "Change detection result: $CHANGES_RESULT"
-          exit 1
-        fi
-        if [ "$PYTHON_CHANGES" = "true" ]; then
-          echo "run=true" >> "$GITHUB_OUTPUT"
-          echo "Python-related changes detected. Running Python $PYTHON_VERSION."
-        else
-          echo "run=false" >> "$GITHUB_OUTPUT"
-          echo "No Python-related changes. Reporting Python $PYTHON_VERSION as success."
-        fi
-
     - name: Checkout repository
-      if: steps.decide.outputs.run == 'true'
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+    - name: Detect Python-related changes
+      id: python
+      uses: ./.github/actions/changed-paths
+      with:
+        patterns: |
+          *.py
+          pyproject.toml
+          uv.lock
+          .python-version
+          .uv-version
+          Taskfile.yml
+          .github/workflows/ci.yml
 
     - name: Read uv pin
       id: uv-pin
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: echo "version=$(tr -d '[:space:]' < .uv-version)" >> "$GITHUB_OUTPUT"
 
     - name: Install uv
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         enable-cache: true
@@ -103,7 +57,7 @@ jobs:
         version: ${{ steps.uv-pin.outputs.version }}
 
     - name: Cache tool caches (mypy, ruff, pytest)
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
@@ -115,58 +69,36 @@ jobs:
           ${{ runner.os }}-tool-caches-${{ matrix.python-version }}-
 
     - name: Cache Task binary
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /usr/local/bin/task
         key: ${{ runner.os }}-task-${{ hashFiles('install-task.sh') }}
 
     - name: Install Task (Go task runner)
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: ./install-task.sh
 
     - name: Install dependencies
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: task install
 
     - name: Dependency audit
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: task audit
 
     - name: Format code
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: task format
 
     - name: Lint code
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: task lint
 
     - name: Type check
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: task type-check
 
     - name: Run tests
-      if: steps.decide.outputs.run == 'true'
+      if: steps.python.outputs.matched == 'true'
       run: task test
-
-  python-ci:
-    name: Python CI
-    needs: [changes, ci]
-    if: always() && needs.changes.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-    - name: Evaluate Python CI
-      env:
-        CI_RESULT: ${{ needs.ci.result }}
-      run: |
-        set -euo pipefail
-        case "$CI_RESULT" in
-          success)
-            echo "Python CI result: $CI_RESULT"
-            exit 0
-            ;;
-          *)
-            echo "Python CI result: $CI_RESULT"
-            exit 1
-            ;;
-        esac
