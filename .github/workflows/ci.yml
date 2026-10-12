@@ -5,6 +5,7 @@ name: CI
 
 permissions:
   contents: read
+  pull-requests: read
 
 on:
   pull_request:
@@ -13,6 +14,9 @@ on:
       - dev
 
 jobs:
+  # Rulesets require checks named "Python 3.12" and "Python 3.13". Those names
+  # exist only when this matrix runs, so the job itself is not skipped. Steps
+  # after the path check run only when a changed file matches.
   ci:
     name: Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -25,11 +29,26 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+    - name: Detect Python-related changes
+      id: python
+      uses: ./.github/actions/changed-paths
+      with:
+        patterns: |
+          *.py
+          pyproject.toml
+          uv.lock
+          .python-version
+          .uv-version
+          Taskfile.yml
+          .github/workflows/ci.yml
+
     - name: Read uv pin
       id: uv-pin
+      if: steps.python.outputs.matched == 'true'
       run: echo "version=$(tr -d '[:space:]' < .uv-version)" >> "$GITHUB_OUTPUT"
 
     - name: Install uv
+      if: steps.python.outputs.matched == 'true'
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         enable-cache: true
@@ -38,6 +57,7 @@ jobs:
         version: ${{ steps.uv-pin.outputs.version }}
 
     - name: Cache tool caches (mypy, ruff, pytest)
+      if: steps.python.outputs.matched == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
@@ -49,28 +69,36 @@ jobs:
           ${{ runner.os }}-tool-caches-${{ matrix.python-version }}-
 
     - name: Cache Task binary
+      if: steps.python.outputs.matched == 'true'
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: /usr/local/bin/task
         key: ${{ runner.os }}-task-${{ hashFiles('install-task.sh') }}
 
     - name: Install Task (Go task runner)
+      if: steps.python.outputs.matched == 'true'
       run: ./install-task.sh
 
     - name: Install dependencies
+      if: steps.python.outputs.matched == 'true'
       run: task install
 
     - name: Dependency audit
+      if: steps.python.outputs.matched == 'true'
       run: task audit
 
     - name: Format code
+      if: steps.python.outputs.matched == 'true'
       run: task format
 
     - name: Lint code
+      if: steps.python.outputs.matched == 'true'
       run: task lint
 
     - name: Type check
+      if: steps.python.outputs.matched == 'true'
       run: task type-check
 
     - name: Run tests
+      if: steps.python.outputs.matched == 'true'
       run: task test
