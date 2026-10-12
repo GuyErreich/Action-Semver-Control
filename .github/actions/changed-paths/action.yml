@@ -33,9 +33,13 @@ runs:
         # Outside a pull request (workflow_dispatch, push) there is no diff to
         # narrow against, so the caller runs everything.
         if [[ -z "${PR_NUMBER}" ]]; then
-          echo "changed-paths: not a pull request — matching everything." >&2
+          echo "::group::Changed paths"
+          echo "Not a pull request. There is no diff to narrow against, so this matches."
+          echo "Downstream steps will run."
+          echo "::endgroup::"
+          echo "::notice title=Changed paths::Not a pull request. There is no diff to narrow against, so this matches. Downstream steps will run."
           echo "matched=true" >> "${GITHUB_OUTPUT}"
           exit 0
         fi
         gh api "repos/${REPO}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename' \
-          | python3 "${GITHUB_ACTION_PATH}/match_paths.py" >> "${GITHUB_OUTPUT}"
+          | python3 "${GITHUB_ACTION_PATH}/match_paths.py"

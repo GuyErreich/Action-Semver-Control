@@ -48,16 +48,25 @@ def _patterns() -> str:
     raise AssertionError("changed-paths step not found")
 
 
-def _match(paths: str, patterns: str) -> str:
-    result = subprocess.run(
+def _match(paths: str, patterns: str, tmp_path: Path) -> subprocess.CompletedProcess[str]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    output = tmp_path / "github_output"
+    env = os.environ.copy()
+    env["PATTERNS"] = patterns
+    env["GITHUB_OUTPUT"] = str(output)
+    return subprocess.run(
         [sys.executable, str(_MATCH_PATHS)],
         input=paths,
         text=True,
         capture_output=True,
-        env={**os.environ, "PATTERNS": patterns},
-        check=True,
+        env=env,
+        check=False,
     )
-    return result.stdout.strip()
+
+
+def _matched_output(result: subprocess.CompletedProcess[str], tmp_path: Path) -> str:
+    assert result.returncode == 0, result.stderr
+    return (tmp_path / "github_output").read_text(encoding="utf-8").strip()
 
 
 def test_matrix_jobs_always_start_under_the_required_names() -> None:
@@ -83,14 +92,17 @@ def test_matrix_jobs_always_start_under_the_required_names() -> None:
 
     steps = job["steps"]
     assert isinstance(steps, list)
-    checkout, detect, *rest = steps
+    checkout, detect, decision, *rest = steps
     assert isinstance(checkout, dict)
     assert isinstance(detect, dict)
+    assert isinstance(decision, dict)
     assert checkout["uses"].startswith("actions/checkout@")
     assert "if" not in checkout
     assert detect["id"] == "python"
     assert detect["uses"] == "./.github/actions/changed-paths"
     assert "if" not in detect
+    assert decision["name"] == "Report Python CI decision"
+    assert "if" not in decision
     for step in rest:
         assert isinstance(step, dict)
         assert step["if"] == _RUN_WHEN
@@ -127,7 +139,11 @@ def test_changed_paths_action_matches_everything_outside_a_pull_request(tmp_path
     )
     assert result.returncode == 0, result.stderr
     assert output.read_text(encoding="utf-8").strip() == "matched=true"
-    assert "not a pull request" in result.stderr
+    assert "::group::Changed paths" in result.stdout
+    assert "::endgroup::" in result.stdout
+    assert "::notice title=Changed paths::" in result.stdout
+    assert "Not a pull request" in result.stdout
+    assert "Downstream steps will run." in result.stdout
 
 
 @pytest.mark.parametrize(
@@ -141,13 +157,94 @@ def test_changed_paths_action_matches_everything_outside_a_pull_request(tmp_path
         ("", "matched=false"),
     ],
 )
-def test_ci_patterns_match_python_toolchain_paths(paths: str, expected: str) -> None:
+def test_ci_patterns_match_python_toolchain_paths(
+    paths: str,
+    expected: str,
+    tmp_path: Path,
+) -> None:
     """The workflow patterns cover Python source and the toolchain files."""
-    assert _match(paths, _patterns()) == expected
+    result = _match(paths, _patterns(), tmp_path)
+    assert _matched_output(result, tmp_path) == expected
 
 
-def test_match_paths_supports_double_star_and_ignores_comments() -> None:
+def test_match_paths_supports_double_star_and_ignores_comments(tmp_path: Path) -> None:
     """``**`` crosses directories, and ``#`` lines are not patterns."""
     patterns = "# comment\n**/*.py\n"
-    assert _match("a/b/c.py\n", patterns) == "matched=true"
-    assert _match("a/b/c.yml\n", patterns) == "matched=false"
+    matched = _match("a/b/c.py\n", patterns, tmp_path / "hit")
+    assert _matched_output(matched, tmp_path / "hit") == "matched=true"
+    missed = _match("a/b/c.yml\n", patterns, tmp_path / "miss")
+    assert _matched_output(missed, tmp_path / "miss") == "matched=false"
+
+
+def test_match_log_explains_a_hit_with_groups_and_a_notice(tmp_path: Path) -> None:
+    """A match lists patterns, files, and hits, and annotates that steps will run."""
+    result = _match("src/app.py\nREADME.md\n", "*.py\n", tmp_path)
+    assert _matched_output(result, tmp_path) == "matched=true"
+    log = result.stdout
+    assert "::group::Patterns (1)" in log
+    assert "::group::Pull request files (2)" in log
+    assert "::group::Matched files (1)" in log
+    assert "- src/app.py" in log
+    assert "- README.md" in log
+    matched_section = log.split("::group::Matched files (1)", 1)[1].split("::endgroup::", 1)[0]
+    assert "- src/app.py" in matched_section
+    assert "README.md" not in matched_section
+    assert "::notice title=Changed paths matched::" in log
+    assert "Downstream steps will run." in log
+    assert "matched=" not in log
+
+
+def test_match_log_explains_a_skip_with_groups_and_a_notice(tmp_path: Path) -> None:
+    """No match annotates that downstream steps will skip and leaves matched files empty."""
+    result = _match(".wtp.yml\n", "*.py\n", tmp_path)
+    assert _matched_output(result, tmp_path) == "matched=false"
+    log = result.stdout
+    assert "::group::Matched files (0)" in log
+    assert "- (none)" in log.split("::group::Matched files (0)", 1)[1]
+    assert "::notice title=Changed paths did not match::" in log
+    assert ".wtp.yml" in log
+    assert "Downstream steps will skip." in log
+
+
+def test_percent_in_a_path_is_escaped_in_the_annotation(tmp_path: Path) -> None:
+    """A percent sign in a file name must not break the workflow command."""
+    result = _match("file%name.py\n", "*.py\n", tmp_path)
+    assert _matched_output(result, tmp_path) == "matched=true"
+    assert "file%25name.py" in result.stdout
+    assert "file%name.py" not in result.stdout.split("::notice", 1)[1]
+
+
+def _decision_script() -> str:
+    job = _ci_job()
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    for step in steps:
+        assert isinstance(step, dict)
+        if step.get("name") == "Report Python CI decision":
+            script = step["run"]
+            assert isinstance(script, str)
+            return script
+    raise AssertionError("decision step not found")
+
+
+@pytest.mark.parametrize(
+    ("matched", "marker", "detail"),
+    [
+        ("true", "::notice title=Running Python 3.12::", "tests will run."),
+        ("false", "::warning title=Skipping Python 3.12::", "tests are skipped."),
+    ],
+)
+def test_python_ci_decision_annotates_skip_and_run(matched: str, marker: str, detail: str) -> None:
+    """The Python job annotation says whether this version runs or skips the suite."""
+    result = subprocess.run(
+        ["bash", "-c", _decision_script()],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "MATCHED": matched, "PYTHON_VERSION": "3.12"},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "::group::Python 3.12 CI" in result.stdout
+    assert "::endgroup::" in result.stdout
+    assert marker in result.stdout
+    assert detail in result.stdout

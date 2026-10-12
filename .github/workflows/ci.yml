@@ -42,6 +42,26 @@ jobs:
           Taskfile.yml
           .github/workflows/ci.yml
 
+    - name: Report Python CI decision
+      env:
+        MATCHED: ${{ steps.python.outputs.matched }}
+        PYTHON_VERSION: ${{ matrix.python-version }}
+      run: |
+        set -euo pipefail
+        echo "::group::Python ${PYTHON_VERSION} CI"
+        if [[ "${MATCHED}" == "true" ]]; then
+          echo "Python-related files changed."
+          echo "Lint, type-check, and tests will run."
+          echo "::endgroup::"
+          echo "::notice title=Running Python ${PYTHON_VERSION}::Python-related files changed. Lint, type-check, and tests will run."
+        else
+          echo "No Python-related files changed."
+          echo "Lint, type-check, and tests are skipped."
+          echo "This check still succeeds so the required status is reported."
+          echo "::endgroup::"
+          echo "::warning title=Skipping Python ${PYTHON_VERSION}::No Python-related files changed. Lint, type-check, and tests are skipped. This check succeeds so the required status is reported."
+        fi
+
     - name: Read uv pin
       id: uv-pin
       if: steps.python.outputs.matched == 'true'
