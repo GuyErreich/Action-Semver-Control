@@ -239,7 +239,7 @@ changelog:
   template: |
     ## [{{version}}] - {{date}}
     
-    {% for group in grouped_messages -%}
+    {% for group in commit_groups -%}
     {% if group.title != "Ignore" and group.commits -%}
     ### {{ group.title }}
     {% for commit in group.commits -%}
