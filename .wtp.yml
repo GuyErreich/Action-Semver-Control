@@ -18,7 +18,3 @@ hooks:
     # Example: Run a command to show all worktrees
     - type: command
       command: wtp list
-
-    - type: copy
-      from: ..github/copilot/    # Cursor IDE settings
-      to: .github/copilot/
