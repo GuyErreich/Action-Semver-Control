@@ -19,7 +19,8 @@ Action-Semver-Control is listed on the [GitHub Marketplace](https://github.com/m
 From your consumer repository:
 
 ```bash
-uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver setup
+uv tool install auto-semver-control
+auto-semver setup
 ```
 
 The wizard will:
@@ -201,7 +202,8 @@ See **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** for version regressio
 Set `GH_APP_CLIENT_ID` (repository variable) and `GH_APP_PRIVATE_KEY` (secret). Re-run setup:
 
 ```bash
-uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver setup
+uv tool install auto-semver-control
+auto-semver setup
 ```
 
 ### `create-github-app-token` fails
