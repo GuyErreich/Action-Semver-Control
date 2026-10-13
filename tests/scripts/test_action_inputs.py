@@ -10,16 +10,18 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_root_action_delegates_to_package_action() -> None:
-    """Marketplace callers still use the repository root action.yml."""
-    root = yaml.safe_load((_REPO_ROOT / "action.yml").read_text(encoding="utf-8"))
+def test_root_action_runs_script_from_action_path() -> None:
+    """Marketplace callers use the root action without a relative ``uses`` path."""
+    text = (_REPO_ROOT / "action.yml").read_text(encoding="utf-8")
+    root = yaml.safe_load(text)
     steps = root["runs"]["steps"]
-    assert len(steps) == 1
-    assert steps[0]["uses"] == "./action"
-    forwarded = steps[0]["with"]
-    assert forwarded["github-token"] == "${{ inputs.github-token }}"
-    assert forwarded["signed-commits"] == "${{ inputs.signed-commits }}"
-    assert "Dockerfile" not in (_REPO_ROOT / "action.yml").read_text(encoding="utf-8")
+    assert all(step.get("uses") != "./action" for step in steps)
+    run_step = next(step for step in steps if step.get("run"))
+    assert run_step["run"] == 'bash "${{ github.action_path }}/action/run.sh"'
+    env = run_step["env"]
+    assert env["AUTO_SEMVER_TOKEN"] == "${{ inputs.github-token }}"
+    assert env["AUTO_SEMVER_SIGNED"] == "${{ inputs.signed-commits }}"
+    assert "Dockerfile" not in text
 
 
 def test_package_action_installs_published_version_or_checkout() -> None:
@@ -27,6 +29,8 @@ def test_package_action_installs_published_version_or_checkout() -> None:
     text = (_REPO_ROOT / "action" / "action.yml").read_text(encoding="utf-8")
     action = yaml.safe_load(text)
     runs = "\n".join(step.get("run", "") for step in action["runs"]["steps"])
+    runs += "\n" + (_REPO_ROOT / "action" / "run.sh").read_text(encoding="utf-8")
+    assert 'bash "${{ github.action_path }}/run.sh"' in runs
     assert "auto-semver-venv/bin/auto-semver" in runs
     assert "pip install" in runs
     assert "auto-semver-control==" in runs

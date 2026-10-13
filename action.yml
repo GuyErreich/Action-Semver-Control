@@ -36,13 +36,23 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Run auto-semver
-      uses: ./action
+    - name: Set up Python
+      id: python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
-        action: ${{ inputs.action }}
-        to_branch: ${{ inputs.to_branch }}
-        from_tag: ${{ inputs.from_tag }}
-        dry_run: ${{ inputs.dry_run }}
-        github-token: ${{ inputs.github-token }}
-        debug: ${{ inputs.debug }}
-        signed-commits: ${{ inputs.signed-commits }}
+        python-version: '3.12'
+
+    # Call the script by github.action_path. A relative `uses: ./action` is
+    # resolved in the caller repository, which does not contain this action.
+    - name: Install and run auto-semver
+      shell: bash
+      env:
+        PYTHON_BIN: ${{ steps.python.outputs.python-path }}
+        AUTO_SEMVER_TOKEN: ${{ inputs.github-token }}
+        AUTO_SEMVER_ACTION: ${{ inputs.action }}
+        AUTO_SEMVER_TO_BRANCH: ${{ inputs.to_branch }}
+        AUTO_SEMVER_FROM_TAG: ${{ inputs.from_tag }}
+        AUTO_SEMVER_DRY_RUN: ${{ inputs.dry_run }}
+        AUTO_SEMVER_DEBUG: ${{ inputs.debug }}
+        AUTO_SEMVER_SIGNED: ${{ inputs.signed-commits }}
+      run: bash "${{ github.action_path }}/action/run.sh"
