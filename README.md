@@ -25,12 +25,13 @@ See [Pinning policy](docs/SETUP.md#pinning-policy) for the floating `v1` tag vs 
 
 **Required:** Caller workflows must include a [concurrency queue](docs/SETUP.md#concurrent-merges--bump-queue) when merging multiple PRs to the same branch.
 
-### One-command setup (recommended)
+### Install the package (recommended)
 
 From your consumer repository:
 
 ```bash
-uvx --from git+https://github.com/GuyErreich/Action-Semver-Control auto-semver setup
+uv tool install auto-semver-control
+auto-semver setup
 ```
 
 ### Add workflows without the CLI
@@ -61,7 +62,7 @@ Pin reusable workflows at the floating major tag `v1` (for example `.../semver-b
 
 ## CLI Usage
 
-The action installs `auto-semver-control` for this checkout's version when that release is on PyPI. Install the stable package locally with `uv tool install auto-semver-control`.
+The action installs `auto-semver-control` for this checkout's version when that release is on PyPI. Install the stable package locally as shown in [Install the package](#install-the-package-recommended).
 
 To try a dev or staging publish before it is production, install that pre-release explicitly:
 
