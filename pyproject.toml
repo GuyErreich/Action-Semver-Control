@@ -1,6 +1,6 @@
 [project]
 name = "auto-semver-control"
-version = "1.8.15"
+version = "1.8.16-rc"
 description = "Automatically bump semver, update changelogs, and open release PRs on merge."
 authors = [{ name = "Guy Erreich", email = "gerreich.dev@gmail.com" }]
 readme = "README.md"
