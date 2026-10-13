@@ -1,12 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.8.15-dev] - 12-10-2026
+## [1.8.16-dev] - 13-10-2026
 
-### ✨ Features & Enhancements
-- warn when deprecated config names are still used (#353)
-### 🐛 Bug Fixes & Resolutions
-- drop the broken wtp copilot copy hook (#352)
+### 📚 Documentation
+- document installing auto-semver-control before setup (#361)
 
 ## License
 This project is licensed under the GPL-3.0-or-later License.
