@@ -41,7 +41,7 @@ CI and milestone skills read these commands and the base branch from this block.
 
 ## Action installs the package
 
-The published action is a thin installer. Root `action.yml` and `action/action.yml` both run `action/run.sh` via `github.action_path`. That script installs `auto-semver-control` at this checkout's PEP 440 version (`1.2.3-dev` is `1.2.3.dev0`, `1.2.3-rc` is `1.2.3rc0`) into a private virtualenv and runs `auto-semver` once. If that exact release is not on PyPI yet, it installs this checkout instead. It never installs the unrelated PyPI project `auto-semver`. The uv used for that install lives under `RUNNER_TEMP` and must not be placed on `PATH`. Do not forward the root action with a relative `uses:` path; GitHub resolves that path in the caller repository.
+The published action is a thin installer. Root `action.yml` installs `auto-semver-control` at this checkout's PEP 440 version (`1.2.3-dev` is `1.2.3.dev0`, `1.2.3-rc` is `1.2.3rc0`) into a private virtualenv and runs `auto-semver` once. If that exact release is not on PyPI yet, it installs this checkout instead. It never installs the unrelated PyPI project `auto-semver`. The uv used for that install lives under `RUNNER_TEMP` and must not be placed on `PATH`. Do not forward that file with a relative `uses:` path; GitHub resolves that path in the caller repository.
 
 Lock refresh uses the `uv` or `npm` already on the runner `PATH`. When that CLI is absent, only the project version inside the existing lock changes. CI must pass the contents of `.uv-version` as setup-uv's `version` input. `version-file` does not accept that filename.
 
