@@ -36,19 +36,31 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Read uv pin
+      id: uv-pin
+      shell: bash
+      run: echo "version=$(tr -d '[:space:]' < "${GITHUB_ACTION_PATH}/.uv-version")" >> "${GITHUB_OUTPUT}"
+
+    - name: Install uv
+      id: uv
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version: ${{ steps.uv-pin.outputs.version }}
+        enable-cache: false
+      env:
+        UV_NO_MODIFY_PATH: "1"
+
     - name: Install auto-semver
       id: install
       shell: bash
+      env:
+        UV_BIN: ${{ steps.uv.outputs.uv-path }}
       run: |
         set -euo pipefail
         pkg="${GITHUB_ACTION_PATH}"
-        uv_version="$(tr -d '[:space:]' < "${pkg}/.uv-version")"
-        install_dir="${RUNNER_TEMP}/auto-semver-uv"
         bin_dir="${RUNNER_TEMP}/auto-semver-bin"
-        curl -LsSf "https://astral.sh/uv/${uv_version}/install.sh" \
-          | env UV_INSTALL_DIR="${install_dir}" UV_NO_MODIFY_PATH=1 sh
         UV_TOOL_BIN_DIR="${bin_dir}" UV_TOOL_DIR="${RUNNER_TEMP}/auto-semver-tools" \
-          "${install_dir}/uv" tool install "${pkg}"
+          "${UV_BIN}" tool install "${pkg}"
         echo "bin=${bin_dir}/auto-semver" >> "${GITHUB_OUTPUT}"
 
     - name: Run auto-semver
@@ -79,4 +91,4 @@ runs:
             args+=(--dry-run)
           fi
         fi
-        env -u UV_PROJECT_ENVIRONMENT -u UV_FROZEN "${bin}" "${args[@]}"
+        env -u UV_PROJECT_ENVIRONMENT -u UV_FROZEN -u UV_PYTHON_INSTALL_DIR "${bin}" "${args[@]}"

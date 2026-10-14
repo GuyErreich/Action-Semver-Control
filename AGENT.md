@@ -41,7 +41,7 @@ CI and milestone skills read these commands and the base branch from this block.
 
 ## Action installs the package
 
-The published action is a thin installer. Root `action.yml` installs this checkout with `uv tool install` and runs `auto-semver` once. The project name is `auto-semver-control`, so it does not install the unrelated PyPI project `auto-semver`. The uv used for that install lives under `RUNNER_TEMP` and must not be placed on `PATH`. Do not forward that file with a relative `uses:` path; GitHub resolves that path in the caller repository.
+The published action is a thin installer. Root `action.yml` installs uv with `astral-sh/setup-uv` and `UV_NO_MODIFY_PATH`, then installs this checkout with `uv tool install` and runs `auto-semver` once. The project name is `auto-semver-control`, so it does not install the unrelated PyPI project `auto-semver`. That uv must not be placed on `PATH`. Do not forward that file with a relative `uses:` path; GitHub resolves that path in the caller repository.
 
 Lock refresh uses the `uv` or `npm` already on the runner `PATH`. When that CLI is absent, only the project version inside the existing lock changes. CI must pass the contents of `.uv-version` as setup-uv's `version` input. `version-file` does not accept that filename.
 
