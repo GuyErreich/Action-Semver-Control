@@ -23,23 +23,25 @@ def test_root_action_does_not_delegate() -> None:
     assert "Dockerfile" not in text
 
 
-def test_root_action_installs_published_version_or_checkout() -> None:
-    """The root action pins auto-semver-control and falls back to this checkout."""
+def test_root_action_installs_checkout_with_uv_tool() -> None:
+    """The root action installs this checkout with uv tool install."""
     text = (_REPO_ROOT / "action.yml").read_text(encoding="utf-8")
     action = yaml.safe_load(text)
     runs = "\n".join(step.get("run", "") for step in action["runs"]["steps"])
     assert 'pkg="${GITHUB_ACTION_PATH}"' in runs
-    assert "auto-semver-venv/bin/auto-semver" in runs
-    assert "pip install" in runs
-    assert "auto-semver-control==" in runs
-    assert "--prerelease explicit" in runs
-    assert "sync --frozen" in runs
-    assert "--frozen" in runs
-    assert 'spec="auto-semver"' not in runs
+    assert 'tool install "${pkg}"' in runs
+    assert "UV_TOOL_BIN_DIR" in runs
     assert "UV_NO_MODIFY_PATH=1" in runs
+    assert "pip install" not in runs
+    assert "auto-semver-control==" not in runs
     assert "GITHUB_PATH" not in runs
+    assert "setup-python" not in text
     assert "Dockerfile" not in text
     assert "env -u UV_PROJECT_ENVIRONMENT -u UV_FROZEN" in runs
+    run_step = next(
+        step for step in action["runs"]["steps"] if step.get("name") == "Run auto-semver"
+    )
+    assert run_step["env"]["AUTO_SEMVER_BIN"] == "${{ steps.install.outputs.bin }}"
 
 
 def test_release_workflows_publish_each_channel() -> None:

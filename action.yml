@@ -36,43 +36,26 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up Python
-      id: python
-      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-      with:
-        python-version: '3.12'
-
     - name: Install auto-semver
+      id: install
       shell: bash
-      env:
-        PYTHON_BIN: ${{ steps.python.outputs.python-path }}
       run: |
         set -euo pipefail
         pkg="${GITHUB_ACTION_PATH}"
         uv_version="$(tr -d '[:space:]' < "${pkg}/.uv-version")"
         install_dir="${RUNNER_TEMP}/auto-semver-uv"
-        venv="${RUNNER_TEMP}/auto-semver-venv"
+        bin_dir="${RUNNER_TEMP}/auto-semver-bin"
         curl -LsSf "https://astral.sh/uv/${uv_version}/install.sh" \
           | env UV_INSTALL_DIR="${install_dir}" UV_NO_MODIFY_PATH=1 sh
-        pep="$(
-          AUTO_SEMVER_PKG="${pkg}" PYTHONPATH="${pkg}/src" "${PYTHON_BIN}" -c \
-            'import os, tomllib; from pathlib import Path; from auto_semver.lock_sync.pep440 import to_pep440; raw = tomllib.loads(Path(os.environ["AUTO_SEMVER_PKG"], "pyproject.toml").read_text())["project"]["version"]; print(to_pep440(raw))'
-        )"
-        uv="${install_dir}/uv"
-        # Pin the published release for this checkout. Never install the unrelated
-        # PyPI project named auto-semver. Fall back to this checkout until publish.
-        if ! "${uv}" venv --python "${PYTHON_BIN}" "${venv}" \
-          || ! "${uv}" pip install --python "${venv}/bin/python" --prerelease explicit "auto-semver-control==${pep}"; then
-          echo "auto-semver-control==${pep} is not on PyPI; installing this checkout"
-          rm -rf "${venv}"
-          UV_PROJECT_ENVIRONMENT="${venv}" \
-            "${uv}" sync --frozen --no-dev --no-editable --directory "${pkg}" --python "${PYTHON_BIN}"
-        fi
+        UV_TOOL_BIN_DIR="${bin_dir}" UV_TOOL_DIR="${RUNNER_TEMP}/auto-semver-tools" \
+          "${install_dir}/uv" tool install "${pkg}"
+        echo "bin=${bin_dir}/auto-semver" >> "${GITHUB_OUTPUT}"
 
     - name: Run auto-semver
       shell: bash
       working-directory: ${{ github.workspace }}
       env:
+        AUTO_SEMVER_BIN: ${{ steps.install.outputs.bin }}
         AUTO_SEMVER_TOKEN: ${{ inputs.github-token }}
         AUTO_SEMVER_ACTION: ${{ inputs.action }}
         AUTO_SEMVER_TO_BRANCH: ${{ inputs.to_branch }}
@@ -82,7 +65,7 @@ runs:
         AUTO_SEMVER_SIGNED: ${{ inputs.signed-commits }}
       run: |
         set -euo pipefail
-        bin="${RUNNER_TEMP}/auto-semver-venv/bin/auto-semver"
+        bin="${AUTO_SEMVER_BIN}"
         args=(--github-token "${AUTO_SEMVER_TOKEN}")
         if [[ "${AUTO_SEMVER_DEBUG}" == "true" ]]; then
           args+=(--debug)
