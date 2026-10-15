@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.8.19-rc] - 15-10-2026
+## [1.8.19] - 15-10-2026
 
 ### 🔧 Infrastructure & Tooling
 - bump the uv group with 2 updates (#365)
