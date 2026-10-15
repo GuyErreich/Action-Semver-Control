@@ -27,9 +27,8 @@ WhichTool = Callable[[str], str | None]
 def host_binary(tool: str) -> str | None:
     """Return a lock CLI on PATH.
 
-    The action installs its own uv under ``RUNNER_TEMP`` and does not put that
-    binary on ``PATH``. This lookup is the ``uv`` or ``npm`` already installed
-    for the repository.
+    The action installs its own uv and does not put that binary on ``PATH``.
+    This lookup is the ``uv`` or ``npm`` already installed for the repository.
 
     Args:
         tool: Executable name (``uv``, ``npm``).
